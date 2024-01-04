@@ -8,7 +8,32 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-var version = "0"
+const version = "0"
+
+var CursorStyle = tcell.StyleDefault.Blink(true)
+
+type Scope int
+
+const (
+	Char Scope = iota
+	Word
+	Sent // Sentence
+	Para // Paragraph
+	Sect // Section
+)
+
+var CursorRune = [...]rune{'_', '#', '$', '¶', '§'}
+
+type Cursor struct {
+	x, y int
+}
+
+// State defines the current editor state
+type State struct {
+	screen tcell.Screen
+	cursor Cursor
+	scope  Scope
+}
 
 // ScreenRegion defines a rectangular region of a screen.
 type ScreenRegion struct {
@@ -42,16 +67,39 @@ func drawStringNoWrap(sr *ScreenRegion, s string, col int, row int, style tcell.
 	return col
 }
 
-// DrawStatusBar draws a status bar on the last line of the screen.
-func DrawStatusBar(screen tcell.Screen) {
-	screenWidth, screenHeight := screen.Size()
+// DrawCursor draws the cursor.
+func (state *State) DrawCursor() {
+	state.screen.SetContent(state.cursor.x, state.cursor.y, CursorRune[state.scope], nil, CursorStyle)
+}
+
+// DrawStatusBar draws a state bar on the last line of the screen.
+func (state *State) DrawStatusBar() {
+	screenWidth, screenHeight := state.screen.Size()
 	if screenHeight == 0 {
 		return
 	}
 
-	sr := &ScreenRegion{screen, 0, screenHeight - 1, screenWidth, 1}
+	sr := &ScreenRegion{state.screen, 0, screenHeight - 1, screenWidth, 1}
 	sr.Fill(' ', tcell.StyleDefault)
 	drawStringNoWrap(sr, "Jotty v"+version, 0, 0, tcell.StyleDefault)
+}
+
+func (state *State) DecScope() {
+	if state.scope == Char {
+		state.scope = Sect
+	} else {
+		state.scope--
+	}
+	state.DrawCursor()
+}
+
+func (state *State) IncScope() {
+	if state.scope == Sect {
+		state.scope = Char
+	} else {
+		state.scope++
+	}
+	state.DrawCursor()
 }
 
 func main() {
@@ -70,9 +118,7 @@ func main() {
 	s.Clear()
 
 	quit := func() {
-		// You have to catch panics in a defer, clean up, and
-		// re-raise them - otherwise your application can
-		// die without leaving any diagnostic trace.
+		// Shutdown tcell and restore the terminal before printing any diagnostics
 		maybePanic := recover()
 		s.Fini()
 		if maybePanic != nil {
@@ -82,7 +128,9 @@ func main() {
 	}
 	defer quit()
 
-	DrawStatusBar(s)
+	state := State{screen: s}
+	state.DrawStatusBar()
+	state.DrawCursor()
 
 	for {
 		// Update screen
@@ -96,8 +144,17 @@ func main() {
 		case *tcell.EventResize:
 			s.Sync()
 		case *tcell.EventKey:
-			if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlQ || ev.Key() == tcell.KeyCtrlW {
+			switch ev.Key() {
+			case tcell.KeyEsc:
 				quit()
+			case tcell.KeyCtrlQ:
+				quit()
+			case tcell.KeyCtrlW:
+				quit()
+			case tcell.KeyUp:
+				state.IncScope()
+			case tcell.KeyDown:
+				state.DecScope()
 			}
 		}
 	}

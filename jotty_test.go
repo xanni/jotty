@@ -52,6 +52,16 @@ func TestScreenRegionFill(t *testing.T) {
 	})
 }
 
+func TestDrawCursor(t *testing.T) {
+	withSimScreen(t, func(s tcell.SimulationScreen) {
+		s.SetSize(1, 1)
+		state := State{screen: s}
+		state.DrawCursor()
+		s.Sync()
+		assertCellContents(t, s, [][]rune{{CursorRune[Char]}})
+	})
+}
+
 func assertNoPanic(t *testing.T, f func()) {
 	defer func() {
 		assert.Nil(t, recover())
@@ -62,18 +72,42 @@ func assertNoPanic(t *testing.T, f func()) {
 func TestDrawStatusBarZeroHeight(t *testing.T) {
 	withSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(10, 0)
-		assertNoPanic(t, func() { DrawStatusBar(s) })
+		state := State{screen: s}
+		assertNoPanic(t, func() { state.DrawStatusBar() })
 	})
 }
 
 func TestDrawStatusBar(t *testing.T) {
 	withSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(10, 2)
-		DrawStatusBar(s)
+		state := State{screen: s}
+		state.DrawStatusBar()
 		s.Sync()
 		assertCellContents(t, s, [][]rune{
 			[]rune("          "),
 			[]rune("Jotty v0  "),
 		})
+	})
+}
+
+func TestDecScope(t *testing.T) {
+	withSimScreen(t, func(s tcell.SimulationScreen) {
+		s.SetSize(1, 1)
+		state := State{screen: s}
+		state.DecScope()
+		s.Sync()
+		require.Equal(t, state.scope, Sect)
+		assertCellContents(t, s, [][]rune{{CursorRune[Sect]}})
+	})
+}
+
+func TestIncScope(t *testing.T) {
+	withSimScreen(t, func(s tcell.SimulationScreen) {
+		s.SetSize(1, 1)
+		state := State{screen: s, scope: Sect}
+		state.IncScope()
+		s.Sync()
+		require.Equal(t, state.scope, Char)
+		assertCellContents(t, s, [][]rune{{CursorRune[Char]}})
 	})
 }
