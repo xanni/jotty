@@ -8,6 +8,52 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestScreenRegionFill(t *testing.T) {
+	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
+		s.SetSize(10, 10)
+		sr := &ScreenRegion{s, 1, 2, 5, 5}
+		sr.Fill('^', tcell.StyleDefault.Bold(true))
+		s.Sync()
+
+		test.AssertCellContents(t, s, [][]rune{
+			[]rune("          "),
+			[]rune("          "),
+			[]rune(" ^^^^^    "),
+			[]rune(" ^^^^^    "),
+			[]rune(" ^^^^^    "),
+			[]rune(" ^^^^^    "),
+			[]rune(" ^^^^^    "),
+			[]rune("          "),
+			[]rune("          "),
+			[]rune("          "),
+		})
+	})
+}
+
+func TestDrawStatusBar(t *testing.T) {
+	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
+		ID = "Jotty v0"
+		s.SetSize(0, 0)
+		assert.NotPanics(t, func() { DrawStatusBar(s) })
+
+		s.SetSize(4, 2)
+		DrawStatusBar(s)
+		s.Sync()
+		test.AssertCellContents(t, s, [][]rune{
+			[]rune("    "),
+			[]rune("c0/0"),
+		})
+
+		s.SetSize(15, 2)
+		DrawStatusBar(s)
+		s.Sync()
+		test.AssertCellContents(t, s, [][]rune{
+			[]rune("               "),
+			[]rune("Jotty v0  c0/0 "),
+		})
+	})
+}
+
 func TestAppendRune(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(1, 1)
