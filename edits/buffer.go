@@ -77,6 +77,7 @@ func IncScope() {
 // DrawCursor draws the cursor.
 func DrawCursor() {
 	Screen.SetContent(cursor.x, cursor.y, CursorRune[scope], nil, cursorStyle)
+	Screen.ShowCursor(cursor.x, cursor.y)
 }
 
 func drawStringNoWrap(sr *ScreenRegion, s string, col int, row int, style tcell.Style) int {
