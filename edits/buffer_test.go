@@ -34,10 +34,11 @@ func TestDrawStatusBar(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
 		ID = "Jotty v0"
 		s.SetSize(0, 0)
-		assert.NotPanics(t, func() { DrawStatusBar(s) })
+		Screen = s
+		assert.NotPanics(t, func() { DrawStatusBar() })
 
 		s.SetSize(4, 2)
-		DrawStatusBar(s)
+		DrawStatusBar()
 		s.Sync()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("    "),
@@ -45,7 +46,7 @@ func TestDrawStatusBar(t *testing.T) {
 		})
 
 		s.SetSize(15, 2)
-		DrawStatusBar(s)
+		DrawStatusBar()
 		s.Sync()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("               "),
@@ -57,7 +58,8 @@ func TestDrawStatusBar(t *testing.T) {
 func TestAppendRune(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(1, 1)
-		AppendRune(s, '!')
+		Screen = s
+		AppendRune('!')
 		assert.Equal(t, []rune{'!'}, primedia)
 		assert.Equal(t, scope, Char)
 	})
@@ -66,13 +68,14 @@ func TestAppendRune(t *testing.T) {
 func TestDecScope(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(1, 1)
+		Screen = s
 
-		DecScope(s)
+		DecScope()
 		s.Sync()
 		assert.Equal(t, scope, Sect)
 		test.AssertCellContents(t, s, [][]rune{{CursorRune[Sect]}})
 
-		DecScope(s)
+		DecScope()
 		s.Sync()
 		assert.Equal(t, scope, Para)
 		test.AssertCellContents(t, s, [][]rune{{CursorRune[Para]}})
@@ -82,14 +85,15 @@ func TestDecScope(t *testing.T) {
 func TestIncScope(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(1, 1)
+		Screen = s
 		scope = Sect
 
-		IncScope(s)
+		IncScope()
 		s.Sync()
 		assert.Equal(t, scope, Char)
 		test.AssertCellContents(t, s, [][]rune{{CursorRune[Char]}})
 
-		IncScope(s)
+		IncScope()
 		s.Sync()
 		assert.Equal(t, scope, Word)
 		test.AssertCellContents(t, s, [][]rune{{CursorRune[Word]}})
@@ -99,8 +103,9 @@ func TestIncScope(t *testing.T) {
 func TestDrawCursor(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(1, 1)
+		Screen = s
 		scope = Char
-		DrawCursor(s)
+		DrawCursor()
 		s.Sync()
 		test.AssertCellContents(t, s, [][]rune{{CursorRune[Char]}})
 	})
@@ -108,11 +113,13 @@ func TestDrawCursor(t *testing.T) {
 
 func TestDrawWindow(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(2, 1)
+		s.SetSize(2, 2)
+		Screen = s
+		cursor.pos = 0
 		primedia = []rune{'x'}
 		scope = Char
-		DrawWindow(s)
+		DrawWindow()
 		s.Sync()
-		test.AssertCellContents(t, s, [][]rune{{'x', CursorRune[Char]}})
+		test.AssertCellContents(t, s, [][]rune{{'x', CursorRune[Char]}, {'c', '0'}})
 	})
 }

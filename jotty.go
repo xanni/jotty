@@ -37,8 +37,9 @@ func main() {
 	defer quit()
 
 	edits.ID = "Jotty v" + version
-	edits.DrawStatusBar(s)
-	edits.DrawCursor(s)
+	edits.Screen = s
+	edits.DrawWindow()
+	edits.DrawCursor()
 
 	for {
 		// Update screen
@@ -50,11 +51,12 @@ func main() {
 		// Process event
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
+			edits.DrawWindow()
 			s.Sync()
 		case *tcell.EventKey:
 			switch ev.Key() {
 			case tcell.KeyRune:
-				edits.AppendRune(s, ev.Rune())
+				edits.AppendRune(ev.Rune())
 			case tcell.KeyEsc:
 				quit()
 			case tcell.KeyCtrlQ:
@@ -62,9 +64,9 @@ func main() {
 			case tcell.KeyCtrlW:
 				quit()
 			case tcell.KeyUp:
-				edits.IncScope(s)
+				edits.IncScope()
 			case tcell.KeyDown:
-				edits.DecScope(s)
+				edits.DecScope()
 			}
 		}
 	}

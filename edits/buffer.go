@@ -2,17 +2,16 @@ package edits
 
 import (
 	"strconv"
-	"unicode/utf8"
 
 	"github.com/gdamore/tcell/v2"
 )
 
 var CursorRune = [...]rune{'_', '#', '$', '¶', '§'}
-
 var cursorStyle = tcell.StyleDefault.Blink(true)
 
 // ID is the program name and version.
 var ID string
+var Screen tcell.Screen
 
 type Scope int
 
@@ -28,9 +27,7 @@ var cursor struct {
 	pos  int
 	x, y int
 }
-
 var primedia []rune
-
 var scope Scope
 
 // ScreenRegion defines a rectangular region of a screen.
@@ -52,59 +49,56 @@ func (sr *ScreenRegion) Fill(r rune, style tcell.Style) {
 }
 
 // AppendRune appends a rune to the Primedia scroll.
-func AppendRune(screen tcell.Screen, r rune) {
+func AppendRune(r rune) {
 	primedia = append(primedia, r)
 	scope = Char
 	cursor.pos++
-	DrawStatusBar(screen)
-	DrawWindow(screen)
+	DrawWindow()
 }
 
-func DecScope(screen tcell.Screen) {
+func DecScope() {
 	if scope == Char {
 		scope = Sect
 	} else {
 		scope--
 	}
-	DrawCursor(screen)
+	DrawCursor()
 }
 
-func IncScope(screen tcell.Screen) {
+func IncScope() {
 	if scope == Sect {
 		scope = Char
 	} else {
 		scope++
 	}
-	DrawCursor(screen)
+	DrawCursor()
 }
 
 // DrawCursor draws the cursor.
-func DrawCursor(screen tcell.Screen) {
-	screen.SetContent(cursor.x, cursor.y, CursorRune[scope], nil, cursorStyle)
+func DrawCursor() {
+	Screen.SetContent(cursor.x, cursor.y, CursorRune[scope], nil, cursorStyle)
 }
 
 func drawStringNoWrap(sr *ScreenRegion, s string, col int, row int, style tcell.Style) int {
-	for i := 0; i < len(s); {
-		r, rsize := utf8.DecodeRuneInString(s[i:])
-		i += rsize
-		if col+rsize > sr.width {
+	for _, r := range s {
+		if col >= sr.width {
 			break
 		}
 		sr.screen.SetContent(sr.x+col, sr.y+row, r, nil, style)
-		col += rsize
+		col++
 	}
 
 	return col
 }
 
 // DrawStatusBar draws a status bar on the last line of the screen.
-func DrawStatusBar(screen tcell.Screen) {
-	screenWidth, screenHeight := screen.Size()
+func DrawStatusBar() {
+	screenWidth, screenHeight := Screen.Size()
 	if screenHeight == 0 {
 		return
 	}
 
-	sr := &ScreenRegion{screen, 0, screenHeight - 1, screenWidth, 1}
+	sr := &ScreenRegion{Screen, 0, screenHeight - 1, screenWidth, 1}
 	sr.Fill(' ', tcell.StyleDefault)
 	chars := strconv.Itoa(cursor.pos)
 	status := ID + "  c" + chars + "/" + chars
@@ -115,15 +109,16 @@ func DrawStatusBar(screen tcell.Screen) {
 }
 
 // DrawWindow draws the edit window.
-func DrawWindow(screen tcell.Screen) {
-	screenWidth, _ := screen.Size()
+func DrawWindow() {
+	screenWidth, _ := Screen.Size()
 	start := max(0, len(primedia)-screenWidth+1)
 	for i, r := range primedia[start:] {
-		screen.SetContent(i, 0, r, nil, tcell.StyleDefault)
+		Screen.SetContent(i, 0, r, nil, tcell.StyleDefault)
 	}
 	end := min(len(primedia), screenWidth-1)
 	if cursor.x < end {
 		cursor.x = end
-		DrawCursor(screen)
+		DrawCursor()
 	}
+	DrawStatusBar()
 }
