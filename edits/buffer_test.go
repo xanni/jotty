@@ -113,13 +113,26 @@ func TestDrawCursor(t *testing.T) {
 
 func TestDrawWindow(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(2, 2)
+		s.SetSize(0, 0)
 		Screen = s
-		cursor.pos = 0
-		primedia = []rune{'x'}
+		assert.NotPanics(t, func() { DrawWindow() })
+
+		s.SetSize(4, 2)
+		DrawWindow()
+		s.Sync()
+		test.AssertCellContents(t, s, [][]rune{[]rune("<-->"), []rune("    ")})
+
+		s.SetSize(6, 2)
+		ID = "Jotty v0"
+		cursor.pos = 4
+		cursor.x = 3
+		primedia = []rune("Test")
 		scope = Char
 		DrawWindow()
 		s.Sync()
-		test.AssertCellContents(t, s, [][]rune{{'x', CursorRune[Char]}, {'c', '0'}})
+		test.AssertCellContents(t, s, [][]rune{
+			{'T', 'e', 's', 't', CursorRune[Char], ' '},
+			[]rune("c4/4  "),
+		})
 	})
 }

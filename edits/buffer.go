@@ -8,6 +8,9 @@ import (
 
 var CursorRune = [...]rune{'_', '#', '$', '¶', '§'}
 var cursorStyle = tcell.StyleDefault.Blink(true)
+var errorStyle = tcell.StyleDefault.Foreground(tcell.ColorYellow).Reverse(true).Blink(true)
+
+const margin = 5 // Up to 3 edit marks, cursor and wrap indicator
 
 // ID is the program name and version.
 var ID string
@@ -109,9 +112,29 @@ func DrawStatusBar() {
 	drawStringNoWrap(sr, status, 0, 0, tcell.StyleDefault)
 }
 
+func drawResizeRequest() {
+	screenWidth, screenHeight := Screen.Size()
+	if screenWidth < 1 || screenHeight < 1 {
+		return
+	}
+
+	Screen.Clear()
+	row := (screenHeight - 1) / 2
+	Screen.SetContent(0, row, '<', nil, errorStyle)
+	for x := 1; x < screenWidth-1; x++ {
+		Screen.SetContent(x, row, '-', nil, errorStyle)
+	}
+	Screen.SetContent(screenWidth-1, row, '>', nil, errorStyle)
+}
+
 // DrawWindow draws the edit window.
 func DrawWindow() {
 	screenWidth, _ := Screen.Size()
+	if screenWidth < margin+1 {
+		drawResizeRequest()
+		return
+	}
+
 	start := max(0, len(primedia)-screenWidth+1)
 	for i, r := range primedia[start:] {
 		Screen.SetContent(i, 0, r, nil, tcell.StyleDefault)

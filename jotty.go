@@ -51,6 +51,7 @@ func main() {
 		// Process event
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
+			s.Clear()
 			edits.DrawWindow()
 			s.Sync()
 		case *tcell.EventKey:
