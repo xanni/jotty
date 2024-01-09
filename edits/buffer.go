@@ -2,8 +2,11 @@ package edits
 
 import (
 	"strconv"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/uniseg"
 )
 
 var CursorRune = [...]rune{'_', '#', '$', '¶', '§'}
@@ -26,12 +29,22 @@ const (
 	Sect // Section
 )
 
+var scope Scope
+
+type line struct {
+	bytes, chars, words int // cumulative counts at start of line
+	text                []byte
+}
+
+var buffer []line
 var cursor struct {
 	pos  int
 	x, y int
 }
-var primedia []rune
-var scope Scope
+var document []byte
+var total struct {
+	chars, words int
+}
 
 // ScreenRegion defines a rectangular region of a screen.
 type ScreenRegion struct {
@@ -51,11 +64,16 @@ func (sr *ScreenRegion) Fill(r rune, style tcell.Style) {
 	}
 }
 
-// AppendRune appends a rune to the Primedia scroll.
+// AppendRune appends a rune to the document.
 func AppendRune(r rune) {
-	primedia = append(primedia, r)
+	document = utf8.AppendRune(document, r)
 	scope = Char
-	cursor.pos++
+	if len(buffer) == 0 {
+		cursor.pos += uniseg.GraphemeClusterCount(string(document))
+	} else if uniseg.GraphemeClusterCount(string(document[buffer[cursor.y].bytes:])) >
+		uniseg.GraphemeClusterCount(string(buffer[cursor.y].text)) {
+		cursor.pos++
+	}
 	DrawWindow()
 }
 
@@ -104,8 +122,7 @@ func DrawStatusBar() {
 
 	sr := &ScreenRegion{Screen, 0, screenHeight - 1, screenWidth, 1}
 	sr.Fill(' ', tcell.StyleDefault)
-	chars := strconv.Itoa(cursor.pos)
-	status := ID + "  c" + chars + "/" + chars
+	status := ID + "  c" + strconv.Itoa(cursor.pos) + "/" + strconv.Itoa(total.chars)
 	if len(status) > screenWidth {
 		status = status[len(ID)+2:]
 	}
@@ -127,22 +144,116 @@ func drawResizeRequest() {
 	Screen.SetContent(screenWidth-1, row, '>', nil, errorStyle)
 }
 
-// DrawWindow draws the edit window.
+/*
+DrawWindow draws the edit window.
+
+It word wraps, buffers and displays a portion of the document starting from
+the line the cursor is on and ending at the last line of the edit window
+or the end of the document, whichever comes first.
+*/
 func DrawWindow() {
-	screenWidth, _ := Screen.Size()
-	if screenWidth < margin+1 {
+	screenWidth, screenHeight := Screen.Size()
+	if screenWidth < margin+1 || screenHeight < 2 {
 		drawResizeRequest()
 		return
 	}
 
-	start := max(0, len(primedia)-screenWidth+1)
-	for i, r := range primedia[start:] {
-		Screen.SetContent(i, 0, r, nil, tcell.StyleDefault)
+	var l line   // current line with cumulative counts
+	var x, y int // screen coordinates
+
+	if len(buffer) == 0 {
+		buffer = make([]line, screenHeight-1) // redraw everything
+	} else {
+		y = cursor.y
+		l = line{bytes: buffer[y].bytes, chars: buffer[y].chars, words: buffer[y].words}
 	}
-	end := min(len(primedia), screenWidth-1)
-	if cursor.x < end {
-		cursor.x = end
-		DrawCursor()
+	source := document[l.bytes:]
+	state := -1
+
+	for {
+		if cursor.pos == l.chars {
+			cursor.x = x
+			cursor.y = y
+			DrawCursor()
+			x++
+		}
+
+		if len(source) == 0 {
+			buffer[y].text = l.text
+			break
+		}
+
+		var c []byte   // grapheme cluster
+		var f int      // Unicode boundary flags
+		var seg []byte // next breakable segment
+
+		c, source, f, state = uniseg.Step(source, state)
+		w := f >> uniseg.ShiftWidth // monospace width of character
+		l.bytes += len(c)
+		if w > 0 || c[0] == '\n' {
+			l.chars++
+		}
+
+		if f&uniseg.MaskWord != 0 {
+			// Is the first rune in the grapheme cluster alphanumeric?
+			r, _ := utf8.DecodeRune(c)
+			if unicode.IsLetter(r) || unicode.IsNumber(r) {
+				l.words++
+			}
+		}
+
+		if w > 0 {
+			l.text = append(l.text, c...)
+			r1, s1 := utf8.DecodeRune(c) // first rune and size
+			var cr []rune                // combining runes
+			for i := s1; i < len(c); {
+				r, s := utf8.DecodeRune(c[i:])
+				cr = append(cr, r)
+				i += s
+			}
+			Screen.SetContent(x, y, r1, cr, tcell.StyleDefault)
+			x += w
+		}
+
+		seg, _, _, _ = uniseg.FirstLineSegment(source, -1)
+		nw := uniseg.StringWidth(string(seg)) // width of next breakable segment
+
+		// Break if at margin or mandatory break that is not just end of source
+		f &= uniseg.MaskLine
+		br := x >= screenWidth-1 ||
+			(f == uniseg.LineCanBreak && x+w+nw >= screenWidth-1) ||
+			(f == uniseg.LineMustBreak && (len(source) > 0 || uniseg.HasTrailingLineBreak(document)))
+
+		if br {
+			if x == screenWidth-1 && f != uniseg.LineCanBreak {
+				Screen.SetContent(x, y, '-', nil, tcell.StyleDefault.Reverse(true))
+			} else {
+				for x < screenWidth {
+					Screen.SetContent(x, y, ' ', nil, tcell.StyleDefault)
+					x++
+				}
+			}
+
+			buffer[y].text = l.text
+			if y >= screenHeight-2 { // last line of the window
+				break // TODO scroll
+			}
+
+			x = 0
+			y++
+			buffer[y] = line{bytes: l.bytes, chars: l.chars, words: l.words}
+			l.text = nil
+		}
 	}
+
+	total.chars = l.chars
+	total.words = l.words
 	DrawStatusBar()
+}
+
+func ResizeScreen() {
+	Screen.Clear()
+	buffer = nil
+	DrawWindow()
+	Screen.Sync()
 }

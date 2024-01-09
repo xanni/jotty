@@ -38,8 +38,7 @@ func main() {
 
 	edits.ID = "Jotty v" + version
 	edits.Screen = s
-	edits.DrawWindow()
-	edits.DrawCursor()
+	edits.ResizeScreen()
 
 	for {
 		// Update screen
@@ -51,9 +50,7 @@ func main() {
 		// Process event
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			s.Clear()
-			edits.DrawWindow()
-			s.Sync()
+			edits.ResizeScreen()
 		case *tcell.EventKey:
 			switch ev.Key() {
 			case tcell.KeyRune:
