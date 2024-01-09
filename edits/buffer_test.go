@@ -51,7 +51,15 @@ func TestDrawStatusBar(t *testing.T) {
 		s.Sync()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("               "),
-			[]rune("Jotty v0  c0/0 "),
+			[]rune("#0/0  c0/0     "),
+		})
+
+		s.SetSize(20, 2)
+		DrawStatusBar()
+		s.Sync()
+		test.AssertCellContents(t, s, [][]rune{
+			[]rune("                    "),
+			[]rune("Jotty v0  #0/0  c0/0"),
 		})
 	})
 }
@@ -60,22 +68,22 @@ func TestAppendRune(t *testing.T) {
 	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
 		s.SetSize(margin+1, 2)
 		Screen = s
-		cursor.pos = 0
+		cursor.char = 0
 		document = nil
 		AppendRune('🇦')
 		b := make([]byte, 4)
 		utf8.EncodeRune(b, '🇦')
 		assert.Equal(t, b, document)
-		assert.Equal(t, 1, cursor.pos)
+		assert.Equal(t, 1, cursor.char)
 		assert.Equal(t, Char, scope)
 
 		AppendRune('🇺')
 		assert.Equal(t, []byte("🇦🇺"), document)
-		assert.Equal(t, 1, cursor.pos)
+		assert.Equal(t, 1, cursor.char)
 
 		AppendRune(' ')
 		assert.Equal(t, []byte("🇦🇺 "), document)
-		assert.Equal(t, 2, cursor.pos)
+		assert.Equal(t, 2, cursor.char)
 	})
 }
 
@@ -143,7 +151,7 @@ func TestDrawWindow(t *testing.T) {
 
 		s.SetSize(6, 2)
 		ID = "Jotty v0"
-		cursor.pos = 1
+		cursor.char = 1
 		document = []byte("🇦🇺")
 		scope = Char
 		ResizeScreen()
@@ -157,7 +165,7 @@ func TestDrawWindow(t *testing.T) {
 		ResizeScreen()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺_ Aussie              "),
-			[]rune(ID + "  c1/8          "),
+			[]rune(ID + "  #0/1  c1/8    "),
 		})
 
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie")
@@ -165,27 +173,27 @@ func TestDrawWindow(t *testing.T) {
 		Screen.Show()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺_ Aussie, Aussie,     "),
-			[]rune(ID + "  c1/18         "),
+			[]rune(ID + "  #0/2  c1/18   "),
 		})
 
 		s.SetSize(30, 3)
 		document = append(document, []byte("\nOi oi")...)
-		cursor.pos = 30
+		cursor.char = 30
 		ResizeScreen()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺 Aussie, Aussie, Aussie     "),
 			[]rune("Oi oi_                        "),
-			[]rune(ID + "  c30/30              "),
+			[]rune(ID + "  #5/5  c30/30        "),
 		})
 
 		document = append(document, []byte(" oi!")...)
-		cursor.pos = 34
+		cursor.char = 34
 		DrawWindow()
 		Screen.Show()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺 Aussie, Aussie, Aussie     "),
 			[]rune("Oi oi oi!_                    "),
-			[]rune(ID + "  c34/34              "),
+			[]rune(ID + "  #6/6  c34/34        "),
 		})
 	})
 }

@@ -38,8 +38,8 @@ type line struct {
 
 var buffer []line
 var cursor struct {
-	pos  int
-	x, y int
+	char, word int // current character and word in the document
+	x, y       int // current position in the edit window
 }
 var document []byte
 var total struct {
@@ -69,10 +69,10 @@ func AppendRune(r rune) {
 	document = utf8.AppendRune(document, r)
 	scope = Char
 	if len(buffer) == 0 {
-		cursor.pos += uniseg.GraphemeClusterCount(string(document))
+		cursor.char += uniseg.GraphemeClusterCount(string(document))
 	} else if uniseg.GraphemeClusterCount(string(document[buffer[cursor.y].bytes:])) >
 		uniseg.GraphemeClusterCount(string(buffer[cursor.y].text)) {
-		cursor.pos++
+		cursor.char++
 	}
 	DrawWindow()
 }
@@ -122,9 +122,14 @@ func DrawStatusBar() {
 
 	sr := &ScreenRegion{Screen, 0, screenHeight - 1, screenWidth, 1}
 	sr.Fill(' ', tcell.StyleDefault)
-	status := ID + "  c" + strconv.Itoa(cursor.pos) + "/" + strconv.Itoa(total.chars)
+	status := ID +
+		"  #" + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words) +
+		"  c" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
 	if len(status) > screenWidth {
 		status = status[len(ID)+2:]
+	}
+	if len(status) > screenWidth {
+		status = "c" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
 	}
 	drawStringNoWrap(sr, status, 0, 0, tcell.StyleDefault)
 }
@@ -171,7 +176,8 @@ func DrawWindow() {
 	state := -1
 
 	for {
-		if cursor.pos == l.chars {
+		if cursor.char == l.chars {
+			cursor.word = l.words
 			cursor.x = x
 			cursor.y = y
 			DrawCursor()
