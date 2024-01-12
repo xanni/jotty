@@ -122,16 +122,17 @@ func DrawStatusBar() {
 
 	sr := &ScreenRegion{Screen, 0, screenHeight - 1, screenWidth, 1}
 	sr.Fill(' ', tcell.StyleDefault)
-	status := ID +
-		"  #" + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words) +
-		"  c" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
-	if len(status) > screenWidth {
-		status = status[len(ID)+2:]
+	chars := "c" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
+	words := "#" + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words)
+	status := words + " " + chars
+	var x int
+	if screenWidth >= len(ID)+2+len(status) {
+		drawStringNoWrap(sr, ID, 0, 0, tcell.StyleDefault)
+		x = len(ID) + 2
+	} else if screenWidth < len(status) {
+		status = chars
 	}
-	if len(status) > screenWidth {
-		status = "c" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
-	}
-	drawStringNoWrap(sr, status, 0, 0, tcell.StyleDefault)
+	drawStringNoWrap(sr, status, x, 0, tcell.StyleDefault)
 }
 
 func drawResizeRequest() {

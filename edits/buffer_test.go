@@ -51,7 +51,7 @@ func TestDrawStatusBar(t *testing.T) {
 		s.Sync()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("               "),
-			[]rune("#0/0  c0/0     "),
+			[]rune("#0/0 c0/0      "),
 		})
 
 		s.SetSize(20, 2)
@@ -59,7 +59,7 @@ func TestDrawStatusBar(t *testing.T) {
 		s.Sync()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("                    "),
-			[]rune("Jotty v0  #0/0  c0/0"),
+			[]rune("Jotty v0  #0/0 c0/0 "),
 		})
 	})
 }
@@ -165,7 +165,7 @@ func TestDrawWindow(t *testing.T) {
 		ResizeScreen()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺_ Aussie              "),
-			[]rune(ID + "  #0/1  c1/8    "),
+			[]rune(ID + "  #0/1 c1/8     "),
 		})
 
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie")
@@ -173,7 +173,7 @@ func TestDrawWindow(t *testing.T) {
 		Screen.Show()
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺_ Aussie, Aussie,     "),
-			[]rune(ID + "  #0/2  c1/18   "),
+			[]rune(ID + "  #0/2 c1/18    "),
 		})
 
 		s.SetSize(30, 3)
@@ -183,7 +183,7 @@ func TestDrawWindow(t *testing.T) {
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺 Aussie, Aussie, Aussie     "),
 			[]rune("Oi oi_                        "),
-			[]rune(ID + "  #5/5  c30/30        "),
+			[]rune(ID + "  #5/5 c30/30         "),
 		})
 
 		document = append(document, []byte(" oi!")...)
@@ -193,7 +193,7 @@ func TestDrawWindow(t *testing.T) {
 		test.AssertCellContents(t, s, [][]rune{
 			[]rune("🇦🇺 Aussie, Aussie, Aussie     "),
 			[]rune("Oi oi oi!_                    "),
-			[]rune(ID + "  #6/6  c34/34        "),
+			[]rune(ID + "  #6/6 c34/34         "),
 		})
 	})
 }
