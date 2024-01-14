@@ -18,7 +18,6 @@ const margin = 5 // Up to 3 edit marks, cursor and wrap indicator
 
 // ID is the program name and version.
 var ID string
-var Screen nc.Screen
 var Sx, Sy int // Screen dimensions
 
 type Scope int

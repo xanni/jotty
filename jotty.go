@@ -57,7 +57,6 @@ func main() {
 	defer quit()
 
 	edits.ID = "Jotty v" + version
-	edits.Screen = *s
 	resize(s)
 
 	for {
