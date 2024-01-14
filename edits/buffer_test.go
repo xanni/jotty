@@ -8,45 +8,22 @@ import (
 	nc "github.com/vit1251/go-ncursesw"
 )
 
-func TestDrawStatusBar(t *testing.T) {
-	test.WithSimScreen(t, func() {
-		ID = "Jotty v0"
-
-		Sx = margin + 1
-		Sy = 2
-		nc.ResizeTerm(Sy, Sx)
-		ResizeScreen()
-		cc := rune(CursorChar[Char] | nc.A_BLINK)
-		test.AssertCellContents(t, [][]rune{
-			[]rune(string(cc) + "     "),
-			[]rune("c0/0  "),
-		})
-
-		Sx = 15
-		nc.ResizeTerm(Sy, Sx)
-		ResizeScreen()
-		test.AssertCellContents(t, [][]rune{
-			[]rune(string(cc) + "              "),
-			[]rune("#0/0 c0/0      "),
-		})
-
-		Sx = 20
-		nc.ResizeTerm(Sy, Sx)
-		ResizeScreen()
-		test.AssertCellContents(t, [][]rune{
-			[]rune(string(cc) + "                   "),
-			[]rune("Jotty v0  #0/0 c0/0 "),
-		})
-	})
-}
-
 func TestAppendByte(t *testing.T) {
 	test.WithSimScreen(t, func() {
+		document = nil
+		Sx = 1
+		Sy = 1
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		AppendByte('!')
+		assert.Equal(t, []byte("!"), document)
+		assert.Equal(t, Char, scope)
+		assert.Equal(t, 1, cursor.char)
+
+		document = nil
 		Sx = margin + 1
 		Sy = 2
 		nc.ResizeTerm(Sy, Sx)
-		cursor.char = 0
-		document = nil
 		ResizeScreen()
 
 		ch := []byte("🇦🇺")
@@ -111,17 +88,51 @@ func TestDrawCursor(t *testing.T) {
 
 		scope = Char
 		DrawCursor()
+		assert.Equal(t, CursorChar[Char]|nc.A_BLINK, win.MoveInChar(0, 0))
+	})
+}
+
+func TestDrawStatusBar(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		ID = "Jotty v0"
+
+		Sx = margin + 1
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		cc := rune(CursorChar[Char] | nc.A_BLINK)
 		test.AssertCellContents(t, [][]rune{
-			{rune(CursorChar[Char] | nc.A_BLINK), ' ', ' ', ' ', ' ', ' '},
+			[]rune(string(cc) + "     "),
 			[]rune("c0/0  "),
+		})
+
+		Sx = 15
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		test.AssertCellContents(t, [][]rune{
+			[]rune(string(cc) + "              "),
+			[]rune("#0/0 c0/0      "),
+		})
+
+		Sx = 20
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		test.AssertCellContents(t, [][]rune{
+			[]rune(string(cc) + "                   "),
+			[]rune("Jotty v0  #0/0 c0/0 "),
 		})
 	})
 }
 
 func TestDrawWindow(t *testing.T) {
 	test.WithSimScreen(t, func() {
+		Sx = 2
+		Sy = 1
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		test.AssertCellContents(t, [][]rune{{rune('<' | errorStyle), rune('>' | errorStyle)}})
+
 		Sx = 4
-		Sy = 2
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
@@ -129,22 +140,23 @@ func TestDrawWindow(t *testing.T) {
 				rune('-' | errorStyle),
 				rune('-' | errorStyle),
 				rune('>' | errorStyle)},
-			[]rune("    ")})
+		})
 
-		Sx = 6
-		nc.ResizeTerm(Sy, Sx)
 		ID = "Jotty v0"
 		cursor.char = 1
 		document = []byte("🇦🇺")
 		scope = Char
+		Sx = 6
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		assert.Equal(t, "🇦🇺", string(buffer[0].text))
 		assert.Equal(t, 1, total.chars)
 		assert.Equal(t, 0, total.words)
 
+		document = []byte("🇦🇺 Aussie")
 		Sx = 24
 		nc.ResizeTerm(Sy, Sx)
-		document = []byte("🇦🇺 Aussie")
 		ResizeScreen()
 		assert.Equal(t, "🇦🇺 Aussie", string(buffer[0].text))
 		assert.Equal(t, 8, total.chars)
@@ -156,11 +168,11 @@ func TestDrawWindow(t *testing.T) {
 		assert.Equal(t, 18, total.chars)
 		assert.Equal(t, 2, total.words)
 
+		document = append(document, []byte("\nOi oi")...)
+		cursor.char = 30
 		Sx = 30
 		Sy = 3
 		nc.ResizeTerm(Sy, Sx)
-		document = append(document, []byte("\nOi oi")...)
-		cursor.char = 30
 		ResizeScreen()
 		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
 		assert.Equal(t, "Oi oi", string(buffer[1].text))
@@ -174,5 +186,18 @@ func TestDrawWindow(t *testing.T) {
 		assert.Equal(t, "Oi oi oi!", string(buffer[1].text))
 		assert.Equal(t, 34, total.chars)
 		assert.Equal(t, 6, total.words)
+
+		cursor.char = 6
+		document = []byte("length")
+		Sx = 6
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		cc := rune(CursorChar[Char] | nc.A_BLINK)
+		test.AssertCellContents(t, [][]rune{
+			[]rune("lengt" + string('-'|nc.A_REVERSE)),
+			[]rune("h" + string(cc) + "    "),
+			[]rune("c6/6  "),
+		})
+
 	})
 }

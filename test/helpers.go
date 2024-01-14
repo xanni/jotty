@@ -1,7 +1,6 @@
 package test
 
 import (
-	"log"
 	"os"
 	"testing"
 
@@ -10,15 +9,7 @@ import (
 	nc "github.com/vit1251/go-ncursesw"
 )
 
-var file *os.File
-
-func init() {
-	var err error
-	file, err = os.OpenFile("/dev/null", os.O_RDWR, 0666)
-	if err != nil {
-		log.Fatal("open", err)
-	}
-}
+var file, _ = os.OpenFile("/dev/null", os.O_RDWR, 0666)
 
 func WithSimScreen(t *testing.T, f func()) {
 	s, err := nc.NewTerm("", file, file)

@@ -43,6 +43,7 @@ func main() {
 	nc.StartColor()                         // enable color if available, ignore error if not
 	nc.InitPair(1, nc.C_YELLOW, nc.C_BLACK) // errors are black on yellow like caution tape
 	win.Keypad(true)                        // enable function keys
+	win.Timeout(100)                        // 100ms timeout to ensure SIGWINCH gets processed
 
 	quit := func() {
 		// Shutdown ncurses and restore the terminal before printing any diagnostics
@@ -57,7 +58,8 @@ func main() {
 	defer quit()
 
 	edits.ID = "Jotty v" + version
-	resize(s)
+	edits.Sy, edits.Sx = win.MaxYX()
+	edits.ResizeScreen()
 
 	for {
 		// Update screen

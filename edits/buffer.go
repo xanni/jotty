@@ -56,8 +56,8 @@ func AppendByte(b byte) {
 		cursor.char = uniseg.GraphemeClusterCount(string(document))
 	} else {
 		cursor.char = buffer[cursor.y].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursor.y].bytes:]))
+		DrawWindow()
 	}
-	DrawWindow()
 }
 
 func DecScope() {
@@ -204,7 +204,7 @@ func DrawWindow() {
 }
 
 func drawResizeRequest() {
-	if Sx < 1 || Sy < 1 {
+	if Sx < 2 || Sy < 1 {
 		return
 	}
 
@@ -215,14 +215,13 @@ func drawResizeRequest() {
 }
 
 func ResizeScreen() {
+	buffer = nil
 	win = nc.StdScr()
 	win.Clear()
 
-	if Sx < margin+1 || Sy < 2 {
+	if Sx > margin && Sy > 1 {
+		DrawWindow()
+	} else {
 		drawResizeRequest()
-		return
 	}
-
-	buffer = nil
-	DrawWindow()
 }
