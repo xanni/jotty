@@ -2,198 +2,177 @@ package edits
 
 import (
 	"testing"
-	"unicode/utf8"
 
 	"git.sericyb.com.au/jotty/test"
-	"github.com/gdamore/tcell/v2"
 	"github.com/stretchr/testify/assert"
+	nc "github.com/vit1251/go-ncursesw"
 )
 
-func TestScreenRegionFill(t *testing.T) {
-	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(10, 10)
-		sr := &ScreenRegion{s, 1, 2, 5, 5}
-		sr.Fill('^', tcell.StyleDefault.Bold(true))
-		s.Sync()
-
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("          "),
-			[]rune("          "),
-			[]rune(" ^^^^^    "),
-			[]rune(" ^^^^^    "),
-			[]rune(" ^^^^^    "),
-			[]rune(" ^^^^^    "),
-			[]rune(" ^^^^^    "),
-			[]rune("          "),
-			[]rune("          "),
-			[]rune("          "),
-		})
-	})
-}
-
 func TestDrawStatusBar(t *testing.T) {
-	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
+	test.WithSimScreen(t, func() {
 		ID = "Jotty v0"
-		s.SetSize(0, 0)
-		Screen = s
-		assert.NotPanics(t, func() { DrawStatusBar() })
 
-		s.SetSize(4, 2)
-		DrawStatusBar()
-		s.Sync()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("    "),
-			[]rune("c0/0"),
+		Sx = margin + 1
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		cc := rune(CursorChar[Char] | nc.A_BLINK)
+		test.AssertCellContents(t, [][]rune{
+			[]rune(string(cc) + "     "),
+			[]rune("c0/0  "),
 		})
 
-		s.SetSize(15, 2)
-		DrawStatusBar()
-		s.Sync()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("               "),
+		Sx = 15
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		test.AssertCellContents(t, [][]rune{
+			[]rune(string(cc) + "              "),
 			[]rune("#0/0 c0/0      "),
 		})
 
-		s.SetSize(20, 2)
-		DrawStatusBar()
-		s.Sync()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("                    "),
+		Sx = 20
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		test.AssertCellContents(t, [][]rune{
+			[]rune(string(cc) + "                   "),
 			[]rune("Jotty v0  #0/0 c0/0 "),
 		})
 	})
 }
 
-func TestAppendRune(t *testing.T) {
-	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(margin+1, 2)
-		Screen = s
+func TestAppendByte(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		Sx = margin + 1
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
 		cursor.char = 0
 		document = nil
-		AppendRune('🇦')
-		b := make([]byte, 4)
-		utf8.EncodeRune(b, '🇦')
-		assert.Equal(t, b, document)
-		assert.Equal(t, 1, cursor.char)
+		ResizeScreen()
+
+		ch := []byte("🇦🇺")
+		for _, b := range ch {
+			AppendByte(b)
+		}
+		assert.Equal(t, ch, document)
 		assert.Equal(t, Char, scope)
-
-		AppendRune('🇺')
-		assert.Equal(t, []byte("🇦🇺"), document)
 		assert.Equal(t, 1, cursor.char)
 
-		AppendRune(' ')
+		AppendByte(' ')
 		assert.Equal(t, []byte("🇦🇺 "), document)
 		assert.Equal(t, 2, cursor.char)
 	})
 }
 
 func TestDecScope(t *testing.T) {
-	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(1, 1)
-		Screen = s
-		cursor.x = 0
-		cursor.y = 0
+	test.WithSimScreen(t, func() {
+		Sx = margin + 1
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
+		cursor.char = 0
+		document = nil
+		ResizeScreen()
 
 		DecScope()
-		s.Sync()
 		assert.Equal(t, Sect, scope)
-		test.AssertCellContents(t, s, [][]rune{{CursorRune[Sect]}})
+		assert.Equal(t, CursorChar[Sect]|nc.A_BLINK, win.MoveInChar(0, 0))
 
 		DecScope()
-		s.Sync()
 		assert.Equal(t, Para, scope)
-		test.AssertCellContents(t, s, [][]rune{{CursorRune[Para]}})
+		assert.Equal(t, CursorChar[Para]|nc.A_BLINK, win.MoveInChar(0, 0))
 	})
 }
 
 func TestIncScope(t *testing.T) {
-	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(1, 1)
-		Screen = s
+	test.WithSimScreen(t, func() {
+		Sx = margin + 1
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
+		cursor.char = 0
+		document = nil
+		ResizeScreen()
 		scope = Sect
-		cursor.x = 0
-		cursor.y = 0
 
 		IncScope()
-		s.Sync()
 		assert.Equal(t, Char, scope)
-		test.AssertCellContents(t, s, [][]rune{{CursorRune[Char]}})
+		assert.Equal(t, CursorChar[Char]|nc.A_BLINK, win.MoveInChar(0, 0))
 
 		IncScope()
-		s.Sync()
 		assert.Equal(t, Word, scope)
-		test.AssertCellContents(t, s, [][]rune{{CursorRune[Word]}})
+		assert.Equal(t, CursorChar[Word]|nc.A_BLINK, win.MoveInChar(0, 0))
 	})
 }
 
 func TestDrawCursor(t *testing.T) {
-	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(1, 1)
-		Screen = s
+	test.WithSimScreen(t, func() {
+		Sx = margin + 1
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+
 		scope = Char
-		cursor.x = 0
-		cursor.y = 0
 		DrawCursor()
-		s.Sync()
-		test.AssertCellContents(t, s, [][]rune{{CursorRune[Char]}})
+		test.AssertCellContents(t, [][]rune{
+			{rune(CursorChar[Char] | nc.A_BLINK), ' ', ' ', ' ', ' ', ' '},
+			[]rune("c0/0  "),
+		})
 	})
 }
 
 func TestDrawWindow(t *testing.T) {
-	test.WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(0, 0)
-		Screen = s
-		assert.NotPanics(t, func() { DrawWindow() })
-
-		s.SetSize(4, 2)
+	test.WithSimScreen(t, func() {
+		Sx = 4
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		test.AssertCellContents(t, s, [][]rune{[]rune("<-->"), []rune("    ")})
+		test.AssertCellContents(t, [][]rune{
+			{rune('<' | errorStyle),
+				rune('-' | errorStyle),
+				rune('-' | errorStyle),
+				rune('>' | errorStyle)},
+			[]rune("    ")})
 
-		s.SetSize(6, 2)
+		Sx = 6
+		nc.ResizeTerm(Sy, Sx)
 		ID = "Jotty v0"
 		cursor.char = 1
 		document = []byte("🇦🇺")
 		scope = Char
 		ResizeScreen()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("🇦🇺_   "),
-			[]rune("c1/1  "),
-		})
+		assert.Equal(t, "🇦🇺", string(buffer[0].text))
+		assert.Equal(t, 1, total.chars)
+		assert.Equal(t, 0, total.words)
 
-		s.SetSize(24, 2)
+		Sx = 24
+		nc.ResizeTerm(Sy, Sx)
 		document = []byte("🇦🇺 Aussie")
 		ResizeScreen()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("🇦🇺_ Aussie              "),
-			[]rune(ID + "  #0/1 c1/8     "),
-		})
+		assert.Equal(t, "🇦🇺 Aussie", string(buffer[0].text))
+		assert.Equal(t, 8, total.chars)
+		assert.Equal(t, 1, total.words)
 
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie")
 		DrawWindow()
-		Screen.Show()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("🇦🇺_ Aussie, Aussie,     "),
-			[]rune(ID + "  #0/2 c1/18    "),
-		})
+		assert.Equal(t, "🇦🇺 Aussie, Aussie, ", string(buffer[0].text))
+		assert.Equal(t, 18, total.chars)
+		assert.Equal(t, 2, total.words)
 
-		s.SetSize(30, 3)
+		Sx = 30
+		Sy = 3
+		nc.ResizeTerm(Sy, Sx)
 		document = append(document, []byte("\nOi oi")...)
 		cursor.char = 30
 		ResizeScreen()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("🇦🇺 Aussie, Aussie, Aussie     "),
-			[]rune("Oi oi_                        "),
-			[]rune(ID + "  #5/5 c30/30         "),
-		})
+		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
+		assert.Equal(t, "Oi oi", string(buffer[1].text))
+		assert.Equal(t, 30, total.chars)
+		assert.Equal(t, 5, total.words)
 
 		document = append(document, []byte(" oi!")...)
 		cursor.char = 34
 		DrawWindow()
-		Screen.Show()
-		test.AssertCellContents(t, s, [][]rune{
-			[]rune("🇦🇺 Aussie, Aussie, Aussie     "),
-			[]rune("Oi oi oi!_                    "),
-			[]rune(ID + "  #6/6 c34/34         "),
-		})
+		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
+		assert.Equal(t, "Oi oi oi!", string(buffer[1].text))
+		assert.Equal(t, 34, total.chars)
+		assert.Equal(t, 6, total.words)
 	})
 }

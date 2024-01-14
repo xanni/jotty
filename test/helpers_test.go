@@ -3,19 +3,20 @@ package test
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/stretchr/testify/assert"
+	nc "github.com/vit1251/go-ncursesw"
 )
 
 func TestWithSimScreen(t *testing.T) {
-	WithSimScreen(t, func(s tcell.SimulationScreen) { assert.NotNil(t, s) })
+	assert.NotPanics(t, func() { WithSimScreen(t, func() {}) })
 }
 
 func TestAssertCellContents(t *testing.T) {
-	WithSimScreen(t, func(s tcell.SimulationScreen) {
-		s.SetSize(1, 1)
-		s.SetContent(0, 0, '!', nil, tcell.StyleDefault)
-		s.Sync()
-		AssertCellContents(t, s, [][]rune{{'!'}})
+	WithSimScreen(t, func() {
+		nc.ResizeTerm(1, 3)
+		nc.StdScr().Clear()
+		nc.StdScr().Print("😃!")
+		nc.Update()
+		AssertCellContents(t, [][]rune{{'😃', '😃', '!'}})
 	})
 }
