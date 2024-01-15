@@ -102,31 +102,38 @@ func TestDrawCursor(t *testing.T) {
 func TestDrawStatusBar(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		ID = "Jotty v0"
+		sent = []int{0}
 
 		Sx = margin + 1
 		Sy = 2
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		cc := rune(CursorChar[Char] | nc.A_BLINK)
-		test.AssertCellContents(t, [][]rune{
-			[]rune(string(cc) + "     "),
-			[]rune("c0/0  "),
-		})
+		assert.Equal(t, nc.Char('c'), win.MoveInChar(Sy-1, 0))
 
+		scope = Word
+		DrawStatusBar()
+		assert.Equal(t, CursorChar[Word], win.MoveInChar(Sy-1, 0))
+
+		scope = Sent
+		DrawStatusBar()
+		assert.Equal(t, CursorChar[Sent], win.MoveInChar(Sy-1, 0))
+
+		scope = Char
 		Sx = 15
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
 			[]rune(string(cc) + "              "),
-			[]rune("#0/0 c0/0      "),
+			[]rune("$0/1 #0/0 c0/0 "),
 		})
 
-		Sx = 20
+		Sx = 25
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
-			[]rune(string(cc) + "                   "),
-			[]rune("Jotty v0  #0/0 c0/0 "),
+			[]rune(string(cc) + "                        "),
+			[]rune("Jotty v0  $0/1 #0/0 c0/0 "),
 		})
 	})
 }
@@ -209,6 +216,7 @@ func TestDrawWindowParagraph(t *testing.T) {
 		assert.Equal(t, "Oi oi oi!", string(buffer[1].text))
 		assert.Equal(t, 34, total.chars)
 		assert.Equal(t, 6, total.words)
+		assert.Equal(t, 2, total.sents)
 	})
 }
 

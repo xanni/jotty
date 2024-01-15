@@ -1,6 +1,7 @@
 package edits
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -39,12 +40,13 @@ type line struct {
 
 var buffer []line
 var cursor struct {
-	char, word int // current character and word in the document
-	x, y       int // current position in the edit window
+	char, word, sent int // current character, word and sentence in the document
+	x, y             int // current position in the edit window
 }
 var document []byte
+var sent = []int{0} // byte index of each sentence in the document
 var total struct {
-	chars, words int
+	chars, words, sents int
 }
 var win *nc.Window
 
@@ -93,15 +95,23 @@ func DrawStatusBar() {
 	win.Move(Sy-1, 0)
 	win.ClearToBottom()
 	chars := "c" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
-	words := "#" + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words)
-	status := words + " " + chars
+	words := string(rune(CursorChar[Word])) + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words)
+	sents := string(rune(CursorChar[Sent])) + strconv.Itoa(cursor.sent) + "/" + strconv.Itoa(total.sents)
+	status := sents + " " + words + " " + chars
 
 	var x int
 	if Sx >= len(ID)+2+len(status) {
 		win.MovePrint(Sy-1, 0, ID)
 		x = len(ID) + 2
 	} else if Sx < len(status) {
-		status = chars
+		switch scope {
+		case Char:
+			status = chars
+		case Word:
+			status = words
+		case Sent:
+			status = sents
+		}
 	}
 
 	win.MovePrint(Sy-1, x, status)
@@ -132,6 +142,7 @@ func DrawWindow() {
 	for {
 		if cursor.char == l.chars {
 			cursor.word = l.words
+			cursor.sent = sort.Search(len(sent), func(i int) bool { return sent[i] >= l.bytes })
 			cursor.x = x
 			cursor.y = y
 			DrawCursor()
@@ -151,6 +162,10 @@ func DrawWindow() {
 		r, _ := utf8.DecodeRune(c)
 		if r == utf8.RuneError {
 			continue
+		}
+
+		if len(source) > 0 && f&uniseg.MaskSentence != 0 && l.bytes > sent[len(sent)-1] {
+			sent = append(sent, l.bytes)
 		}
 
 		w := f >> uniseg.ShiftWidth // monospace width of character
@@ -201,6 +216,7 @@ func DrawWindow() {
 
 	total.chars = l.chars
 	total.words = l.words
+	total.sents = len(sent)
 	DrawStatusBar()
 }
 
