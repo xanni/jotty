@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"unicode/utf8"
 
 	"git.sericyb.com.au/jotty/edits"
 	nc "github.com/vit1251/go-ncursesw"
@@ -61,6 +62,8 @@ func main() {
 	edits.Sy, edits.Sx = win.MaxYX()
 	edits.ResizeScreen()
 
+	var crune []byte // current rune being appended
+
 	for {
 		// Update screen
 		nc.Update()
@@ -71,6 +74,10 @@ func main() {
 		default:
 			// Process input
 			key := win.GetChar()
+			if key <= 32 || key > 255 {
+				crune = nil
+			}
+
 			switch {
 			case key == nc.KEY_RESIZE:
 				resize(s)
@@ -81,7 +88,12 @@ func main() {
 			case key == nc.KEY_DOWN:
 				edits.DecScope()
 			case key >= 32 && key <= 255:
-				edits.AppendByte(byte(key))
+				crune = append(crune, byte(key))
+				r, _ := utf8.DecodeLastRune(crune)
+				if r != utf8.RuneError {
+					edits.AppendRune(crune)
+					crune = nil
+				}
 			}
 		}
 	}

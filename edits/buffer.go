@@ -43,15 +43,16 @@ var cursor struct {
 	x, y       int // current position in the edit window
 }
 var document []byte
-var win *nc.Window
 var total struct {
 	chars, words int
 }
+var win *nc.Window
 
-// AppendByte appends a byte to the document.
-func AppendByte(b byte) {
-	document = append(document, b)
+// AppendRune appends a UTF-8 encoded rune to the document.
+func AppendRune(r []byte) {
+	document = append(document, r...)
 	scope = Char
+
 	if len(buffer) == 0 {
 		cursor.char = uniseg.GraphemeClusterCount(string(document))
 	} else {
