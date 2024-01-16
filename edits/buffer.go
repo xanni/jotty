@@ -34,7 +34,10 @@ const (
 	Sent // Sentence
 	Para // Paragraph
 	Sect // Section
+	MaxScope
 )
+
+type counts [MaxScope]int
 
 var scope Scope
 
@@ -45,15 +48,14 @@ type line struct {
 
 var buffer []line
 var cursor struct {
-	char, word, sent, para int // current position in the document
-	x, y                   int // current position in the edit window
+	pos  counts // current position in the section/document
+	x, y int    // current position in the edit window
 }
 var document []byte
-var para = []int{0} // byte index of each paragraph in the document
-var sent = []int{0} // byte index of each sentence in the document
-var total struct {
-	chars, words, sents, paras int
-}
+var para = []int{0} // byte index of each paragraph in the section
+var sent = []int{0} // byte index of each sentence in the section
+var sect = []int{0} // byte index of each section in the document
+var total counts
 var win *nc.Window
 
 // AppendRune appends a UTF-8 encoded rune to the document.
@@ -62,9 +64,9 @@ func AppendRune(r []byte) {
 	scope = Char
 
 	if len(buffer) == 0 {
-		cursor.char = uniseg.GraphemeClusterCount(string(document))
+		cursor.pos[Char] = uniseg.GraphemeClusterCount(string(document))
 	} else {
-		cursor.char = buffer[cursor.y].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursor.y].bytes:]))
+		cursor.pos[Char] = buffer[cursor.y].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursor.y].bytes:]))
 		DrawWindow()
 	}
 }
@@ -100,17 +102,18 @@ func DrawCursor() {
 func DrawStatusBar() {
 	win.Move(Sy-1, 0)
 	win.ClearToBottom()
-	chars := "@" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
-	words := string(rune(CursorChar[Word])) + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words)
-	sents := string(rune(CursorChar[Sent])) + strconv.Itoa(cursor.sent) + "/" + strconv.Itoa(total.sents)
-	paras := string(rune(CursorChar[Para])) + strconv.Itoa(cursor.para) + "/" + strconv.Itoa(total.paras)
-	status := paras + " " + sents + " " + words + " " + chars
+	chars := "@" + strconv.Itoa(cursor.pos[Char]) + "/" + strconv.Itoa(total[Char])
+	words := string(rune(CursorChar[Word])) + strconv.Itoa(cursor.pos[Word]) + "/" + strconv.Itoa(total[Word])
+	sents := string(rune(CursorChar[Sent])) + strconv.Itoa(cursor.pos[Sent]) + "/" + strconv.Itoa(total[Sent])
+	paras := string(rune(CursorChar[Para])) + strconv.Itoa(cursor.pos[Para]) + "/" + strconv.Itoa(total[Para])
+	sects := string(rune(CursorChar[Sect])) + strconv.Itoa(cursor.pos[Sect]) + "/" + strconv.Itoa(total[Sect])
+	status := sects + ": " + paras + " " + sents + " " + words + " " + chars
 
 	var x int
-	if Sx >= len(ID)+2+len(status) {
+	if Sx >= len(ID)+1+len(status) {
 		win.MovePrint(Sy-1, 0, ID)
 		x = len(ID) + 2
-	} else if Sx < len(status) {
+	} else if Sx < len(status)-1 {
 		switch scope {
 		case Char:
 			status = chars
@@ -120,6 +123,8 @@ func DrawStatusBar() {
 			status = sents
 		case Para:
 			status = paras
+		case Sect:
+			status = sects
 		}
 	}
 
@@ -149,10 +154,10 @@ func DrawWindow() {
 	state := -1
 
 	for {
-		if cursor.char == l.chars {
-			cursor.word = l.words
-			cursor.sent = sort.Search(len(sent), func(i int) bool { return sent[i] >= l.bytes })
-			cursor.para = sort.Search(len(para), func(i int) bool { return para[i] >= l.bytes })
+		if cursor.pos[Char] == l.chars {
+			cursor.pos[Word] = l.words
+			cursor.pos[Sent] = sort.Search(len(sent), func(i int) bool { return sent[i] >= l.bytes })
+			cursor.pos[Para] = sort.Search(len(para), func(i int) bool { return para[i] >= l.bytes })
 			cursor.x = x
 			cursor.y = y
 			DrawCursor()
@@ -174,6 +179,17 @@ func DrawWindow() {
 			continue
 		}
 
+		w := f >> uniseg.ShiftWidth // monospace width of character
+		l.bytes += len(c)
+		if w > 0 || c[0] == '\n' || c[0] == '\f' {
+			l.chars++
+		}
+
+		// Is the first rune in the grapheme cluster alphanumeric?
+		if f&uniseg.MaskWord != 0 && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
+			l.words++
+		}
+
 		if len(source) > 0 && f&uniseg.MaskSentence != 0 && l.bytes > sent[len(sent)-1] {
 			sent = append(sent, l.bytes)
 		}
@@ -182,15 +198,13 @@ func DrawWindow() {
 			para = append(para, l.bytes)
 		}
 
-		w := f >> uniseg.ShiftWidth // monospace width of character
-		l.bytes += len(c)
-		if w > 0 || c[0] == '\n' {
-			l.chars++
-		}
-
-		// Is the first rune in the grapheme cluster alphanumeric?
-		if f&uniseg.MaskWord != 0 && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
-			l.words++
+		if c[0] == '\f' && l.bytes > sect[len(sect)-1] {
+			sect = append(sect, l.bytes)
+			l.chars = 0
+			l.words = 0
+			sent = []int{0}
+			para = []int{0}
+			cursor.pos[Sect]++
 		}
 
 		if w > 0 {
@@ -219,7 +233,10 @@ func DrawWindow() {
 			buffer[y].text = l.text
 			x = 0
 			y++
-			if c[0] == '\n' {
+			if c[0] == '\f' && y < Sy-1 {
+				win.HLine(y, 0, nc.ACS_HLINE, Sx-1)
+			}
+			if c[0] == '\f' || c[0] == '\n' {
 				y++
 			}
 			if y >= Sy-1 { // last line of the window
@@ -231,10 +248,7 @@ func DrawWindow() {
 		}
 	}
 
-	total.chars = l.chars
-	total.words = l.words
-	total.sents = len(sent)
-	total.paras = len(para)
+	total = counts{l.chars, l.words, len(sent), len(para), len(sect)}
 	DrawStatusBar()
 }
 
@@ -251,6 +265,7 @@ func drawResizeRequest() {
 
 func ResizeScreen() {
 	buffer = nil
+	cursor.pos[Sect] = 1
 	win = nc.StdScr()
 	win.Clear()
 
