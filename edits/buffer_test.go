@@ -59,11 +59,11 @@ func TestDecScope(t *testing.T) {
 
 		DecScope()
 		assert.Equal(t, Sect, scope)
-		assert.Equal(t, CursorChar[Sect]|nc.A_BLINK, win.MoveInChar(0, 0))
+		assert.Equal(t, nc.Char(cursorChar[Sect])|nc.A_BLINK, win.MoveInChar(0, 0))
 
 		DecScope()
 		assert.Equal(t, Para, scope)
-		assert.Equal(t, CursorChar[Para]|nc.A_BLINK, win.MoveInChar(0, 0))
+		assert.Equal(t, nc.Char(cursorChar[Para])|nc.A_BLINK, win.MoveInChar(0, 0))
 	})
 }
 
@@ -79,11 +79,11 @@ func TestIncScope(t *testing.T) {
 
 		IncScope()
 		assert.Equal(t, Char, scope)
-		assert.Equal(t, CursorChar[Char]|nc.A_BLINK, win.MoveInChar(0, 0))
+		assert.Equal(t, nc.Char(cursorChar[Char])|nc.A_BLINK, win.MoveInChar(0, 0))
 
 		IncScope()
 		assert.Equal(t, Word, scope)
-		assert.Equal(t, CursorChar[Word]|nc.A_BLINK, win.MoveInChar(0, 0))
+		assert.Equal(t, nc.Char(cursorChar[Word])|nc.A_BLINK, win.MoveInChar(0, 0))
 	})
 }
 
@@ -96,7 +96,7 @@ func TestDrawCursor(t *testing.T) {
 
 		scope = Char
 		DrawCursor()
-		assert.Equal(t, CursorChar[Char]|nc.A_BLINK, win.MoveInChar(0, 0))
+		assert.Equal(t, nc.Char(cursorChar[Char])|nc.A_BLINK, win.MoveInChar(0, 0))
 	})
 }
 
@@ -109,21 +109,20 @@ func TestDrawStatusBar(t *testing.T) {
 		Sy = 2
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		cc := rune(CursorChar[Char] | nc.A_BLINK)
-		assert.Equal(t, nc.Char('@'), win.MoveInChar(Sy-1, 0))
 
-		for scope = Word; scope <= Sect; scope++ {
+		for scope = Char; scope <= Sect; scope++ {
 			DrawStatusBar()
-			assert.Equal(t, CursorChar[scope], win.MoveInChar(Sy-1, 0))
+			assert.Equal(t, nc.Char(counterChar[scope]), win.MoveInChar(Sy-1, 0))
 		}
 
+		cc := rune(cursorChar[Char] | nc.A_BLINK)
 		scope = Char
 		Sx = 26
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
 			[]rune(string(cc) + strings.Repeat(" ", 25)),
-			[]rune("§1/1: ¶0/1 $0/1 #0/0 @0/0 "),
+			append([]rune("§1/1: ¶0/1 $0/1 #0/0 "), '@'|nc.A_BOLD, '0'|nc.A_BOLD, '/'|nc.A_BOLD, '0'|nc.A_BOLD, ' '),
 		})
 
 		Sx = 36
@@ -131,7 +130,8 @@ func TestDrawStatusBar(t *testing.T) {
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
 			[]rune(string(cc) + strings.Repeat(" ", 35)),
-			[]rune("Jotty v0  §1/1: ¶0/1 $0/1 #0/0 @0/0 "),
+			append([]rune("Jotty v0  §1/1: ¶0/1 $0/1 #0/0 "),
+				'@'|nc.A_BOLD, '0'|nc.A_BOLD, '/'|nc.A_BOLD, '0'|nc.A_BOLD, ' '),
 		})
 	})
 }
@@ -188,7 +188,7 @@ func TestDrawWindowLineBreak(t *testing.T) {
 		Sy = 3
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		cc := rune(CursorChar[Char] | nc.A_BLINK)
+		cc := rune(cursorChar[Char] | nc.A_BLINK)
 		test.AssertCellContents(t, [][]rune{
 			[]rune("lengt" + string('-'|nc.A_REVERSE)),
 			[]rune("h" + string(cc) + "    "),

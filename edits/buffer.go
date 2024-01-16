@@ -16,7 +16,8 @@ import (
 	nc "github.com/vit1251/go-ncursesw"
 )
 
-var CursorChar = [...]nc.Char{'_', '#', '$', '¶', '§'}
+var counterChar = [...]rune{'@', '#', '$', '¶', '§'}
+var cursorChar = [...]rune{'_', '#', '$', '¶', '§'}
 var cursorStyle = nc.A_BLINK
 var errorStyle = nc.ColorPair(1) | nc.A_REVERSE
 
@@ -78,6 +79,7 @@ func DecScope() {
 		scope--
 	}
 	DrawCursor()
+	DrawStatusBar()
 }
 
 func IncScope() {
@@ -87,14 +89,14 @@ func IncScope() {
 		scope++
 	}
 	DrawCursor()
+	DrawStatusBar()
 }
 
 // DrawCursor draws the cursor.
 func DrawCursor() {
 	win.AttrSet(nc.Char(cursorStyle))
-	win.MovePrint(cursor.y, cursor.x, string(rune(CursorChar[scope])))
+	win.MovePrint(cursor.y, cursor.x, string(cursorChar[scope]))
 	win.AttrSet(nc.A_NORMAL)
-	win.Move(cursor.y, cursor.x)
 	win.NoutRefresh()
 }
 
@@ -102,33 +104,37 @@ func DrawCursor() {
 func DrawStatusBar() {
 	win.Move(Sy-1, 0)
 	win.ClearToBottom()
-	chars := "@" + strconv.Itoa(cursor.pos[Char]) + "/" + strconv.Itoa(total[Char])
-	words := string(rune(CursorChar[Word])) + strconv.Itoa(cursor.pos[Word]) + "/" + strconv.Itoa(total[Word])
-	sents := string(rune(CursorChar[Sent])) + strconv.Itoa(cursor.pos[Sent]) + "/" + strconv.Itoa(total[Sent])
-	paras := string(rune(CursorChar[Para])) + strconv.Itoa(cursor.pos[Para]) + "/" + strconv.Itoa(total[Para])
-	sects := string(rune(CursorChar[Sect])) + strconv.Itoa(cursor.pos[Sect]) + "/" + strconv.Itoa(total[Sect])
-	status := sects + ": " + paras + " " + sents + " " + words + " " + chars
 
-	var x int
-	if Sx >= len(ID)+1+len(status) {
-		win.MovePrint(Sy-1, 0, ID)
-		x = len(ID) + 2
-	} else if Sx < len(status)-1 {
-		switch scope {
-		case Char:
-			status = chars
-		case Word:
-			status = words
-		case Sent:
-			status = sents
-		case Para:
-			status = paras
-		case Sect:
-			status = sects
+	var c [MaxScope]string // counters for each scope
+	var w int              // width of counters
+	for s := Char; s <= Sect; s++ {
+		c[s] = string(counterChar[s]) + strconv.Itoa(cursor.pos[s]) + "/" + strconv.Itoa(total[s])
+		w += utf8.RuneCountInString(c[s])
+	}
+
+	win.Move(Sy-1, 0)
+	if Sx >= len(ID)+w+6 {
+		win.Print(ID + "  ")
+	}
+
+	if Sx < w+6 {
+		win.Print(c[scope])
+	} else {
+		for s := Sect; s >= Char; s-- {
+			if s != scope {
+				win.Print(c[s])
+			} else {
+				win.AttrOn(nc.A_BOLD)
+				win.Print(c[s])
+				win.AttrOff(nc.A_BOLD)
+			}
+			if s == Sect {
+				win.AddChar(':')
+			}
+			win.AddChar(' ')
 		}
 	}
 
-	win.MovePrint(Sy-1, x, status)
 	win.Move(cursor.y, cursor.x)
 	win.NoutRefresh()
 }
