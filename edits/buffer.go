@@ -94,7 +94,7 @@ func DrawCursor() {
 func DrawStatusBar() {
 	win.Move(Sy-1, 0)
 	win.ClearToBottom()
-	chars := "c" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
+	chars := "@" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
 	words := string(rune(CursorChar[Word])) + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words)
 	sents := string(rune(CursorChar[Sent])) + strconv.Itoa(cursor.sent) + "/" + strconv.Itoa(total.sents)
 	status := sents + " " + words + " " + chars

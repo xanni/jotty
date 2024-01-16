@@ -109,7 +109,7 @@ func TestDrawStatusBar(t *testing.T) {
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		cc := rune(CursorChar[Char] | nc.A_BLINK)
-		assert.Equal(t, nc.Char('c'), win.MoveInChar(Sy-1, 0))
+		assert.Equal(t, nc.Char('@'), win.MoveInChar(Sy-1, 0))
 
 		scope = Word
 		DrawStatusBar()
@@ -125,7 +125,7 @@ func TestDrawStatusBar(t *testing.T) {
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
 			[]rune(string(cc) + "              "),
-			[]rune("$0/1 #0/0 c0/0 "),
+			[]rune("$0/1 #0/0 @0/0 "),
 		})
 
 		Sx = 25
@@ -133,7 +133,7 @@ func TestDrawStatusBar(t *testing.T) {
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
 			[]rune(string(cc) + "                        "),
-			[]rune("Jotty v0  $0/1 #0/0 c0/0 "),
+			[]rune("Jotty v0  $0/1 #0/0 @0/0 "),
 		})
 	})
 }
@@ -194,7 +194,7 @@ func TestDrawWindowLineBreak(t *testing.T) {
 		test.AssertCellContents(t, [][]rune{
 			[]rune("lengt" + string('-'|nc.A_REVERSE)),
 			[]rune("h" + string(cc) + "    "),
-			[]rune("c6/6  "),
+			[]rune("@6/6  "),
 		})
 		assert.Equal(t, "lengt", string(buffer[0].text))
 		assert.Equal(t, "h", string(buffer[1].text))

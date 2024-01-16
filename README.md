@@ -260,7 +260,7 @@ When an entry in the cut buffer is selected with the "next" and "previous" actio
 
 The last line of the screen should be reserved for a status line which should show the following information:  The name and version of the program, the current and total number of sections, the current and total number of paragraphs in the current section, the current and total number of sentences in the current section, the current and total number of words in the current section and the current and total number of characters in the current section.  The current scope unit will be highlighted.  The right side of the status line can optionally display a message like "F1=Help".  If the status area is not long enough to display all the information, the help message can be omitted, then the program name and version, and finally only the section information and the current scope unit information can be displayed, or ultimately only the current scope unit information.
 
-`Jotty v0  §0/0: ¶0/0 $0/0 #0/0 c0/0`
+`Jotty v0  §0/0 ¶0/0 $0/0 #0/0 @0/0`
 
 ## Internal data representation
 
