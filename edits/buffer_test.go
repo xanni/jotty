@@ -1,6 +1,7 @@
 package edits
 
 import (
+	"strings"
 	"testing"
 
 	"git.sericyb.com.au/jotty/test"
@@ -119,21 +120,25 @@ func TestDrawStatusBar(t *testing.T) {
 		DrawStatusBar()
 		assert.Equal(t, CursorChar[Sent], win.MoveInChar(Sy-1, 0))
 
+		scope = Para
+		DrawStatusBar()
+		assert.Equal(t, CursorChar[Para], win.MoveInChar(Sy-1, 0))
+
 		scope = Char
-		Sx = 15
+		Sx = 20
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
-			[]rune(string(cc) + "              "),
-			[]rune("$0/1 #0/0 @0/0 "),
+			[]rune(string(cc) + strings.Repeat(" ", 19)),
+			[]rune("¶0/1 $0/1 #0/0 @0/0 "),
 		})
 
-		Sx = 25
+		Sx = 30
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
-			[]rune(string(cc) + "                        "),
-			[]rune("Jotty v0  $0/1 #0/0 @0/0 "),
+			[]rune(string(cc) + strings.Repeat(" ", 29)),
+			[]rune("Jotty v0  ¶0/1 $0/1 #0/0 @0/0 "),
 		})
 	})
 }
@@ -209,14 +214,16 @@ func TestDrawWindowParagraph(t *testing.T) {
 		scope = Char
 		ID = "Jotty v0"
 		Sx = 30
-		Sy = 3
+		Sy = 4
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
-		assert.Equal(t, "Oi oi oi!", string(buffer[1].text))
+		assert.Equal(t, "", string(buffer[1].text))
+		assert.Equal(t, "Oi oi oi!", string(buffer[2].text))
 		assert.Equal(t, 34, total.chars)
 		assert.Equal(t, 6, total.words)
 		assert.Equal(t, 2, total.sents)
+		assert.Equal(t, 2, total.paras)
 	})
 }
 

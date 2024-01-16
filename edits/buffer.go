@@ -1,5 +1,10 @@
 package edits
 
+/*
+Implements the buffer that represents the visible user interface elements
+of the edits window and status line.
+*/
+
 import (
 	"sort"
 	"strconv"
@@ -40,13 +45,14 @@ type line struct {
 
 var buffer []line
 var cursor struct {
-	char, word, sent int // current character, word and sentence in the document
-	x, y             int // current position in the edit window
+	char, word, sent, para int // current position in the document
+	x, y                   int // current position in the edit window
 }
 var document []byte
+var para = []int{0} // byte index of each paragraph in the document
 var sent = []int{0} // byte index of each sentence in the document
 var total struct {
-	chars, words, sents int
+	chars, words, sents, paras int
 }
 var win *nc.Window
 
@@ -97,7 +103,8 @@ func DrawStatusBar() {
 	chars := "@" + strconv.Itoa(cursor.char) + "/" + strconv.Itoa(total.chars)
 	words := string(rune(CursorChar[Word])) + strconv.Itoa(cursor.word) + "/" + strconv.Itoa(total.words)
 	sents := string(rune(CursorChar[Sent])) + strconv.Itoa(cursor.sent) + "/" + strconv.Itoa(total.sents)
-	status := sents + " " + words + " " + chars
+	paras := string(rune(CursorChar[Para])) + strconv.Itoa(cursor.para) + "/" + strconv.Itoa(total.paras)
+	status := paras + " " + sents + " " + words + " " + chars
 
 	var x int
 	if Sx >= len(ID)+2+len(status) {
@@ -111,6 +118,8 @@ func DrawStatusBar() {
 			status = words
 		case Sent:
 			status = sents
+		case Para:
+			status = paras
 		}
 	}
 
@@ -143,6 +152,7 @@ func DrawWindow() {
 		if cursor.char == l.chars {
 			cursor.word = l.words
 			cursor.sent = sort.Search(len(sent), func(i int) bool { return sent[i] >= l.bytes })
+			cursor.para = sort.Search(len(para), func(i int) bool { return para[i] >= l.bytes })
 			cursor.x = x
 			cursor.y = y
 			DrawCursor()
@@ -166,6 +176,10 @@ func DrawWindow() {
 
 		if len(source) > 0 && f&uniseg.MaskSentence != 0 && l.bytes > sent[len(sent)-1] {
 			sent = append(sent, l.bytes)
+		}
+
+		if c[0] == '\n' && l.bytes > para[len(para)-1] {
+			para = append(para, l.bytes)
 		}
 
 		w := f >> uniseg.ShiftWidth // monospace width of character
@@ -203,12 +217,15 @@ func DrawWindow() {
 			}
 
 			buffer[y].text = l.text
-			if y >= Sy-2 { // last line of the window
+			x = 0
+			y++
+			if c[0] == '\n' {
+				y++
+			}
+			if y >= Sy-1 { // last line of the window
 				break // TODO scroll
 			}
 
-			x = 0
-			y++
 			buffer[y] = line{bytes: l.bytes, chars: l.chars, words: l.words}
 			l.text = nil
 		}
@@ -217,6 +234,7 @@ func DrawWindow() {
 	total.chars = l.chars
 	total.words = l.words
 	total.sents = len(sent)
+	total.paras = len(para)
 	DrawStatusBar()
 }
 
