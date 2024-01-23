@@ -197,15 +197,53 @@ func TestDrawWindowLineBreak(t *testing.T) {
 		assert.Equal(t, "lengt", string(buffer[0].text))
 		assert.Equal(t, "h", string(buffer[1].text))
 		assert.Equal(t, 1, total[Word])
+
+		document = []byte("length +")
+		Sx = 8
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		test.AssertCellContents(t, [][]rune{
+			[]rune("length" + string(cc) + " "),
+			[]rune("+       "),
+			[]rune("@6/8    "),
+		})
+		assert.Equal(t, "length ", string(buffer[0].text))
+		assert.Equal(t, "+", string(buffer[1].text))
+		assert.Equal(t, 1, total[Word])
+	})
+}
+
+func TestDrawWindowSentence(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		cursor.pos[Char] = 0
+		document = []byte("This is a sentence.")
+		ID = "J"
+		Sx = 30
+		Sy = 2
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+		assert.Equal(t, "This is a sentence.", string(buffer[0].text))
+		assert.Equal(t, []int{0}, sent)
+		assert.Equal(t, counts{19, 4, 1, 1, 1}, total)
+
+		document = append(document, []byte(" More")...)
+		DrawWindow()
+		assert.Equal(t, "This is a sentence. More", string(buffer[0].text))
+		assert.Equal(t, []int{0, 20}, sent)
+		assert.Equal(t, counts{24, 5, 2, 1, 1}, total)
+
+		DrawWindow()
+		assert.Equal(t, []int{0, 20}, sent)
 	})
 }
 
 func TestDrawWindowParagraph(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		cursor.pos[Char] = 30
+		cursor.pos[Char] = 0
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie\nOi oi oi!")
 		scope = Char
-		ID = "Jotty v0"
+		sent = []int{0}
+		ID = "J"
 		Sx = 30
 		Sy = 4
 		nc.ResizeTerm(Sy, Sx)
@@ -213,7 +251,11 @@ func TestDrawWindowParagraph(t *testing.T) {
 		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
 		assert.Equal(t, "", string(buffer[1].text))
 		assert.Equal(t, "Oi oi oi!", string(buffer[2].text))
+		assert.Equal(t, []int{0, 32}, para)
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
+
+		DrawWindow()
+		assert.Equal(t, []int{0, 32}, para)
 	})
 }
 
@@ -222,15 +264,20 @@ func TestDrawWindowSection(t *testing.T) {
 		cursor.pos[Char] = 30
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie\fOi oi oi!")
 		scope = Char
-		ID = "Jotty v0"
+		ID = "J"
 		Sx = 30
 		Sy = 4
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
+		assert.Equal(t, nc.Char(nc.ACS_HLINE), win.MoveInChar(1, 0))
 		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
 		assert.Equal(t, "", string(buffer[1].text))
 		assert.Equal(t, "Oi oi oi!", string(buffer[2].text))
 		assert.Equal(t, counts{9, 3, 1, 1, 2}, total)
+
+		document = append(document, '\f')
+		DrawWindow()
+		assert.Equal(t, counts{0, 0, 1, 1, 3}, total)
 	})
 }
 
@@ -242,11 +289,13 @@ func TestDrawWindowTooSmall(t *testing.T) {
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{{rune('<' | errorStyle), rune('>' | errorStyle)}})
 
-		Sx = 4
+		Sx = 6
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{
 			{rune('<' | errorStyle),
+				rune('-' | errorStyle),
+				rune('-' | errorStyle),
 				rune('-' | errorStyle),
 				rune('-' | errorStyle),
 				rune('>' | errorStyle)},
@@ -256,11 +305,167 @@ func TestDrawWindowTooSmall(t *testing.T) {
 
 func TestResizeScreen(t *testing.T) {
 	test.WithSimScreen(t, func() {
+		Sx = 2
+		Sy = 0
+		nc.ResizeTerm(Sy, Sx)
+		assert.NotPanics(t, func() { ResizeScreen() })
+
 		Sx = 1
 		Sy = 1
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		assert.Nil(t, buffer)
 		test.AssertCellContents(t, [][]rune{{' '}})
+	})
+}
+
+func TestSpace(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		Sx = 1
+		Sy = 1
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+
+		document = nil
+		assert.NotPanics(t, func() { Space() })
+		assert.Nil(t, document)
+
+		document = []byte("Test")
+		Space()
+		assert.Equal(t, "Test ", string(document))
+		assert.Equal(t, scope, Word)
+
+		Space()
+		assert.Equal(t, "Test. ", string(document))
+		assert.Equal(t, scope, Sent)
+
+		Space()
+		assert.Equal(t, "Test.\n", string(document))
+		assert.Equal(t, scope, Para)
+
+		Space()
+		assert.Equal(t, "Test.\f", string(document))
+		assert.Equal(t, scope, Sect)
+
+		Space()
+		assert.Equal(t, "Test.\f", string(document))
+		assert.Equal(t, scope, Sect)
+
+		document = []byte("Test,")
+		scope = Word
+		Space()
+		assert.Equal(t, "Test, ", string(document))
+		assert.Equal(t, scope, Sent)
+
+		document = []byte("Test.")
+		scope = Sent
+		Space()
+		assert.Equal(t, "Test.\n", string(document))
+		assert.Equal(t, scope, Para)
+
+		document = []byte("Test.")
+		Space()
+		assert.Equal(t, "Test.\f", string(document))
+		assert.Equal(t, scope, Sect)
+
+		document = []byte("Test\n")
+		scope = Para
+		Space()
+		assert.Equal(t, 0, cursor.y)
+		assert.Equal(t, "Test\f", string(document))
+		assert.Equal(t, scope, Sect)
+	})
+}
+
+func TestSpaceAfterSpace(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		Sx = 1
+		Sy = 1
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+
+		document = []byte("Test, ")
+		scope = Char
+		Space()
+		assert.Equal(t, "Test, ", string(document))
+		assert.Equal(t, scope, Word)
+
+		Space()
+		assert.Equal(t, "Test, ", string(document))
+		assert.Equal(t, scope, Sent)
+
+		document = []byte("Test\n")
+		scope = Char
+		Space()
+		assert.Equal(t, "Test\n", string(document))
+		assert.Equal(t, scope, Word)
+
+		Space()
+		assert.Equal(t, "Test\n", string(document))
+		assert.Equal(t, scope, Sent)
+
+		document = []byte("Test\f")
+		scope = Char
+		Space()
+		assert.Equal(t, "Test\f", string(document))
+		assert.Equal(t, scope, Word)
+
+		Space()
+		assert.Equal(t, "Test\f", string(document))
+		assert.Equal(t, scope, Sent)
+
+	})
+}
+
+func TestEnter(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		Sx = 1
+		Sy = 1
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+
+		document = nil
+		scope = Char
+		assert.NotPanics(t, func() { Enter() })
+		assert.Nil(t, document)
+
+		document = []byte("Test.")
+		Enter()
+		assert.Equal(t, "Test.\n", string(document))
+		assert.Equal(t, scope, Para)
+
+		Enter()
+		assert.Equal(t, "Test.\f", string(document))
+		assert.Equal(t, scope, Sect)
+
+		Enter()
+		assert.Equal(t, "Test.\f", string(document))
+		assert.Equal(t, scope, Sect)
+
+		document = []byte("Test ")
+		scope = Word
+		Enter()
+		assert.Equal(t, "Test\n", string(document))
+		assert.Equal(t, scope, Para)
+
+		Sx = margin + 1
+		Sy = 4
+		nc.ResizeTerm(Sy, Sx)
+		cursor.pos[Char] = 5
+		ResizeScreen()
+		assert.Equal(t, 2, cursor.y)
+
+		Enter()
+		cursor.pos[Char] = 0
+		cursor.pos[Sect] = 1
+		assert.Equal(t, 2, cursor.y)
+		assert.Equal(t, "Test\f", string(document))
+		assert.Equal(t, scope, Sect)
+
+		document = []byte("Test.")
+		scope = Para
+		Enter()
+		assert.Equal(t, "Test.\f", string(document))
+		assert.Equal(t, scope, Sect)
 	})
 }

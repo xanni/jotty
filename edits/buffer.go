@@ -175,9 +175,8 @@ func DrawWindow() {
 			break
 		}
 
-		var c []byte   // grapheme cluster
-		var f int      // Unicode boundary flags
-		var seg []byte // next breakable segment
+		var c []byte // grapheme cluster
+		var f int    // Unicode boundary flags
 
 		c, source, f, state = uniseg.Step(source, state)
 		r, _ := utf8.DecodeRune(c)
@@ -187,12 +186,12 @@ func DrawWindow() {
 
 		w := f >> uniseg.ShiftWidth // monospace width of character
 		l.bytes += len(c)
-		if w > 0 || c[0] == '\n' || c[0] == '\f' {
+		if w > 0 || c[0] == '\n' {
 			l.chars++
 		}
 
 		// Is the first rune in the grapheme cluster alphanumeric?
-		if f&uniseg.MaskWord != 0 && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
+		if f&uniseg.MaskWord != 0 && unicode.In(r, unicode.L, unicode.N) {
 			l.words++
 		}
 
@@ -204,13 +203,15 @@ func DrawWindow() {
 			para = append(para, l.bytes)
 		}
 
-		if c[0] == '\f' && l.bytes > sect[len(sect)-1] {
-			sect = append(sect, l.bytes)
+		if c[0] == '\f' {
+			if l.bytes > sect[len(sect)-1] {
+				sect = append(sect, l.bytes)
+			}
 			l.chars = 0
 			l.words = 0
 			sent = []int{0}
 			para = []int{0}
-			cursor.pos[Sect]++
+			cursor.pos = counts{0, 0, 0, 0, cursor.pos[Sect] + 1}
 		}
 
 		if w > 0 {
@@ -219,8 +220,8 @@ func DrawWindow() {
 			x += w
 		}
 
-		seg, _, _, _ = uniseg.FirstLineSegment(source, -1)
-		nw := uniseg.StringWidth(string(seg)) // width of next breakable segment
+		seg, _, _, _ := uniseg.FirstLineSegment(source, -1) // next breakable segment
+		nw := uniseg.StringWidth(string(seg))               // width of next breakable segment
 
 		// Break if at margin or mandatory break that is not just end of source
 		f &= uniseg.MaskLine
@@ -229,7 +230,7 @@ func DrawWindow() {
 			(f == uniseg.LineMustBreak && (len(source) > 0 || uniseg.HasTrailingLineBreak(document)))
 
 		if br {
-			if x == Sx-1 && f != uniseg.LineCanBreak {
+			if x >= Sx-1 && f != uniseg.LineCanBreak {
 				win.MoveAddChar(y, x, '-'|nc.A_REVERSE)
 			} else {
 				win.Move(y, x)
@@ -242,7 +243,7 @@ func DrawWindow() {
 			if c[0] == '\f' && y < Sy-1 {
 				win.HLine(y, 0, nc.ACS_HLINE, Sx-1)
 			}
-			if c[0] == '\f' || c[0] == '\n' {
+			if c[0] == '\n' || c[0] == '\f' {
 				y++
 			}
 			if y >= Sy-1 { // last line of the window
@@ -280,4 +281,76 @@ func ResizeScreen() {
 	} else {
 		drawResizeRequest()
 	}
+}
+
+func Space() {
+	i := len(document) - 1
+	if scope == Sect || i < 0 {
+		return
+	}
+
+	lb := document[i]
+	switch scope {
+	case Char:
+		if lb != ' ' && lb != '\n' && lb != '\f' {
+			AppendRune([]byte{' '})
+		}
+		scope = Word
+	case Word:
+		if lb != ' ' && lb != '\n' && lb != '\f' {
+			AppendRune([]byte{' '})
+		}
+		if lb == ' ' {
+			lr, _ := utf8.DecodeLastRune(document[:i])
+			if unicode.In(lr, unicode.L, unicode.N) { // alphanumeric
+				document[i] = '.'
+				AppendRune([]byte{' '})
+			}
+		}
+		scope = Sent
+	case Sent:
+		if lb == ' ' {
+			document = document[:i]
+		}
+		AppendRune([]byte{'\n'})
+		scope = Para
+	default: // Para because Sect has already been excluded above
+		if lb == '\n' {
+			document = document[:i]
+			if cursor.y > 1 {
+				cursor.y -= 2
+			}
+		}
+		AppendRune([]byte{'\f'})
+		scope = Sect
+	}
+	DrawCursor()
+	DrawStatusBar()
+}
+
+func Enter() {
+	i := len(document) - 1
+	if scope == Sect || i < 0 {
+		return
+	}
+
+	lb := document[i]
+	if scope <= Sent {
+		if lb == ' ' {
+			document = document[:i]
+		}
+		AppendRune([]byte{'\n'})
+		scope = Para
+	} else { // scope == Para
+		if lb == '\n' {
+			document = document[:i]
+			if cursor.y > 1 {
+				cursor.y -= 2
+			}
+		}
+		AppendRune([]byte{'\f'})
+		scope = Sect
+	}
+	DrawCursor()
+	DrawStatusBar()
 }

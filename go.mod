@@ -3,7 +3,7 @@ module git.sericyb.com.au/jotty
 go 1.21.6
 
 require (
-	github.com/rivo/uniseg v0.4.4
+	github.com/rivo/uniseg v0.4.5-0.20230909130337-3628fa14e3cd
 	github.com/stretchr/testify v1.8.4
 	github.com/vit1251/go-ncursesw v0.0.0-20211216195139-e61a3c4242a5
 	golang.org/x/term v0.16.0

@@ -87,7 +87,11 @@ func main() {
 				edits.IncScope()
 			case key == nc.KEY_DOWN:
 				edits.DecScope()
-			case key >= 32 && key <= 255:
+			case key == nc.KEY_RETURN || key == nc.KEY_ENTER:
+				edits.Enter()
+			case key == ' ':
+				edits.Space()
+			case key > 32 && key <= 255:
 				crune = append(crune, byte(key))
 				r, _ := utf8.DecodeLastRune(crune)
 				if r != utf8.RuneError {
