@@ -39,12 +39,13 @@ func main() {
 	}
 	win := nc.StdScr()
 
-	nc.Raw(true)                            // turn on raw "uncooked" input
-	nc.Echo(false)                          // turn echoing of typed characters off
+	nc.Raw(true)                            // enable raw "uncooked" input
+	nc.Echo(false)                          // disable echoing of input characters
 	nc.StartColor()                         // enable color if available, ignore error if not
 	nc.InitPair(1, nc.C_YELLOW, nc.C_BLACK) // errors are black on yellow like caution tape
 	win.Keypad(true)                        // enable function keys
-	win.Timeout(100)                        // 100ms timeout to ensure SIGWINCH gets processed
+	win.ScrollOk(true)
+	win.Timeout(100) // 100ms timeout to ensure SIGWINCH gets processed
 
 	quit := func() {
 		// Shutdown ncurses and restore the terminal before printing any diagnostics

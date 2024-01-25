@@ -12,7 +12,7 @@ import (
 var file, _ = os.OpenFile("/dev/null", os.O_RDWR, 0666)
 
 func WithSimScreen(t *testing.T, f func()) {
-	s, err := nc.NewTerm("", file, file)
+	s, err := nc.NewTerm("ansi", file, file)
 	require.NoError(t, err)
 	defer s.Delete()
 	defer s.End()

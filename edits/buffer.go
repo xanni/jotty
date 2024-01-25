@@ -139,6 +139,21 @@ func DrawStatusBar() {
 	win.NoutRefresh()
 }
 
+func scrollUp(lines int) {
+	if lines > Sy-1 {
+		lines = Sy - 1
+	}
+
+	win.Move(Sy-1, 0)
+	win.ClearToBottom() // Erase the status line before scrolling
+	win.Scroll(lines)
+	buffer = append(buffer[lines:], make([]line, lines)...)
+	cursor.y -= lines
+	if cursor.y < 0 {
+		cursor.y = 0
+	}
+}
+
 /*
 DrawWindow draws the edit window.
 
@@ -147,6 +162,10 @@ the line the cursor is on and ending at the last line of the edit window
 or the end of the document, whichever comes first.
 */
 func DrawWindow() {
+	if Sx <= margin || Sy <= 1 {
+		return
+	}
+
 	var l line   // current line with cumulative counts
 	var x, y int // current screen coordinates
 
@@ -247,7 +266,9 @@ func DrawWindow() {
 				y++
 			}
 			if y >= Sy-1 { // last line of the window
-				break // TODO scroll
+				lines := (y + 2) - Sy
+				scrollUp(lines)
+				y -= lines
 			}
 
 			buffer[y] = line{bytes: l.bytes, chars: l.chars, words: l.words}
@@ -283,6 +304,31 @@ func ResizeScreen() {
 	}
 }
 
+func appendParaBreak() {
+	i := len(document) - 1
+	if document[i] != ' ' {
+		AppendRune([]byte{'\n'})
+	} else {
+		document[i] = '\n'
+		DrawWindow()
+	}
+	scope = Para
+}
+
+func appendSectBreak() {
+	i := len(document) - 1
+	if document[i] != '\n' {
+		AppendRune([]byte{'\f'})
+	} else {
+		document[i] = '\f'
+		if cursor.y > 1 {
+			cursor.y -= 2
+		}
+		DrawWindow()
+	}
+	scope = Sect
+}
+
 func Space() {
 	i := len(document) - 1
 	if scope == Sect || i < 0 {
@@ -309,47 +355,23 @@ func Space() {
 		}
 		scope = Sent
 	case Sent:
-		if lb == ' ' {
-			document = document[:i]
-		}
-		AppendRune([]byte{'\n'})
-		scope = Para
+		appendParaBreak()
 	default: // Para because Sect has already been excluded above
-		if lb == '\n' {
-			document = document[:i]
-			if cursor.y > 1 {
-				cursor.y -= 2
-			}
-		}
-		AppendRune([]byte{'\f'})
-		scope = Sect
+		appendSectBreak()
 	}
 	DrawCursor()
 	DrawStatusBar()
 }
 
 func Enter() {
-	i := len(document) - 1
-	if scope == Sect || i < 0 {
+	if scope == Sect || len(document) == 0 {
 		return
 	}
 
-	lb := document[i]
 	if scope <= Sent {
-		if lb == ' ' {
-			document = document[:i]
-		}
-		AppendRune([]byte{'\n'})
-		scope = Para
+		appendParaBreak()
 	} else { // scope == Para
-		if lb == '\n' {
-			document = document[:i]
-			if cursor.y > 1 {
-				cursor.y -= 2
-			}
-		}
-		AppendRune([]byte{'\f'})
-		scope = Sect
+		appendSectBreak()
 	}
 	DrawCursor()
 	DrawStatusBar()

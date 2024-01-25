@@ -143,7 +143,7 @@ func TestDrawWindow(t *testing.T) {
 		scope = Char
 		ID = "J"
 		Sx = 6
-		Sy = 2
+		Sy = 3
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		assert.Equal(t, "🇦🇺", string(buffer[0].text))
@@ -161,8 +161,9 @@ func TestDrawWindow(t *testing.T) {
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie")
 		DrawWindow()
 		assert.Equal(t, "🇦🇺 Aussie, Aussie, ", string(buffer[0].text))
-		assert.Equal(t, 18, total[Char])
-		assert.Equal(t, 2, total[Word])
+		assert.Equal(t, "Aussie", string(buffer[1].text))
+		assert.Equal(t, 24, total[Char])
+		assert.Equal(t, 3, total[Word])
 	})
 }
 
@@ -281,6 +282,23 @@ func TestDrawWindowSection(t *testing.T) {
 	})
 }
 
+func TestDrawWindowScroll(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		cursor.pos[Char] = 13
+		document = []byte("Scroll test: ")
+		ID = "J"
+		Sx = 12
+		Sy = 3
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+
+		document = append(document, []byte("line 3")...)
+		DrawWindow()
+		assert.Equal(t, "test: ", string(buffer[0].text))
+		assert.Equal(t, "line 3", string(buffer[1].text))
+	})
+}
+
 func TestDrawWindowTooSmall(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		Sx = 2
@@ -288,6 +306,8 @@ func TestDrawWindowTooSmall(t *testing.T) {
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		test.AssertCellContents(t, [][]rune{{rune('<' | errorStyle), rune('>' | errorStyle)}})
+
+		assert.NotPanics(t, func() { DrawWindow() })
 
 		Sx = 6
 		nc.ResizeTerm(Sy, Sx)
@@ -300,6 +320,8 @@ func TestDrawWindowTooSmall(t *testing.T) {
 				rune('-' | errorStyle),
 				rune('>' | errorStyle)},
 		})
+
+		assert.NotPanics(t, func() { DrawWindow() })
 	})
 }
 
@@ -321,12 +343,12 @@ func TestResizeScreen(t *testing.T) {
 
 func TestSpace(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		Sx = 1
-		Sy = 1
+		cursor.pos[Char] = 0
+		document = nil
+		Sx = margin + 1
+		Sy = 2
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-
-		document = nil
 		assert.NotPanics(t, func() { Space() })
 		assert.Nil(t, document)
 
@@ -368,10 +390,12 @@ func TestSpace(t *testing.T) {
 		assert.Equal(t, "Test.\f", string(document))
 		assert.Equal(t, scope, Sect)
 
+		buffer = nil
 		document = []byte("Test\n")
 		scope = Para
+		Sy = 3
 		Space()
-		assert.Equal(t, 0, cursor.y)
+		assert.Equal(t, 1, cursor.y)
 		assert.Equal(t, "Test\f", string(document))
 		assert.Equal(t, scope, Sect)
 	})
@@ -419,12 +443,13 @@ func TestSpaceAfterSpace(t *testing.T) {
 
 func TestEnter(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		Sx = 1
-		Sy = 1
+		cursor.pos[Char] = 0
+		document = nil
+		Sx = margin + 1
+		Sy = 2
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 
-		document = nil
 		scope = Char
 		assert.NotPanics(t, func() { Enter() })
 		assert.Nil(t, document)
@@ -442,13 +467,13 @@ func TestEnter(t *testing.T) {
 		assert.Equal(t, "Test.\f", string(document))
 		assert.Equal(t, scope, Sect)
 
+		buffer = nil
 		document = []byte("Test ")
 		scope = Word
 		Enter()
 		assert.Equal(t, "Test\n", string(document))
 		assert.Equal(t, scope, Para)
 
-		Sx = margin + 1
 		Sy = 4
 		nc.ResizeTerm(Sy, Sx)
 		cursor.pos[Char] = 5
@@ -456,12 +481,12 @@ func TestEnter(t *testing.T) {
 		assert.Equal(t, 2, cursor.y)
 
 		Enter()
-		cursor.pos[Char] = 0
-		cursor.pos[Sect] = 1
 		assert.Equal(t, 2, cursor.y)
 		assert.Equal(t, "Test\f", string(document))
 		assert.Equal(t, scope, Sect)
 
+		cursor.pos[Char] = 0
+		cursor.pos[Sect] = 1
 		document = []byte("Test.")
 		scope = Para
 		Enter()
