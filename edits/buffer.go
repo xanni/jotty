@@ -38,9 +38,9 @@ const (
 	MaxScope
 )
 
-type counts [MaxScope]int
-
 var scope Scope
+
+type counts [MaxScope]int
 
 type line struct {
 	bytes, chars, words int // cumulative counts at start of line
@@ -53,15 +53,22 @@ var cursor struct {
 	x, y int    // current position in the edit window
 }
 var document []byte
-var para = []int{0} // byte index of each paragraph in the section
-var sent = []int{0} // byte index of each sentence in the section
-var sect = []int{0} // byte index of each section in the document
+var initialCap = true // initial capital at the start of a sentence
+var para = []int{0}   // byte index of each paragraph in the section
+var sent = []int{0}   // byte index of each sentence in the section
+var sect = []int{0}   // byte index of each section in the document
 var total counts
 var win *nc.Window
 
 // AppendRune appends a UTF-8 encoded rune to the document.
-func AppendRune(r []byte) {
-	document = append(document, r...)
+func AppendRune(rb []byte) {
+	r, _ := utf8.DecodeRune(rb)
+	if initialCap && unicode.IsLower(r) {
+		rb = []byte(string(unicode.ToUpper(r)))
+	}
+
+	document = append(document, rb...)
+	initialCap = false
 	scope = Char
 
 	if len(buffer) == 0 {
@@ -78,6 +85,11 @@ func DecScope() {
 	} else {
 		scope--
 	}
+
+	if scope < Sent {
+		initialCap = false
+	}
+
 	DrawCursor()
 	DrawStatusBar()
 }
@@ -85,17 +97,24 @@ func DecScope() {
 func IncScope() {
 	if scope == Sect {
 		scope = Char
+		initialCap = false
 	} else {
 		scope++
 	}
+
 	DrawCursor()
 	DrawStatusBar()
 }
 
 // DrawCursor draws the cursor.
 func DrawCursor() {
+	cc := '↑'
+	if !initialCap {
+		cc = cursorChar[scope]
+	}
+
 	win.AttrSet(nc.Char(cursorStyle))
-	win.MovePrint(cursor.y, cursor.x, string(cursorChar[scope]))
+	win.MovePrint(cursor.y, cursor.x, string(cc))
 	win.AttrSet(nc.A_NORMAL)
 	win.NoutRefresh()
 }
@@ -338,10 +357,15 @@ func Space() {
 	lb := document[i]
 	switch scope {
 	case Char:
+		lr, _ := utf8.DecodeLastRune(document)
 		if lb != ' ' && lb != '\n' && lb != '\f' {
 			AppendRune([]byte{' '})
 		}
-		scope = Word
+		if unicode.Is(unicode.Sentence_Terminal, lr) {
+			scope = Sent
+		} else {
+			scope = Word
+		}
 	case Word:
 		if lb != ' ' && lb != '\n' && lb != '\f' {
 			AppendRune([]byte{' '})
@@ -359,6 +383,8 @@ func Space() {
 	default: // Para because Sect has already been excluded above
 		appendSectBreak()
 	}
+
+	initialCap = scope >= Sent
 	DrawCursor()
 	DrawStatusBar()
 }
@@ -373,6 +399,8 @@ func Enter() {
 	} else { // scope == Para
 		appendSectBreak()
 	}
+
+	initialCap = true
 	DrawCursor()
 	DrawStatusBar()
 }

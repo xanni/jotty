@@ -25,6 +25,12 @@ func TestAppendRune(t *testing.T) {
 		assert.Equal(t, []byte("•ü"), document)
 		assert.Equal(t, Char, scope)
 		assert.Equal(t, 2, cursor.pos[Char])
+
+		initialCap = true
+		AppendRune([]byte("å"))
+		assert.Equal(t, []byte("•üÅ"), document)
+		assert.Equal(t, Char, scope)
+		assert.Equal(t, 3, cursor.pos[Char])
 	})
 }
 
@@ -57,13 +63,24 @@ func TestDecScope(t *testing.T) {
 		document = nil
 		ResizeScreen()
 
+		initialCap = false
+		scope = Char
 		DecScope()
 		assert.Equal(t, Sect, scope)
 		assert.Equal(t, nc.Char(cursorChar[Sect])|nc.A_BLINK, win.MoveInChar(0, 0))
 
+		initialCap = true
 		DecScope()
 		assert.Equal(t, Para, scope)
-		assert.Equal(t, nc.Char(cursorChar[Para])|nc.A_BLINK, win.MoveInChar(0, 0))
+		assert.True(t, initialCap)
+
+		DecScope()
+		assert.Equal(t, Sent, scope)
+		assert.True(t, initialCap)
+
+		DecScope()
+		assert.Equal(t, Word, scope)
+		assert.False(t, initialCap)
 	})
 }
 
@@ -75,8 +92,9 @@ func TestIncScope(t *testing.T) {
 		cursor.pos[Char] = 0
 		document = nil
 		ResizeScreen()
-		scope = Sect
 
+		initialCap = false
+		scope = Sect
 		IncScope()
 		assert.Equal(t, Char, scope)
 		assert.Equal(t, nc.Char(cursorChar[Char])|nc.A_BLINK, win.MoveInChar(0, 0))
@@ -380,7 +398,11 @@ func TestSpace(t *testing.T) {
 		assert.Equal(t, scope, Sent)
 
 		document = []byte("Test.")
-		scope = Sent
+		scope = Char
+		Space()
+		assert.Equal(t, "Test. ", string(document))
+		assert.Equal(t, scope, Sent)
+
 		Space()
 		assert.Equal(t, "Test.\n", string(document))
 		assert.Equal(t, scope, Para)
