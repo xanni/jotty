@@ -14,7 +14,7 @@ import (
 
 const version = "0"
 
-const CTRL_Q, CTRL_W = '\x11', '\x17'
+const CTRL_D, CTRL_Q, CTRL_U, CTRL_W = '\x04', '\x11', '\x15', '\x17'
 
 func resize(s *nc.Screen) {
 	s.End() // The old screen must be closed to re-initialise ncurses
@@ -92,6 +92,14 @@ func main() {
 				edits.Enter()
 			case key == ' ':
 				edits.Space()
+			case key == nc.KEY_LEFT:
+				edits.Left()
+			case key == nc.KEY_RIGHT:
+				edits.Right()
+			case key == nc.KEY_HOME || key == CTRL_U:
+				edits.Home()
+			case key == nc.KEY_END || key == CTRL_D:
+				edits.End()
 			case key > 32 && key <= 255:
 				crune = append(crune, byte(key))
 				r, _ := utf8.DecodeLastRune(crune)
