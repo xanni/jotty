@@ -43,7 +43,6 @@ type counts [MaxScope]int
 type line struct {
 	bytes, chars int // cumulative counts at start of line
 	sect         int // current section at start of line
-	text         []byte
 }
 
 var bufc, bufy int // last character position and last row in the buffer
@@ -251,7 +250,6 @@ func DrawWindow() {
 	// First find the character the cursor is located at on the screen, if possible
 	if isCursorInBuffer() {
 		y = cursorRow()
-		buffer[y].text = nil
 	} else {
 		// Nothing has been drawn yet, or the cursor is outside the screen: redraw everything
 		buffer = make([]line, Sy-1)
@@ -329,7 +327,6 @@ func DrawWindow() {
 		}
 
 		if w > 0 {
-			l.text = append(l.text, g...)
 			win.MovePrint(y, x, string(g))
 			x += w
 		}
@@ -349,8 +346,6 @@ func DrawWindow() {
 			win.ClearToEOL()
 		}
 
-		buffer[y].text = l.text
-		l.text = nil
 		x = 0
 		y++
 
@@ -385,7 +380,6 @@ func DrawWindow() {
 	if y >= Sy-1 {
 		bufy = Sy - 2
 	} else {
-		buffer[y].text = l.text
 		win.Move(y, x)
 		win.ClearToBottom()
 		if y > bufy {

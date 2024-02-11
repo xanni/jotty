@@ -179,13 +179,7 @@ func TestDrawStatusBar(t *testing.T) {
 }
 
 func TestCursorRow(t *testing.T) {
-	buffer = []line{
-		{sect: 2, text: []byte("Two")},
-		{},
-		{sect: 2, chars: 4, text: []byte("Plus")},
-		{},
-		{sect: 3, text: []byte("Three")},
-	}
+	buffer = []line{{sect: 2}, {}, {sect: 2, chars: 4}, {}, {sect: 3}}
 	bufy = 4
 
 	cursor.pos = counts{Sect: 2, Char: 3}
@@ -208,7 +202,7 @@ func TestIsCursorInBuffer(t *testing.T) {
 		buffer = nil
 		assert.False(t, isCursorInBuffer())
 
-		buffer = []line{{sect: 2, chars: 5, text: []byte("two ")}, {sect: 2, chars: 9}}
+		buffer = []line{{sect: 2, chars: 5}, {sect: 2, chars: 9}}
 		bufy = 1
 		cursor.pos = counts{4, 0, 0, 0, 1}
 		assert.False(t, isCursorInBuffer())
@@ -274,20 +268,16 @@ func TestDrawWindow(t *testing.T) {
 		Sy = 3
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		assert.Equal(t, "🇦🇺", string(buffer[0].text))
 		assert.Equal(t, counts{1, 0, 1, 1, 1}, total)
 
 		document = []byte("🇦🇺 Aussie")
 		Sx = 24
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		assert.Equal(t, "🇦🇺 Aussie", string(buffer[0].text))
 		assert.Equal(t, counts{8, 1, 1, 1, 1}, total)
 
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie")
 		DrawWindow()
-		assert.Equal(t, "🇦🇺 Aussie, Aussie, ", string(buffer[0].text))
-		assert.Equal(t, "Aussie", string(buffer[1].text))
 		assert.Equal(t, counts{24, 3, 1, 1, 1}, total)
 	})
 }
@@ -301,7 +291,6 @@ func TestDrawWindowInvalidUTF8(t *testing.T) {
 		Sy = 3
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		assert.Equal(t, []byte("12"), buffer[0].text)
 		assert.Equal(t, 2, total[Char])
 	})
 }
@@ -324,8 +313,6 @@ func TestDrawWindowLineBreak(t *testing.T) {
 			[]rune("h" + string(cc) + "    "),
 			[]rune("@6/6  "),
 		})
-		assert.Equal(t, "lengt", string(buffer[0].text))
-		assert.Equal(t, "h", string(buffer[1].text))
 		assert.Equal(t, 1, total[Word])
 
 		cursor.pos = counts{6, 0, 0, 0, 1}
@@ -338,8 +325,6 @@ func TestDrawWindowLineBreak(t *testing.T) {
 			[]rune("+       "),
 			[]rune("@6/8    "),
 		})
-		assert.Equal(t, "length ", string(buffer[0].text))
-		assert.Equal(t, "+", string(buffer[1].text))
 		assert.Equal(t, 1, total[Word])
 	})
 }
@@ -354,13 +339,11 @@ func TestDrawWindowSentence(t *testing.T) {
 		Sy = 3
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		assert.Equal(t, "This is a sentence.", string(buffer[0].text))
 		assert.Equal(t, []index{{}}, isent)
 		assert.Equal(t, counts{19, 4, 1, 1, 1}, total)
 
 		document = append(document, []byte(" More")...)
 		DrawWindow()
-		assert.Equal(t, "This is a sentence. More", string(buffer[0].text))
 		assert.Equal(t, []index{{}, {20, 20}}, isent)
 		assert.Equal(t, counts{24, 5, 2, 1, 1}, total)
 
@@ -380,9 +363,6 @@ func TestDrawWindowParagraph(t *testing.T) {
 		Sy = 4
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
-		assert.Equal(t, "", string(buffer[1].text))
-		assert.Equal(t, "Oi oi oi!", string(buffer[2].text))
 		assert.Equal(t, []index{{}, {32, 25}}, ipara)
 		assert.Equal(t, []int{2, 10, 18, 25, 28, 31}, iword)
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
@@ -390,24 +370,15 @@ func TestDrawWindowParagraph(t *testing.T) {
 		buffer = nil
 		cursor.pos = counts{25, 3, 1, 1, 1}
 		DrawWindow()
-		assert.Equal(t, "Oi oi oi!", string(buffer[0].text))
-		assert.Equal(t, "", string(buffer[1].text))
-		assert.Equal(t, "", string(buffer[2].text))
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 
 		cursor.pos = counts{5, 1, 1, 1, 1}
 		DrawWindow()
-		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
-		assert.Equal(t, "", string(buffer[1].text))
-		assert.Equal(t, "Oi oi oi!", string(buffer[2].text))
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 
 		buffer = nil
 		cursor.pos = counts{26, 4, 2, 2, 1}
 		DrawWindow()
-		assert.Equal(t, "Oi oi oi!", string(buffer[0].text))
-		assert.Equal(t, "", string(buffer[1].text))
-		assert.Equal(t, "", string(buffer[2].text))
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 	})
 }
@@ -424,9 +395,6 @@ func TestDrawWindowSection(t *testing.T) {
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 		assert.Equal(t, nc.Char(nc.ACS_HLINE), win.MoveInChar(1, 0))
-		assert.Equal(t, "🇦🇺 Aussie, Aussie, Aussie", string(buffer[0].text))
-		assert.Equal(t, "", string(buffer[1].text))
-		assert.Equal(t, "Oi oi oi!", string(buffer[2].text))
 		assert.Equal(t, counts{24, 3, 1, 1, 2}, total)
 
 		cursor.pos = counts{9, 3, 1, 1, 2}
@@ -459,13 +427,11 @@ func TestDrawWindowScroll(t *testing.T) {
 
 		document = append(document, []byte("line 3")...)
 		DrawWindow()
-		assert.Equal(t, "Scroll ", string(buffer[0].text))
-		assert.Equal(t, "test: ", string(buffer[1].text))
+		assert.Equal(t, []line{{sect: 1}, {bytes: 7, chars: 7, sect: 1}}, buffer)
 
 		cursor.pos = counts{13, 2, 1, 1, 1}
 		DrawWindow()
-		assert.Equal(t, "test: ", string(buffer[0].text))
-		assert.Equal(t, "line 3", string(buffer[1].text))
+		assert.Equal(t, []line{{bytes: 7, chars: 7, sect: 1}, {bytes: 13, chars: 13, sect: 1}}, buffer)
 	})
 }
 
