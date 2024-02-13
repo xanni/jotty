@@ -47,18 +47,12 @@ type line struct {
 
 var bufc, bufy int // last character position and last row in the buffer
 var buffer []line
-var cursor struct {
-	pos  counts // current position in the section/document
-	x, y int    // current position in the edit window
-}
+var cursor = counts{Sectn: 1} // current position in the section/document
+var cursx, cursy int          // current position in the edit window
 var document []byte
 var initialCap = true // initial capital at the start of a sentence
 var total counts
 var win *nc.Window
-
-func init() {
-	cursor.pos[Sectn] = 1
-}
 
 // Append a UTF-8 encoded rune to the document.
 // TODO implement insertion instead
@@ -74,9 +68,9 @@ func AppendRune(rb []byte) {
 	scope = Char
 
 	if len(buffer) == 0 {
-		cursor.pos[Char] = uniseg.GraphemeClusterCount(string(document))
+		cursor[Char] = uniseg.GraphemeClusterCount(string(document))
 	} else {
-		cursor.pos[Char] = buffer[cursor.y].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursor.y].bytes:]))
+		cursor[Char] = buffer[cursy].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursy].bytes:]))
 		DrawWindow()
 	}
 }
@@ -115,9 +109,9 @@ func DrawCursor() {
 	}
 
 	win.AttrSet(nc.Char(cursorStyle))
-	win.MovePrint(cursor.y, cursor.x, string(cc))
+	win.MovePrint(cursy, cursx, string(cc))
 	win.AttrSet(nc.A_NORMAL)
-	win.Move(cursor.y, cursor.x)
+	win.Move(cursy, cursx)
 	win.NoutRefresh()
 }
 
@@ -129,7 +123,7 @@ func DrawStatusBar() {
 	var c [MaxScope]string // counters for each scope
 	var w int              // width of counters
 	for s := Char; s <= Sectn; s++ {
-		c[s] = string(counterChar[s]) + strconv.Itoa(cursor.pos[s]) + "/" + strconv.Itoa(total[s])
+		c[s] = string(counterChar[s]) + strconv.Itoa(cursor[s]) + "/" + strconv.Itoa(total[s])
 		w += utf8.RuneCountInString(c[s])
 	}
 
@@ -162,7 +156,7 @@ func DrawStatusBar() {
 // Find which screen row contains the character position of the cursor
 func cursorRow() (y int) {
 	for y = bufy; y > 0; y-- {
-		if buffer[y].sectn == cursor.pos[Sectn] && buffer[y].chars <= cursor.pos[Char] {
+		if buffer[y].sectn == cursor[Sectn] && buffer[y].chars <= cursor[Char] {
 			break
 		}
 	}
@@ -180,7 +174,7 @@ func isAlphanumeric(source []byte) bool {
 // a special case if the cursor is one character or word below the screen then
 // scroll up one line to put the cursor back on screen.
 func isCursorInBuffer() bool {
-	cur_s, cur_c := cursor.pos[Sectn], cursor.pos[Char]
+	cur_s, cur_c := cursor[Sectn], cursor[Char]
 
 	if len(buffer) == 0 ||
 		cur_s < buffer[0].sectn ||
@@ -190,7 +184,7 @@ func isCursorInBuffer() bool {
 		return false
 	}
 
-	if scope < Sent && cursor.y == Sy-1 && cur_c > bufc+1 {
+	if scope < Sent && cursy == Sy-1 && cur_c > bufc+1 {
 		scrollUp(1)
 	}
 
@@ -203,7 +197,7 @@ func isNewParagraph(c int) bool {
 		return true
 	}
 
-	p := cursor.pos[Para]
+	p := cursor[Para]
 	return p < len(ipara) && c == ipara[p].c
 }
 
@@ -211,13 +205,13 @@ func isNewParagraph(c int) bool {
 func newBuffer() {
 	buffer = make([]line, Sy-1)
 	bufy = 0
-	cursor.x = 0
-	cursor.y = 0
+	cursx = 0
+	cursy = 0
 	p := getPara()
-	if p > len(ipara)-1 || !isNewParagraph(cursor.pos[Char]) {
+	if p > len(ipara)-1 || !isNewParagraph(cursor[Char]) {
 		p--
 	}
-	buffer[0] = line{bytes: ipara[p].b, chars: ipara[p].c, sectn: cursor.pos[Sectn]}
+	buffer[0] = line{bytes: ipara[p].b, chars: ipara[p].c, sectn: cursor[Sectn]}
 }
 
 // Get the monospace display width of the next breakable segment in source
@@ -235,9 +229,9 @@ func scrollUp(lines int) {
 	win.ClearToBottom() // Erase the status line before scrolling
 	win.Scroll(lines)
 	buffer = append(buffer[lines:], make([]line, lines)...)
-	cursor.y -= lines
-	if cursor.y < 0 {
-		cursor.y = 0
+	cursy -= lines
+	if cursy < 0 {
+		cursy = 0
 	}
 }
 
@@ -276,9 +270,9 @@ func DrawWindow() {
 	}
 
 	for y < Sy-1 {
-		if l.sectn == cursor.pos[Sectn] && l.chars == cursor.pos[Char] {
-			cursor.x = x
-			cursor.y = y
+		if l.sectn == cursor[Sectn] && l.chars == cursor[Char] {
+			cursx = x
+			cursy = y
 			updateCursorPos()
 			x++
 		}
@@ -364,7 +358,7 @@ func DrawWindow() {
 		}
 
 		// At the last line of the window but haven't passed the cursor yet
-		if y >= Sy-1 && l.sectn <= cursor.pos[Sectn] && l.chars <= cursor.pos[Char] {
+		if y >= Sy-1 && l.sectn <= cursor[Sectn] && l.chars <= cursor[Char] {
 			lines := (y + 2) - Sy
 			scrollUp(lines)
 			y -= lines
@@ -387,7 +381,7 @@ func DrawWindow() {
 		}
 	}
 
-	if l.sectn == cursor.pos[Sectn] {
+	if l.sectn == cursor[Sectn] {
 		total = counts{l.chars, len(iword), len(isent), len(ipara), len(isectn)}
 	} else {
 		scanSectn()
@@ -431,8 +425,8 @@ func appendParaBreak() {
 }
 
 func appendSectnBreak() {
-	s := cursor.pos[Sectn] + 1
-	cursor.pos = counts{0, 0, 0, 0, s}
+	s := cursor[Sectn] + 1
+	cursor = counts{Sectn: s}
 
 	i := len(document) - 1
 	if document[i] != '\n' {
@@ -446,13 +440,13 @@ func appendSectnBreak() {
 	newSection(s)
 
 	if len(buffer) > 0 {
-		if cursor.y >= Sy-2 {
+		if cursy >= Sy-2 {
 			scrollUp(2)
 		}
-		if cursor.y > 0 {
-			win.HLine(cursor.y-1, 0, nc.ACS_HLINE, Sx-1)
+		if cursy > 0 {
+			win.HLine(cursy-1, 0, nc.ACS_HLINE, Sx-1)
 		}
-		buffer[cursor.y] = line{bytes: i, sectn: s}
+		buffer[cursy] = line{bytes: i, sectn: s}
 	}
 
 	scope = Sectn
