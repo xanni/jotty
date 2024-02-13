@@ -7,77 +7,77 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestScanSect(t *testing.T) {
-	isect = []int{0}
-	cursor.pos[Sect] = 1
+func TestScanSectn(t *testing.T) {
+	isectn = []int{0}
+	cursor.pos[Sectn] = 1
 	document = nil
-	scanSect()
+	scanSectn()
 	assert.Equal(t, counts{0, 0, 1, 1, 1}, total)
 
 	document = []byte("Six words, two sentences.\nTwo paragraphs.")
-	scanSect()
+	scanSectn()
 	assert.Equal(t, counts{41, 6, 2, 2, 1}, total)
 
-	isect = append(isect, 42)
+	isectn = append(isectn, 42)
 	document = append(document, []byte("\fAnother section.")...)
-	scanSect()
+	scanSectn()
 	assert.Equal(t, counts{41, 6, 2, 2, 2}, total)
 
-	isect = []int{0}
+	isectn = []int{0}
 	document = []byte{'1', 255, '2'}
-	scanSect()
+	scanSectn()
 	assert.Equal(t, counts{2, 1, 1, 1, 1}, total)
 }
 
 func TestLeftChar(t *testing.T) {
-	isect = []int{0, 3}
+	isectn = []int{0, 3}
 	document = []byte("One\fTwo")
-	cursor.pos[Sect] = 2
+	cursor.pos[Sectn] = 2
 	cursor.pos[Char] = 1
 
 	leftChar()
-	assert.Equal(t, 2, cursor.pos[Sect])
+	assert.Equal(t, 2, cursor.pos[Sectn])
 	assert.Equal(t, 0, cursor.pos[Char])
 
 	leftChar()
-	assert.Equal(t, 1, cursor.pos[Sect])
+	assert.Equal(t, 1, cursor.pos[Sectn])
 	assert.Equal(t, 3, cursor.pos[Char])
 
 	cursor.pos[Char] = 1
 	leftChar()
-	assert.Equal(t, 1, cursor.pos[Sect])
+	assert.Equal(t, 1, cursor.pos[Sectn])
 	assert.Equal(t, 0, cursor.pos[Char])
 
 	leftChar()
-	assert.Equal(t, 1, cursor.pos[Sect])
+	assert.Equal(t, 1, cursor.pos[Sectn])
 	assert.Equal(t, 0, cursor.pos[Char])
 }
 
 func TestRightChar(t *testing.T) {
-	isect = []int{0, 3}
+	isectn = []int{0, 3}
 	document = []byte("One\fTwo")
-	cursor.pos[Sect] = 1
+	cursor.pos[Sectn] = 1
 	cursor.pos[Char] = 2
-	total[Sect] = 2
+	total[Sectn] = 2
 	total[Char] = 3
 
 	rightChar()
-	assert.Equal(t, 1, cursor.pos[Sect])
+	assert.Equal(t, 1, cursor.pos[Sectn])
 	assert.Equal(t, 3, cursor.pos[Char])
 
 	rightChar()
-	assert.Equal(t, 2, cursor.pos[Sect])
+	assert.Equal(t, 2, cursor.pos[Sectn])
 	assert.Equal(t, 0, cursor.pos[Char])
 
 	cursor.pos[Char] = 3
 	rightChar()
-	assert.Equal(t, 2, cursor.pos[Sect])
+	assert.Equal(t, 2, cursor.pos[Sectn])
 	assert.Equal(t, 3, cursor.pos[Char])
 }
 
 func TestLeftWord(t *testing.T) {
 	document = []byte("1 23\f4")
-	isect = []int{0, 5}
+	isectn = []int{0, 5}
 	iword = []int{0}
 	cursor.pos = counts{1, 1, 1, 1, 2}
 
@@ -110,7 +110,7 @@ func TestLeftWord(t *testing.T) {
 
 func TestRightWord(t *testing.T) {
 	document = []byte("1\f23 4")
-	isect = []int{0, 2}
+	isectn = []int{0, 2}
 	iword = []int{0}
 	total = counts{1, 1, 1, 1, 2}
 	cursor.pos = counts{0, 0, 0, 0, 1}
@@ -144,7 +144,7 @@ func TestRightWord(t *testing.T) {
 
 func TestLeftSent(t *testing.T) {
 	document = []byte("1. 23\f4")
-	isect = []int{0, 6}
+	isectn = []int{0, 6}
 	isent = []index{{}, {3, 3}}
 	cursor.pos = counts{1, 1, 1, 1, 2}
 
@@ -172,7 +172,7 @@ func TestLeftSent(t *testing.T) {
 
 func TestRightSent(t *testing.T) {
 	document = []byte("1\f23. 4")
-	isect = []int{0, 2}
+	isectn = []int{0, 2}
 	isent = []index{{}}
 	total = counts{1, 1, 1, 1, 2}
 	cursor.pos = counts{0, 0, 0, 0, 1}
@@ -206,7 +206,7 @@ func TestRightSent(t *testing.T) {
 
 func TestLeftPara(t *testing.T) {
 	document = []byte("1\n23\f4")
-	isect = []int{0, 5}
+	isectn = []int{0, 5}
 	ipara = []index{{}, {1, 1}}
 	cursor.pos = counts{1, 1, 1, 1, 2}
 
@@ -234,7 +234,7 @@ func TestLeftPara(t *testing.T) {
 
 func TestRightPara(t *testing.T) {
 	document = []byte("1\f23\n4")
-	isect = []int{0, 2}
+	isectn = []int{0, 2}
 	ipara = []index{{}}
 	total = counts{1, 1, 1, 1, 2}
 	cursor.pos = counts{0, 0, 0, 0, 1}
@@ -266,43 +266,43 @@ func TestRightPara(t *testing.T) {
 	assert.Equal(t, counts{3, 1, 1, 1, 2}, cursor.pos)
 }
 
-func TestLeftSect(t *testing.T) {
+func TestLeftSectn(t *testing.T) {
 	document = []byte("1\f23\f4")
-	isect = []int{0, 3, 5}
+	isectn = []int{0, 3, 5}
 	cursor.pos = counts{1, 1, 1, 1, 3}
 
-	leftSect()
+	leftSectn()
 	updateCursorPos()
 	assert.Equal(t, counts{0, 0, 0, 0, 2}, cursor.pos)
 
-	leftSect()
+	leftSectn()
 	updateCursorPos()
 	assert.Equal(t, counts{0, 0, 0, 0, 1}, cursor.pos)
 
-	leftSect()
+	leftSectn()
 	updateCursorPos()
 	assert.Equal(t, counts{0, 0, 0, 0, 1}, cursor.pos)
 }
 
-func TestRightSect(t *testing.T) {
+func TestRightSectn(t *testing.T) {
 	document = []byte("1\f23\f4")
-	isect = []int{0, 2, 5}
+	isectn = []int{0, 2, 5}
 	total = counts{1, 1, 1, 1, 3}
 	cursor.pos = counts{0, 0, 0, 0, 1}
 
-	rightSect()
+	rightSectn()
 	updateCursorPos()
 	assert.Equal(t, counts{0, 0, 0, 0, 2}, cursor.pos)
 
-	rightSect()
+	rightSectn()
 	updateCursorPos()
 	assert.Equal(t, counts{0, 0, 0, 0, 3}, cursor.pos)
 
-	rightSect()
+	rightSectn()
 	updateCursorPos()
 	assert.Equal(t, counts{1, 1, 1, 1, 3}, cursor.pos)
 
-	rightSect()
+	rightSectn()
 	updateCursorPos()
 	assert.Equal(t, counts{1, 1, 1, 1, 3}, cursor.pos)
 }
@@ -310,9 +310,9 @@ func TestRightSect(t *testing.T) {
 func TestLeft(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		document = []byte("1\f2\n3. 4 56")
-		isect = []int{0, 2}
+		isectn = []int{0, 2}
 		cursor.pos = counts{9, 4, 3, 2, 2}
-		scanSect()
+		scanSectn()
 		Sx = margin + 1
 		Sy = 4
 		ResizeScreen()
@@ -333,7 +333,7 @@ func TestLeft(t *testing.T) {
 		Left()
 		assert.Equal(t, counts{2, 1, 1, 1, 2}, cursor.pos)
 
-		scope = Sect
+		scope = Sectn
 		Left()
 		assert.Equal(t, counts{0, 0, 0, 0, 1}, cursor.pos)
 	})
@@ -342,9 +342,9 @@ func TestLeft(t *testing.T) {
 func TestRight(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		document = []byte("12 3. 4\n5\f6")
-		isect = []int{0, 10}
+		isectn = []int{0, 10}
 		cursor.pos = counts{0, 0, 0, 0, 1}
-		scanSect()
+		scanSectn()
 		Sx = margin + 1
 		Sy = 4
 		ResizeScreen()
@@ -365,7 +365,7 @@ func TestRight(t *testing.T) {
 		Right()
 		assert.Equal(t, counts{8, 3, 2, 1, 1}, cursor.pos)
 
-		scope = Sect
+		scope = Sectn
 		Right()
 		assert.Equal(t, counts{0, 0, 0, 0, 2}, cursor.pos)
 	})
@@ -374,10 +374,10 @@ func TestRight(t *testing.T) {
 func TestHome(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		document = []byte("1\f2\f3\n4")
-		isect = []int{0, 2, 4}
-		osect = 0
+		isectn = []int{0, 2, 4}
+		osectn = 0
 		cursor.pos = counts{3, 2, 2, 2, 3}
-		scanSect()
+		scanSectn()
 		Sx = margin + 1
 		Sy = 4
 		ResizeScreen()
@@ -393,7 +393,7 @@ func TestHome(t *testing.T) {
 
 		Home()
 		assert.Equal(t, counts{0, 0, 0, 0, 1}, cursor.pos)
-		assert.Equal(t, Sect, scope)
+		assert.Equal(t, Sectn, scope)
 
 		Home()
 		assert.Equal(t, counts{3, 2, 2, 2, 3}, cursor.pos)
@@ -409,7 +409,7 @@ func TestHome(t *testing.T) {
 		assert.Equal(t, Para, scope)
 
 		cursor.pos = counts{1, 1, 1, 1, 1}
-		scope = Sect
+		scope = Sectn
 		Home()
 		assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor.pos)
 
@@ -418,7 +418,7 @@ func TestHome(t *testing.T) {
 		assert.Equal(t, counts{0, 0, 0, 0, 2}, cursor.pos)
 
 		cursor.pos = counts{0, 0, 0, 0, 1}
-		osect = 1
+		osectn = 1
 		ochar = 1
 		Home()
 		assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor.pos)
@@ -428,10 +428,10 @@ func TestHome(t *testing.T) {
 func TestEnd(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		document = []byte("12\n3\f4\f5")
-		isect = []int{0, 5, 7}
-		osect = 0
+		isectn = []int{0, 5, 7}
+		osectn = 0
 		cursor.pos = counts{0, 0, 0, 0, 1}
-		scanSect()
+		scanSectn()
 		Sx = margin + 1
 		Sy = 4
 		ResizeScreen()
@@ -447,14 +447,14 @@ func TestEnd(t *testing.T) {
 
 		End()
 		assert.Equal(t, counts{1, 1, 1, 1, 3}, cursor.pos)
-		assert.Equal(t, Sect, scope)
+		assert.Equal(t, Sectn, scope)
 
 		End()
 		assert.Equal(t, counts{0, 0, 0, 0, 1}, cursor.pos)
 		assert.Equal(t, Char, scope)
 
 		cursor.pos = counts{1, 1, 1, 1, 1}
-		scanSect()
+		scanSectn()
 		End()
 		assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor.pos)
 
@@ -466,17 +466,17 @@ func TestEnd(t *testing.T) {
 		End()
 		assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor.pos)
 
-		scope = Sect
+		scope = Sectn
 		End()
 		assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor.pos)
 
 		cursor.pos = counts{0, 0, 0, 0, 3}
-		scanSect()
+		scanSectn()
 		End()
 		assert.Equal(t, counts{0, 0, 0, 0, 3}, cursor.pos)
 
 		cursor.pos = counts{1, 1, 1, 1, 3}
-		osect = 3
+		osectn = 3
 		End()
 		assert.Equal(t, counts{0, 0, 0, 0, 3}, cursor.pos)
 	})

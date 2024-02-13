@@ -84,8 +84,8 @@ func TestDecScope(t *testing.T) {
 		initialCap = false
 		scope = Char
 		DecScope()
-		assert.Equal(t, Sect, scope)
-		assert.Equal(t, nc.Char(cursorChar[Sect])|nc.A_BLINK, win.MoveInChar(0, 0))
+		assert.Equal(t, Sectn, scope)
+		assert.Equal(t, nc.Char(cursorChar[Sectn])|nc.A_BLINK, win.MoveInChar(0, 0))
 
 		initialCap = true
 		DecScope()
@@ -112,7 +112,7 @@ func TestIncScope(t *testing.T) {
 		ResizeScreen()
 
 		initialCap = false
-		scope = Sect
+		scope = Sectn
 		IncScope()
 		assert.Equal(t, Char, scope)
 		assert.Equal(t, nc.Char(cursorChar[Char])|nc.A_BLINK, win.MoveInChar(0, 0))
@@ -150,7 +150,7 @@ func TestDrawStatusBar(t *testing.T) {
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 
-		for scope = Char; scope <= Sect; scope++ {
+		for scope = Char; scope <= Sectn; scope++ {
 			DrawStatusBar()
 			assert.Equal(t, nc.Char(counterChar[scope]), win.MoveInChar(Sy-1, 0))
 		}
@@ -179,16 +179,16 @@ func TestDrawStatusBar(t *testing.T) {
 }
 
 func TestCursorRow(t *testing.T) {
-	buffer = []line{{sect: 2}, {}, {sect: 2, chars: 4}, {}, {sect: 3}}
+	buffer = []line{{sectn: 2}, {}, {sectn: 2, chars: 4}, {}, {sectn: 3}}
 	bufy = 4
 
-	cursor.pos = counts{Sect: 2, Char: 3}
+	cursor.pos = counts{Sectn: 2, Char: 3}
 	assert.Equal(t, 0, cursorRow())
 
-	cursor.pos = counts{Sect: 2, Char: 4}
+	cursor.pos = counts{Sectn: 2, Char: 4}
 	assert.Equal(t, 2, cursorRow())
 
-	cursor.pos = counts{Sect: 3}
+	cursor.pos = counts{Sectn: 3}
 	assert.Equal(t, 4, cursorRow())
 }
 
@@ -202,12 +202,12 @@ func TestIsCursorInBuffer(t *testing.T) {
 		buffer = nil
 		assert.False(t, isCursorInBuffer())
 
-		buffer = []line{{sect: 2, chars: 5}, {sect: 2, chars: 9}}
+		buffer = []line{{sectn: 2, chars: 5}, {sectn: 2, chars: 9}}
 		bufy = 1
 		cursor.pos = counts{4, 0, 0, 0, 1}
 		assert.False(t, isCursorInBuffer())
 
-		cursor.pos[Sect] = 2
+		cursor.pos[Sectn] = 2
 		assert.False(t, isCursorInBuffer())
 
 		bufc = 9
@@ -230,15 +230,15 @@ func TestIsCursorInBuffer(t *testing.T) {
 		assert.Equal(t, 0, cursor.y)
 		assert.Equal(t, line{}, buffer[1])
 
-		cursor.pos[Sect] = 3
+		cursor.pos[Sectn] = 3
 		assert.False(t, isCursorInBuffer())
 
-		buffer[1].sect = 3
+		buffer[1].sectn = 3
 		cursor.pos[Char] = 0
 		cursor.y = 1
 		assert.True(t, isCursorInBuffer())
 
-		cursor.pos[Sect] = 2
+		cursor.pos[Sectn] = 2
 		cursor.pos[Char] = 9
 		scope = Sent
 		assert.True(t, isCursorInBuffer())
@@ -427,11 +427,11 @@ func TestDrawWindowScroll(t *testing.T) {
 
 		document = append(document, []byte("line 3")...)
 		DrawWindow()
-		assert.Equal(t, []line{{sect: 1}, {bytes: 7, chars: 7, sect: 1}}, buffer)
+		assert.Equal(t, []line{{sectn: 1}, {bytes: 7, chars: 7, sectn: 1}}, buffer)
 
 		cursor.pos = counts{13, 2, 1, 1, 1}
 		DrawWindow()
-		assert.Equal(t, []line{{bytes: 7, chars: 7, sect: 1}, {bytes: 13, chars: 13, sect: 1}}, buffer)
+		assert.Equal(t, []line{{bytes: 7, chars: 7, sectn: 1}, {bytes: 13, chars: 13, sectn: 1}}, buffer)
 	})
 }
 
@@ -515,7 +515,7 @@ func TestAppendParaBreak(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		cursor.pos = counts{0, 0, 0, 0, 1}
 		document = []byte(" ")
-		isect = []int{0}
+		isectn = []int{0}
 		Sx = margin + 1
 		Sy = 4
 		nc.ResizeTerm(Sy, Sx)
@@ -529,21 +529,21 @@ func TestAppendParaBreak(t *testing.T) {
 	})
 }
 
-func TestAppendSectBreak(t *testing.T) {
+func TestAppendSectnBreak(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		cursor.pos = counts{0, 0, 0, 0, 1}
 		document = []byte("\n")
-		isect = []int{0}
+		isectn = []int{0}
 		Sx = margin + 1
 		Sy = 5
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
 
 		buffer = nil
-		appendSectBreak()
+		appendSectnBreak()
 		assert.Equal(t, []byte("\f"), document)
 
-		appendSectBreak()
+		appendSectnBreak()
 		assert.Equal(t, []byte("\f\f"), document)
 
 		buffer = nil
@@ -561,7 +561,7 @@ func TestSpace(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		cursor.pos = counts{0, 0, 0, 0, 1}
 		document = nil
-		isect = []int{0}
+		isectn = []int{0}
 		newSection(1)
 		scope = Char
 		Sx = margin + 1
@@ -586,15 +586,15 @@ func TestSpace(t *testing.T) {
 
 		Space()
 		assert.Equal(t, "Test.\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 
 		Space()
 		assert.Equal(t, "Test.\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 
 		cursor.pos = counts{5, 1, 1, 1, 1}
 		document = []byte("Test,")
-		isect = []int{0}
+		isectn = []int{0}
 		scope = Word
 		Space()
 		assert.Equal(t, "Test, ", string(document))
@@ -613,18 +613,18 @@ func TestSpace(t *testing.T) {
 		document = []byte("Test.")
 		Space()
 		assert.Equal(t, "Test.\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 
 		buffer = nil
 		ipara = []index{{}, {5, 5}}
-		isect = []int{0}
+		isectn = []int{0}
 		cursor.pos = counts{5, 1, 1, 1, 1}
 		document = []byte("Test\n")
 		scope = Para
 		Space()
 		assert.Equal(t, 0, cursor.y)
 		assert.Equal(t, "Test\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 	})
 }
 
@@ -688,16 +688,16 @@ func TestEnter(t *testing.T) {
 
 		Enter()
 		assert.Equal(t, "Test.\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 
 		Enter()
 		assert.Equal(t, "Test.\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 
 		buffer = nil
 		cursor.pos = counts{5, 1, 1, 1, 1}
 		document = []byte("Test ")
-		isect = []int{0}
+		isectn = []int{0}
 		ipara = []index{{}}
 		scope = Word
 		Enter()
@@ -707,13 +707,13 @@ func TestEnter(t *testing.T) {
 		Enter()
 		assert.Equal(t, 0, cursor.y)
 		assert.Equal(t, "Test\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 
 		cursor.pos = counts{0, 0, 0, 0, 1}
 		document = []byte("Test.")
 		scope = Para
 		Enter()
 		assert.Equal(t, "Test.\f", string(document))
-		assert.Equal(t, scope, Sect)
+		assert.Equal(t, scope, Sectn)
 	})
 }

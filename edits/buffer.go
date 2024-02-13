@@ -30,9 +30,9 @@ type Scope int
 const (
 	Char Scope = iota
 	Word
-	Sent // Sentence
-	Para // Paragraph
-	Sect // Section
+	Sent  // Sentence
+	Para  // Paragraph
+	Sectn // Section
 	MaxScope
 )
 
@@ -42,7 +42,7 @@ type counts [MaxScope]int
 
 type line struct {
 	bytes, chars int // cumulative counts at start of line
-	sect         int // current section at start of line
+	sectn        int // current section at start of line
 }
 
 var bufc, bufy int // last character position and last row in the buffer
@@ -57,7 +57,7 @@ var total counts
 var win *nc.Window
 
 func init() {
-	cursor.pos[Sect] = 1
+	cursor.pos[Sectn] = 1
 }
 
 // Append a UTF-8 encoded rune to the document.
@@ -70,7 +70,7 @@ func AppendRune(rb []byte) {
 
 	document = append(document, rb...)
 	initialCap = false
-	osect = 0
+	osectn = 0
 	scope = Char
 
 	if len(buffer) == 0 {
@@ -83,7 +83,7 @@ func AppendRune(rb []byte) {
 
 func DecScope() {
 	if scope == Char {
-		scope = Sect
+		scope = Sectn
 	} else {
 		scope--
 	}
@@ -97,7 +97,7 @@ func DecScope() {
 }
 
 func IncScope() {
-	if scope == Sect {
+	if scope == Sectn {
 		scope = Char
 		initialCap = false
 	} else {
@@ -129,7 +129,7 @@ func DrawStatusBar() {
 
 	var c [MaxScope]string // counters for each scope
 	var w int              // width of counters
-	for s := Char; s <= Sect; s++ {
+	for s := Char; s <= Sectn; s++ {
 		c[s] = string(counterChar[s]) + strconv.Itoa(cursor.pos[s]) + "/" + strconv.Itoa(total[s])
 		w += utf8.RuneCountInString(c[s])
 	}
@@ -142,7 +142,7 @@ func DrawStatusBar() {
 	if Sx < w+6 {
 		win.Print(c[scope])
 	} else {
-		for s := Sect; s >= Char; s-- {
+		for s := Sectn; s >= Char; s-- {
 			if s != scope {
 				win.Print(c[s])
 			} else {
@@ -150,7 +150,7 @@ func DrawStatusBar() {
 				win.Print(c[s])
 				win.AttrOff(nc.A_BOLD)
 			}
-			if s == Sect {
+			if s == Sectn {
 				win.AddChar(':')
 			}
 			win.AddChar(' ')
@@ -164,7 +164,7 @@ func DrawStatusBar() {
 // Find which screen row contains the character position of the cursor
 func cursorRow() (y int) {
 	for y = bufy; y > 0; y-- {
-		if buffer[y].sect == cursor.pos[Sect] && buffer[y].chars <= cursor.pos[Char] {
+		if buffer[y].sectn == cursor.pos[Sectn] && buffer[y].chars <= cursor.pos[Char] {
 			break
 		}
 	}
@@ -182,13 +182,13 @@ func isAlphanumeric(source []byte) bool {
 // a special case if the cursor is one character or word below the screen then
 // scroll up one line to put the cursor back on screen.
 func isCursorInBuffer() bool {
-	cur_s, cur_c := cursor.pos[Sect], cursor.pos[Char]
+	cur_s, cur_c := cursor.pos[Sectn], cursor.pos[Char]
 
 	if len(buffer) == 0 ||
-		cur_s < buffer[0].sect ||
-		(cur_s == buffer[0].sect && cur_c < buffer[0].chars) ||
-		cur_s > buffer[bufy].sect ||
-		(scope >= Sent && cur_s == buffer[bufy].sect && cur_c > bufc+1) {
+		cur_s < buffer[0].sectn ||
+		(cur_s == buffer[0].sectn && cur_c < buffer[0].chars) ||
+		cur_s > buffer[bufy].sectn ||
+		(scope >= Sent && cur_s == buffer[bufy].sectn && cur_c > bufc+1) {
 		return false
 	}
 
@@ -256,7 +256,7 @@ func DrawWindow() {
 		bufy = 0
 		cursor.x = 0
 		cursor.y = 0
-		buffer[0] = line{sect: cursor.pos[Sect]}
+		buffer[0] = line{sectn: cursor.pos[Sectn]}
 		p := getPara()
 		if p > len(ipara)-1 || !isNewParagraph(cursor.pos[Char]) {
 			p--
@@ -275,7 +275,7 @@ func DrawWindow() {
 	}
 
 	for y < Sy-1 {
-		if l.sect == cursor.pos[Sect] && l.chars == cursor.pos[Char] {
+		if l.sectn == cursor.pos[Sectn] && l.chars == cursor.pos[Char] {
 			cursor.x = x
 			cursor.y = y
 			updateCursorPos()
@@ -316,10 +316,10 @@ func DrawWindow() {
 		}
 
 		if r == '\f' {
-			indexSect(l.bytes)
+			indexSectn(l.bytes)
 			l.chars = 0
-			l.sect++
-			newSection(l.sect)
+			l.sectn++
+			newSection(l.sectn)
 
 			if isAN {
 				iword = []int{0}
@@ -364,7 +364,7 @@ func DrawWindow() {
 		}
 
 		// At the last line of the window but haven't passed the cursor yet
-		if y >= Sy-1 && l.sect <= cursor.pos[Sect] && l.chars <= cursor.pos[Char] {
+		if y >= Sy-1 && l.sectn <= cursor.pos[Sectn] && l.chars <= cursor.pos[Char] {
 			lines := (y + 2) - Sy
 			scrollUp(lines)
 			y -= lines
@@ -387,10 +387,10 @@ func DrawWindow() {
 		}
 	}
 
-	if l.sect == cursor.pos[Sect] {
-		total = counts{l.chars, len(iword), len(isent), len(ipara), len(isect)}
+	if l.sectn == cursor.pos[Sectn] {
+		total = counts{l.chars, len(iword), len(isent), len(ipara), len(isectn)}
 	} else {
-		scanSect()
+		scanSectn()
 	}
 
 	DrawStatusBar()
@@ -430,8 +430,8 @@ func appendParaBreak() {
 	scope = Para
 }
 
-func appendSectBreak() {
-	s := cursor.pos[Sect] + 1
+func appendSectnBreak() {
+	s := cursor.pos[Sectn] + 1
 	cursor.pos = counts{0, 0, 0, 0, s}
 
 	i := len(document) - 1
@@ -442,7 +442,7 @@ func appendSectBreak() {
 		document[i] = '\f'
 	}
 	i++
-	indexSect(i)
+	indexSectn(i)
 	newSection(s)
 
 	if len(buffer) > 0 {
@@ -452,16 +452,16 @@ func appendSectBreak() {
 		if cursor.y > 0 {
 			win.HLine(cursor.y-1, 0, nc.ACS_HLINE, Sx-1)
 		}
-		buffer[cursor.y] = line{bytes: i, sect: s}
+		buffer[cursor.y] = line{bytes: i, sectn: s}
 	}
 
-	scope = Sect
+	scope = Sectn
 	DrawWindow()
 }
 
 func Space() {
 	i := len(document) - 1
-	if scope == Sect || i < 0 {
+	if scope == Sectn || i < 0 {
 		return
 	}
 
@@ -491,29 +491,29 @@ func Space() {
 		scope = Sent
 	case Sent:
 		appendParaBreak()
-	default: // Para because Sect has already been excluded above
-		appendSectBreak()
+	default: // Para because Sectn has already been excluded above
+		appendSectnBreak()
 	}
 
 	initialCap = scope >= Sent
-	osect = 0
+	osectn = 0
 	DrawCursor()
 	DrawStatusBar()
 }
 
 func Enter() {
-	if scope == Sect || len(document) == 0 {
+	if scope == Sectn || len(document) == 0 {
 		return
 	}
 
 	if scope <= Sent {
 		appendParaBreak()
 	} else { // scope == Para
-		appendSectBreak()
+		appendSectnBreak()
 	}
 
 	initialCap = true
-	osect = 0
+	osectn = 0
 	DrawCursor()
 	DrawStatusBar()
 }

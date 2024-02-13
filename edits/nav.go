@@ -9,7 +9,7 @@ import (
 
 /*
 Implements navigation through the document.  The logical cursor position is
-a combination of the current section 1..total[Sect] and the current character
+a combination of the current section 1..total[Sectn] and the current character
 0..total[Char]
 
 The cursor screen x, y coordinates and current word, sentence and paragraph
@@ -31,8 +31,8 @@ type index struct{ b, c int } // byte and character indexes
 var iword = []int{0}    // character index of each word in the section
 var isent = []index{{}} // index of each sentence in the section
 var ipara = []index{{}} // index of each paragraph in the section
-var isect = []int{0}    // byte index of each section in the document
-var osect, ochar int    // original cursor position
+var isectn = []int{0}   // byte index of each section in the document
+var osectn, ochar int   // original cursor position
 
 // Find the current paragraph
 func getPara() int {
@@ -61,27 +61,27 @@ func indexPara(b, c int) {
 }
 
 // Add a section to the index if not already present
-func indexSect(b int) {
-	if b > isect[len(isect)-1] {
-		isect = append(isect, b)
+func indexSectn(b int) {
+	if b > isectn[len(isectn)-1] {
+		isectn = append(isectn, b)
 	}
 }
 
 // Reset the sentence and paragraph indexes
 func newSection(s int) {
 	iword = nil
-	isent = []index{{isect[s-1], 0}}
-	ipara = []index{{isect[s-1], 0}}
+	isent = []index{{isectn[s-1], 0}}
+	ipara = []index{{isectn[s-1], 0}}
 }
 
 // Count the characters and words in a section and update the sentence and paragraph indexes
-func scanSect() {
-	p := cursor.pos[Sect]
+func scanSectn() {
+	p := cursor.pos[Sectn]
 	var source []byte
 
-	b := isect[p-1]
-	if p < len(isect) {
-		source = document[b:isect[p]]
+	b := isectn[p-1]
+	if p < len(isectn) {
+		source = document[b:isectn[p]]
 	} else {
 		source = document[b:]
 	}
@@ -123,7 +123,7 @@ func scanSect() {
 		}
 	}
 
-	total = counts{chars, len(iword), len(isent), len(ipara), len(isect)}
+	total = counts{chars, len(iword), len(isent), len(ipara), len(isectn)}
 }
 
 // Find the current word, sentence and paragraph in the indexes
@@ -137,9 +137,9 @@ func updateCursorPos() {
 func leftChar() {
 	if cursor.pos[Char] > 0 {
 		cursor.pos[Char]--
-	} else if cursor.pos[Sect] > 1 {
-		cursor.pos[Sect]--
-		scanSect()
+	} else if cursor.pos[Sectn] > 1 {
+		cursor.pos[Sectn]--
+		scanSectn()
 		cursor.pos[Char] = total[Char]
 	}
 }
@@ -147,9 +147,9 @@ func leftChar() {
 func rightChar() {
 	if cursor.pos[Char] < total[Char] {
 		cursor.pos[Char]++
-	} else if cursor.pos[Sect] < total[Sect] {
-		cursor.pos[Sect]++
-		scanSect()
+	} else if cursor.pos[Sectn] < total[Sectn] {
+		cursor.pos[Sectn]++
+		scanSectn()
 		cursor.pos[Char] = 0
 	}
 }
@@ -157,9 +157,9 @@ func rightChar() {
 func leftWord() {
 	if cursor.pos[Word] > 0 {
 		cursor.pos[Char] = iword[cursor.pos[Word]-1]
-	} else if cursor.pos[Sect] > 1 {
-		cursor.pos[Sect]--
-		scanSect()
+	} else if cursor.pos[Sectn] > 1 {
+		cursor.pos[Sectn]--
+		scanSectn()
 		cursor.pos[Char] = iword[len(iword)-1]
 	} else {
 		cursor.pos[Char] = 0
@@ -175,16 +175,16 @@ func rightWord() {
 	if w < len(iword) {
 		cursor.pos[Char] = iword[w]
 	} else {
-		rightSect()
+		rightSectn()
 	}
 }
 
 func leftSent() {
 	if cursor.pos[Sent] > 0 {
 		cursor.pos[Char] = isent[cursor.pos[Sent]-1].c
-	} else if cursor.pos[Sect] > 1 {
-		cursor.pos[Sect]--
-		scanSect()
+	} else if cursor.pos[Sectn] > 1 {
+		cursor.pos[Sectn]--
+		scanSectn()
 		cursor.pos[Char] = isent[len(isent)-1].c
 	} else {
 		cursor.pos[Char] = 0
@@ -200,16 +200,16 @@ func rightSent() {
 	if s < len(isent) {
 		cursor.pos[Char] = isent[s].c
 	} else {
-		rightSect()
+		rightSectn()
 	}
 }
 
 func leftPara() {
 	if cursor.pos[Para] > 0 {
 		cursor.pos[Char] = ipara[cursor.pos[Para]-1].c
-	} else if cursor.pos[Sect] > 1 {
-		cursor.pos[Sect]--
-		scanSect()
+	} else if cursor.pos[Sectn] > 1 {
+		cursor.pos[Sectn]--
+		scanSectn()
 		cursor.pos[Char] = ipara[len(ipara)-1].c
 	} else {
 		cursor.pos[Char] = 0
@@ -225,22 +225,22 @@ func rightPara() {
 	if p < len(ipara) {
 		cursor.pos[Char] = ipara[p].c
 	} else {
-		rightSect()
+		rightSectn()
 	}
 }
 
-func leftSect() {
-	if cursor.pos[Sect] > 1 {
-		cursor.pos[Sect]--
-		scanSect()
+func leftSectn() {
+	if cursor.pos[Sectn] > 1 {
+		cursor.pos[Sectn]--
+		scanSectn()
 	}
 	cursor.pos[Char] = 0
 }
 
-func rightSect() {
-	if cursor.pos[Sect] < total[Sect] {
-		cursor.pos[Sect]++
-		scanSect()
+func rightSectn() {
+	if cursor.pos[Sectn] < total[Sectn] {
+		cursor.pos[Sectn]++
+		scanSectn()
 		cursor.pos[Char] = 0
 	} else {
 		cursor.pos[Char] = total[Char]
@@ -248,7 +248,7 @@ func rightSect() {
 }
 
 func Left() {
-	osect = 0
+	osectn = 0
 	switch scope {
 	case Char:
 		leftChar()
@@ -258,14 +258,14 @@ func Left() {
 		leftSent()
 	case Para:
 		leftPara()
-	default: // Sect
-		leftSect()
+	default: // Sectn
+		leftSectn()
 	}
 	DrawWindow()
 }
 
 func Right() {
-	osect = 0
+	osectn = 0
 	switch scope {
 	case Char:
 		rightChar()
@@ -275,15 +275,15 @@ func Right() {
 		rightSent()
 	case Para:
 		rightPara()
-	default: // Sect
-		rightSect()
+	default: // Sectn
+		rightSectn()
 	}
 	DrawWindow()
 }
 
 func Home() {
-	if osect == 0 {
-		osect = cursor.pos[Sect]
+	if osectn == 0 {
+		osectn = cursor.pos[Sectn]
 		ochar = cursor.pos[Char]
 	}
 
@@ -295,22 +295,22 @@ func Home() {
 		cursor.pos[Char] = ipara[p].c
 		scope = Sent
 	} else if scope == Sent {
-		if cursor.pos[Sect] > 1 {
-			cursor.pos[Sect]--
-			scanSect()
+		if cursor.pos[Sectn] > 1 {
+			cursor.pos[Sectn]--
+			scanSectn()
 		}
 		cursor.pos[Char] = 0
 		scope = Para
 	} else if scope == Para {
-		cursor.pos[Sect] = 1
+		cursor.pos[Sectn] = 1
 		cursor.pos[Char] = 0
-		scanSect()
-		scope = Sect
-	} else if cursor.pos[Sect] == 1 && cursor.pos[Char] == 0 { // Sect
-		cursor.pos[Sect] = osect
+		scanSectn()
+		scope = Sectn
+	} else if cursor.pos[Sectn] == 1 && cursor.pos[Char] == 0 { // Sectn
+		cursor.pos[Sectn] = osectn
 		cursor.pos[Char] = ochar
-		if osect > 1 {
-			scanSect()
+		if osectn > 1 {
+			scanSectn()
 		}
 		scope = Char
 	}
@@ -318,8 +318,8 @@ func Home() {
 }
 
 func End() {
-	if osect == 0 {
-		osect = cursor.pos[Sect]
+	if osectn == 0 {
+		osectn = cursor.pos[Sectn]
 		ochar = cursor.pos[Char]
 	}
 
@@ -338,15 +338,15 @@ func End() {
 		cursor.pos[Char] = total[Char]
 		scope = Para
 	} else if scope == Para {
-		cursor.pos[Sect] = total[Sect]
-		scanSect()
+		cursor.pos[Sectn] = total[Sectn]
+		scanSectn()
 		cursor.pos[Char] = total[Char]
-		scope = Sect
-	} else if cursor.pos[Sect] == total[Sect] && cursor.pos[Char] == total[Char] { // Sect
-		cursor.pos[Sect] = osect
+		scope = Sectn
+	} else if cursor.pos[Sectn] == total[Sectn] && cursor.pos[Char] == total[Char] { // Sectn
+		cursor.pos[Sectn] = osectn
 		cursor.pos[Char] = ochar
-		if osect < total[Sect] {
-			scanSect()
+		if osectn < total[Sectn] {
+			scanSectn()
 		}
 		scope = Char
 	}
