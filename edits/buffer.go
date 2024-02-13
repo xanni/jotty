@@ -92,7 +92,6 @@ func DecScope() {
 		initialCap = false
 	}
 
-	DrawCursor()
 	DrawStatusBar()
 }
 
@@ -104,7 +103,6 @@ func IncScope() {
 		scope++
 	}
 
-	DrawCursor()
 	DrawStatusBar()
 }
 
@@ -119,10 +117,11 @@ func DrawCursor() {
 	win.AttrSet(nc.Char(cursorStyle))
 	win.MovePrint(cursor.y, cursor.x, string(cc))
 	win.AttrSet(nc.A_NORMAL)
+	win.Move(cursor.y, cursor.x)
 	win.NoutRefresh()
 }
 
-// Draw a status bar on the last line of the screen
+// Draw a status bar on the last line of the screen, then the cursor
 func DrawStatusBar() {
 	win.Move(Sy-1, 0)
 	win.ClearToBottom()
@@ -157,8 +156,7 @@ func DrawStatusBar() {
 		}
 	}
 
-	win.Move(cursor.y, cursor.x)
-	win.NoutRefresh()
+	DrawCursor()
 }
 
 // Find which screen row contains the character position of the cursor
@@ -282,7 +280,6 @@ func DrawWindow() {
 			cursor.x = x
 			cursor.y = y
 			updateCursorPos()
-			DrawCursor()
 			x++
 		}
 
@@ -500,7 +497,6 @@ func Space() {
 
 	initialCap = scope >= Sent
 	osectn = 0
-	DrawCursor()
 	DrawStatusBar()
 }
 
@@ -517,6 +513,5 @@ func Enter() {
 
 	initialCap = true
 	osectn = 0
-	DrawCursor()
 	DrawStatusBar()
 }
