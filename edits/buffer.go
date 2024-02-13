@@ -209,6 +209,19 @@ func isNewParagraph(c int) bool {
 	return p < len(ipara) && c == ipara[p].c
 }
 
+// Set up a fresh display buffer before redrawing the entire window
+func newBuffer() {
+	buffer = make([]line, Sy-1)
+	bufy = 0
+	cursor.x = 0
+	cursor.y = 0
+	p := getPara()
+	if p > len(ipara)-1 || !isNewParagraph(cursor.pos[Char]) {
+		p--
+	}
+	buffer[0] = line{bytes: ipara[p].b, chars: ipara[p].c, sectn: cursor.pos[Sectn]}
+}
+
 // Get the monospace display width of the next breakable segment in source
 func nextSegWidth(source []byte) int {
 	seg, _, _, _ := uniseg.FirstLineSegment(source, -1) // next breakable segment
@@ -252,17 +265,7 @@ func DrawWindow() {
 		y = cursorRow()
 	} else {
 		// Nothing has been drawn yet, or the cursor is outside the screen: redraw everything
-		buffer = make([]line, Sy-1)
-		bufy = 0
-		cursor.x = 0
-		cursor.y = 0
-		buffer[0] = line{sectn: cursor.pos[Sectn]}
-		p := getPara()
-		if p > len(ipara)-1 || !isNewParagraph(cursor.pos[Char]) {
-			p--
-		}
-		buffer[0].bytes = ipara[p].b
-		buffer[0].chars = ipara[p].c
+		newBuffer()
 	}
 
 	l = buffer[y]
