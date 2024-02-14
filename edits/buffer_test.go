@@ -9,6 +9,52 @@ import (
 	nc "github.com/vit1251/go-ncursesw"
 )
 
+func TestAppendParaBreak(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		cursor = counts{Sectn: 1}
+		document = []byte(" ")
+		isectn = []int{0}
+		Sx = margin + 1
+		Sy = 4
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+
+		appendParaBreak()
+		assert.Equal(t, []byte("\n"), document)
+
+		appendParaBreak()
+		assert.Equal(t, []byte("\n\n"), document)
+	})
+}
+
+func TestAppendSectnBreak(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		cursor = counts{Sectn: 1}
+		document = []byte("\n")
+		isectn = []int{0}
+		Sx = margin + 1
+		Sy = 5
+		nc.ResizeTerm(Sy, Sx)
+		ResizeScreen()
+
+		buffer = nil
+		appendSectnBreak()
+		assert.Equal(t, []byte("\f"), document)
+
+		appendSectnBreak()
+		assert.Equal(t, []byte("\f\f"), document)
+
+		buffer = nil
+		cursor = counts{1, 0, 1, 1, 1}
+		document = []byte("\n")
+		isectn = []int{0}
+		newSection(1)
+		DrawWindow()
+		appendSectnBreak()
+		assert.Equal(t, []byte("\f"), document)
+	})
+}
+
 func TestAppendRune(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		cursor = counts{Sectn: 1}
@@ -123,6 +169,20 @@ func TestIncScope(t *testing.T) {
 	})
 }
 
+func TestCursorRow(t *testing.T) {
+	buffer = []line{{sectn: 2}, {}, {sectn: 2, chars: 4}, {}, {sectn: 3}}
+	bufy = 4
+
+	cursor = counts{Sectn: 2, Char: 3}
+	assert.Equal(t, 0, cursorRow())
+
+	cursor = counts{Sectn: 2, Char: 4}
+	assert.Equal(t, 2, cursorRow())
+
+	cursor = counts{Sectn: 3}
+	assert.Equal(t, 4, cursorRow())
+}
+
 func TestDrawCursor(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		cursor = counts{Sectn: 1}
@@ -133,7 +193,7 @@ func TestDrawCursor(t *testing.T) {
 
 		initialCap = false
 		scope = Char
-		DrawCursor()
+		drawCursor()
 		assert.Equal(t, nc.Char(cursorChar[Char])|nc.A_BLINK, win.MoveInChar(0, 0))
 	})
 }
@@ -151,7 +211,7 @@ func TestDrawStatusBar(t *testing.T) {
 		ResizeScreen()
 
 		for scope = Char; scope <= Sectn; scope++ {
-			DrawStatusBar()
+			drawStatusBar()
 			assert.Equal(t, nc.Char(counterChar[scope]), win.MoveInChar(Sy-1, 0))
 		}
 
@@ -176,20 +236,6 @@ func TestDrawStatusBar(t *testing.T) {
 				'@'|nc.A_BOLD, '0'|nc.A_BOLD, '/'|nc.A_BOLD, '0'|nc.A_BOLD, ' '),
 		})
 	})
-}
-
-func TestCursorRow(t *testing.T) {
-	buffer = []line{{sectn: 2}, {}, {sectn: 2, chars: 4}, {}, {sectn: 3}}
-	bufy = 4
-
-	cursor = counts{Sectn: 2, Char: 3}
-	assert.Equal(t, 0, cursorRow())
-
-	cursor = counts{Sectn: 2, Char: 4}
-	assert.Equal(t, 2, cursorRow())
-
-	cursor = counts{Sectn: 3}
-	assert.Equal(t, 4, cursorRow())
 }
 
 func TestIsCursorInBuffer(t *testing.T) {
@@ -508,52 +554,6 @@ func TestResizeScreen(t *testing.T) {
 		ResizeScreen()
 		assert.Nil(t, buffer)
 		test.AssertCellContents(t, [][]rune{{' '}})
-	})
-}
-
-func TestAppendParaBreak(t *testing.T) {
-	test.WithSimScreen(t, func() {
-		cursor = counts{Sectn: 1}
-		document = []byte(" ")
-		isectn = []int{0}
-		Sx = margin + 1
-		Sy = 4
-		nc.ResizeTerm(Sy, Sx)
-		ResizeScreen()
-
-		appendParaBreak()
-		assert.Equal(t, []byte("\n"), document)
-
-		appendParaBreak()
-		assert.Equal(t, []byte("\n\n"), document)
-	})
-}
-
-func TestAppendSectnBreak(t *testing.T) {
-	test.WithSimScreen(t, func() {
-		cursor = counts{Sectn: 1}
-		document = []byte("\n")
-		isectn = []int{0}
-		Sx = margin + 1
-		Sy = 5
-		nc.ResizeTerm(Sy, Sx)
-		ResizeScreen()
-
-		buffer = nil
-		appendSectnBreak()
-		assert.Equal(t, []byte("\f"), document)
-
-		appendSectnBreak()
-		assert.Equal(t, []byte("\f\f"), document)
-
-		buffer = nil
-		cursor = counts{1, 0, 1, 1, 1}
-		document = []byte("\n")
-		isectn = []int{0}
-		newSection(1)
-		DrawWindow()
-		appendSectnBreak()
-		assert.Equal(t, []byte("\f"), document)
 	})
 }
 

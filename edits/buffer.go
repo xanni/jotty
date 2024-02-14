@@ -54,55 +54,60 @@ var initialCap = true // initial capital at the start of a sentence
 var total counts
 var win *nc.Window
 
-// Append a UTF-8 encoded rune to the document.
-// TODO implement insertion instead
-func AppendRune(rb []byte) {
-	r, _ := utf8.DecodeRune(rb)
-	if initialCap && unicode.IsLower(r) {
-		rb = []byte(string(unicode.ToUpper(r)))
-	}
-
-	document = append(document, rb...)
-	initialCap = false
-	osectn = 0
-	scope = Char
-
-	if len(buffer) == 0 {
-		cursor[Char] = uniseg.GraphemeClusterCount(string(document))
+func appendParaBreak() {
+	i := len(document) - 1
+	if document[i] != ' ' {
+		AppendRune([]byte{'\n'})
 	} else {
-		cursor[Char] = buffer[cursy].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursy].bytes:]))
+		document[i] = '\n'
 		DrawWindow()
 	}
+	scope = Para
 }
 
-func DecScope() {
-	if scope == Char {
-		scope = Sectn
+func appendSectnBreak() {
+	s := cursor[Sectn] + 1
+	cursor = counts{Sectn: s}
+
+	i := len(document) - 1
+	if document[i] != '\n' {
+		document = append(document, '\f')
+		i++
 	} else {
-		scope--
+		document[i] = '\f'
+	}
+	i++
+	indexSectn(i)
+	newSection(s)
+
+	if len(buffer) > 0 {
+		if cursy >= Sy-2 {
+			scrollUp(2)
+		}
+		if cursy > 0 {
+			win.HLine(cursy-1, 0, nc.ACS_HLINE, Sx-1)
+		}
+		buffer[cursy] = line{bytes: i, sectn: s}
 	}
 
-	if scope < Sent {
-		initialCap = false
-	}
-
-	DrawStatusBar()
+	scope = Sectn
+	DrawWindow()
 }
 
-func IncScope() {
-	if scope == Sectn {
-		scope = Char
-		initialCap = false
-	} else {
-		scope++
+// Find which screen row contains the character position of the cursor
+func cursorRow() (y int) {
+	for y = bufy; y > 0; y-- {
+		if buffer[y].sectn == cursor[Sectn] && buffer[y].chars <= cursor[Char] {
+			break
+		}
 	}
 
-	DrawStatusBar()
+	return y
 }
 
 // Draw the cursor
 // TODO erase the old cursor when moving the cursor to a new position
-func DrawCursor() {
+func drawCursor() {
 	cc := '↑'
 	if !initialCap {
 		cc = cursorChar[scope]
@@ -115,8 +120,19 @@ func DrawCursor() {
 	win.NoutRefresh()
 }
 
+func drawResizeRequest() {
+	if Sx < 2 || Sy < 1 {
+		return
+	}
+
+	win.AttrSet(errorStyle)
+	win.MovePrint((Sy-1)/2, 0, "<"+strings.Repeat("-", Sx-2)+">")
+	win.AttrSet(nc.A_NORMAL)
+	win.NoutRefresh()
+}
+
 // Draw a status bar on the last line of the screen, then the cursor
-func DrawStatusBar() {
+func drawStatusBar() {
 	win.Move(Sy-1, 0)
 	win.ClearToBottom()
 
@@ -150,18 +166,7 @@ func DrawStatusBar() {
 		}
 	}
 
-	DrawCursor()
-}
-
-// Find which screen row contains the character position of the cursor
-func cursorRow() (y int) {
-	for y = bufy; y > 0; y-- {
-		if buffer[y].sectn == cursor[Sectn] && buffer[y].chars <= cursor[Char] {
-			break
-		}
-	}
-
-	return y
+	drawCursor()
 }
 
 // True if the first rune in source is a Unicode letter or number
@@ -233,6 +238,52 @@ func scrollUp(lines int) {
 	if cursy < 0 {
 		cursy = 0
 	}
+}
+
+// Append a UTF-8 encoded rune to the document.
+// TODO implement insertion instead
+func AppendRune(rb []byte) {
+	r, _ := utf8.DecodeRune(rb)
+	if initialCap && unicode.IsLower(r) {
+		rb = []byte(string(unicode.ToUpper(r)))
+	}
+
+	document = append(document, rb...)
+	initialCap = false
+	osectn = 0
+	scope = Char
+
+	if len(buffer) == 0 {
+		cursor[Char] = uniseg.GraphemeClusterCount(string(document))
+	} else {
+		cursor[Char] = buffer[cursy].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursy].bytes:]))
+		DrawWindow()
+	}
+}
+
+func DecScope() {
+	if scope == Char {
+		scope = Sectn
+	} else {
+		scope--
+	}
+
+	if scope < Sent {
+		initialCap = false
+	}
+
+	drawStatusBar()
+}
+
+func IncScope() {
+	if scope == Sectn {
+		scope = Char
+		initialCap = false
+	} else {
+		scope++
+	}
+
+	drawStatusBar()
 }
 
 /*
@@ -387,18 +438,7 @@ func DrawWindow() {
 		scanSectn()
 	}
 
-	DrawStatusBar()
-}
-
-func drawResizeRequest() {
-	if Sx < 2 || Sy < 1 {
-		return
-	}
-
-	win.AttrSet(errorStyle)
-	win.MovePrint((Sy-1)/2, 0, "<"+strings.Repeat("-", Sx-2)+">")
-	win.AttrSet(nc.A_NORMAL)
-	win.NoutRefresh()
+	drawStatusBar()
 }
 
 func ResizeScreen() {
@@ -411,46 +451,6 @@ func ResizeScreen() {
 	} else {
 		drawResizeRequest()
 	}
-}
-
-func appendParaBreak() {
-	i := len(document) - 1
-	if document[i] != ' ' {
-		AppendRune([]byte{'\n'})
-	} else {
-		document[i] = '\n'
-		DrawWindow()
-	}
-	scope = Para
-}
-
-func appendSectnBreak() {
-	s := cursor[Sectn] + 1
-	cursor = counts{Sectn: s}
-
-	i := len(document) - 1
-	if document[i] != '\n' {
-		document = append(document, '\f')
-		i++
-	} else {
-		document[i] = '\f'
-	}
-	i++
-	indexSectn(i)
-	newSection(s)
-
-	if len(buffer) > 0 {
-		if cursy >= Sy-2 {
-			scrollUp(2)
-		}
-		if cursy > 0 {
-			win.HLine(cursy-1, 0, nc.ACS_HLINE, Sx-1)
-		}
-		buffer[cursy] = line{bytes: i, sectn: s}
-	}
-
-	scope = Sectn
-	DrawWindow()
 }
 
 func Space() {
@@ -491,7 +491,7 @@ func Space() {
 
 	initialCap = scope >= Sent
 	osectn = 0
-	DrawStatusBar()
+	drawStatusBar()
 }
 
 func Enter() {
@@ -507,5 +507,5 @@ func Enter() {
 
 	initialCap = true
 	osectn = 0
-	DrawStatusBar()
+	drawStatusBar()
 }
