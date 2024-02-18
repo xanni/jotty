@@ -1,8 +1,40 @@
 package edits
 
 /*
-Implements the buffer that represents the visible user interface elements
-of the edits window and status line.
+Implements the buffer that represents the visible user interface elements of
+the edits window and status line.
+
+In the olden days of ASCII, this would all be simple, but in the modern
+Unicode world we try to represent things that are a lot more complicated.
+Therefore this file maps between the storage representation of the text as a
+UTF-8 encoded stream of bytes and the visual presentation of a window
+displaying "characters" (Unicode "grapheme clusters") grouped into "words",
+"sentences", "paragraphs" and "sections".
+
+Characters can be made up of one or more Go "runes" and can display as glyphs
+occuping one or more monospace grid cells in the terminal window.  "Words" are
+defined as strings of characters starting with a Unicode alphanumeric
+character (class "Letter" or "Number") and ending at a word boundary as
+defined in Unicode Standard Annex #29: Text Segmentation, implemented in the
+"uniseg" module. Likewise, "Sentences" are defined as strings of characters
+between sentence boundaries as defined in the same Annex and module.
+
+"Paragraphs" are strings of characters between newline '\n' or formfeed '\f'
+characters, and are visually represented with a single blank line on the
+terminal between each paragraph.  "Sections" represent conceptually distinct
+portions of the text, and therefore provide a convenient boundary for demand
+paging so that the entire document and corresponding internal indexes do not
+have to be memory resident at all times.  The total character, word, sentence
+and paragraph counts and cursor position are all expressed as offsets relative
+to the start of the current section, so positions in the text are uniquely
+identified by the section number starting from 1 and the character count
+starting from 0.  There is no section 0.
+
+Within paragraphs, word wrapping and line breaking is performed according to
+Unicode Standard Annex #14: Line Breaking Algorithm, also implemented in the
+"uniseg" module.  Multiple sections can potentially be on screen at the same
+time, and are visually represented by a single terminal row containing a
+horizontal rule.  Selections cannot cross section boundaries.
 */
 
 import (
@@ -20,19 +52,19 @@ var cursorChar = [...]rune{'_', '#', '$', '¶', '§'}
 var cursorStyle = nc.A_BLINK
 var errorStyle = nc.ColorPair(1) | nc.A_REVERSE
 
-const margin = 5 // Up to 3 edit marks, cursor and wrap indicator
+const margin = 5 // up to 3 edit marks, cursor and wrap indicator
 
-var ID string  // The program name and version
-var Sx, Sy int // Screen dimensions
+var ID string  // the program name and version
+var Sx, Sy int // screen dimensions
 
 type Scope int
 
 const (
 	Char Scope = iota
 	Word
-	Sent  // Sentence
-	Para  // Paragraph
-	Sectn // Section
+	Sent  // sentence
+	Para  // paragraph
+	Sectn // section
 	MaxScope
 )
 
@@ -40,12 +72,25 @@ var scope Scope
 
 type counts [MaxScope]int
 
+// Cache for a single line in the terminal window
 type line struct {
-	bytes, chars int // cumulative counts at start of line
-	sectn        int // current section at start of line
+	beg_b, beg_c int  // cumulative counts at start of line
+	end_b, end_c int  // cumulative counts at end of line
+	r            rune // the last rune on the line
+	sectn        int  // section that contains the line
 }
 
-var bufc, bufy int // last character position and last row in the buffer
+/*
+The "buffer" variable caches the starting and ending byte offsets within the
+document, the starting and ending character offsets within the section, the
+last rune on the line (to record whether it's a paragraph or section break)
+and the current section for each line displayed in the terminal to speed up
+rendering by avoiding constantly redrawing the entire terminal window.
+
+The blank lines between paragraphs and sections are represented by all zero
+entries and should be skipped.
+*/
+
 var buffer []line
 var cursor = counts{Sectn: 1} // current position in the section/document
 var cursx, cursy int          // current position in the edit window
@@ -66,38 +111,24 @@ func appendParaBreak() {
 }
 
 func appendSectnBreak() {
-	s := cursor[Sectn] + 1
-	cursor = counts{Sectn: s}
-
 	i := len(document) - 1
 	if document[i] != '\n' {
 		document = append(document, '\f')
-		i++
 	} else {
 		document[i] = '\f'
 	}
-	i++
-	indexSectn(i)
-	newSection(s)
+	DrawWindow()
 
-	if len(buffer) > 0 {
-		if cursy >= Sy-2 {
-			scrollUp(2)
-		}
-		if cursy > 0 {
-			win.HLine(cursy-1, 0, nc.ACS_HLINE, Sx-1)
-		}
-		buffer[cursy] = line{bytes: i, sectn: s}
-	}
-
+	s := cursor[Sectn] + 1
+	cursor = counts{Sectn: s}
 	scope = Sectn
 	DrawWindow()
 }
 
 // Find which screen row contains the character position of the cursor
 func cursorRow() (y int) {
-	for y = bufy; y > 0; y-- {
-		if buffer[y].sectn == cursor[Sectn] && buffer[y].chars <= cursor[Char] {
+	for y = 0; y < len(buffer)-1; y++ {
+		if buffer[y].sectn == cursor[Sectn] && buffer[y].end_c >= cursor[Char] {
 			break
 		}
 	}
@@ -179,17 +210,27 @@ func isAlphanumeric(source []byte) bool {
 // a special case if the cursor is one character or word below the screen then
 // scroll up one line to put the cursor back on screen.
 func isCursorInBuffer() bool {
-	cur_s, cur_c := cursor[Sectn], cursor[Char]
-
-	if len(buffer) == 0 ||
-		cur_s < buffer[0].sectn ||
-		(cur_s == buffer[0].sectn && cur_c < buffer[0].chars) ||
-		cur_s > buffer[bufy].sectn ||
-		(scope >= Sent && cur_s == buffer[bufy].sectn && cur_c > bufc+1) {
+	if len(buffer) == 0 {
 		return false
 	}
 
-	if scope < Sent && cursy == Sy-1 && cur_c > bufc+1 {
+	cur_s, cur_c := cursor[Sectn], cursor[Char]
+	var first_row, last_row int
+	if buffer[first_row].sectn == 0 {
+		first_row++
+	}
+	for last_row = len(buffer) - 1; last_row > 0 && buffer[last_row].sectn == 0; last_row-- {
+	}
+	passed_end := cur_s == buffer[last_row].sectn && cur_c > buffer[last_row].end_c+1
+
+	if cur_s < buffer[first_row].sectn ||
+		(cur_s == buffer[first_row].sectn && cur_c < buffer[first_row].beg_c) ||
+		cur_s > buffer[last_row].sectn ||
+		(passed_end && scope >= Sent) {
+		return false
+	}
+
+	if passed_end {
 		scrollUp(1)
 	}
 
@@ -209,14 +250,13 @@ func isNewParagraph(c int) bool {
 // Set up a fresh display buffer before redrawing the entire window
 func newBuffer() {
 	buffer = make([]line, Sy-1)
-	bufy = 0
 	cursx = 0
 	cursy = 0
 	p := getPara()
 	if p > len(ipara)-1 || !isNewParagraph(cursor[Char]) {
 		p--
 	}
-	buffer[0] = line{bytes: ipara[p].b, chars: ipara[p].c, sectn: cursor[Sectn]}
+	buffer[0] = line{beg_b: ipara[p].b, beg_c: ipara[p].c, sectn: cursor[Sectn]}
 }
 
 // Get the monospace display width of the next breakable segment in source
@@ -236,7 +276,11 @@ func scrollUp(lines int) {
 	buffer = append(buffer[lines:], make([]line, lines)...)
 	cursy -= lines
 	if cursy < 0 {
-		cursy = 0
+		if buffer[0].sectn > 0 {
+			cursy = 0
+		} else {
+			cursy = 1
+		}
 	}
 }
 
@@ -256,9 +300,12 @@ func AppendRune(rb []byte) {
 	if len(buffer) == 0 {
 		cursor[Char] = uniseg.GraphemeClusterCount(string(document))
 	} else {
-		cursor[Char] = buffer[cursy].chars + uniseg.GraphemeClusterCount(string(document[buffer[cursy].bytes:]))
-		DrawWindow()
+		cursor[Char] = buffer[cursy].beg_c + uniseg.GraphemeClusterCount(string(document[buffer[cursy].beg_b:]))
+		state := -1
+		drawLine(cursy, &state)
 	}
+
+	DrawWindow()
 }
 
 func DecScope() {
@@ -286,6 +333,107 @@ func IncScope() {
 	drawStatusBar()
 }
 
+// Draw a paragraph or section break, represented respectively by a blank line
+// and a horizontal rule
+func drawBreak(y int, r rune) {
+	if r == '\n' {
+		win.Move(y, 0)
+		win.ClearToEOL()
+	} else if r == '\f' {
+		win.HLine(y, 0, nc.ACS_HLINE, Sx-1)
+	}
+}
+
+// Draw one line in the edit window.  Word wraps at the end of the line.
+func drawLine(y int, state *int) {
+	b := buffer[y].beg_b
+	c := buffer[y].beg_c
+	s := buffer[y].sectn
+	source := document[b:]
+
+	// A new paragraph is often the start of a new word that might not have been recorded yet
+	if isNewParagraph(c) && isAlphanumeric(source) {
+		indexWord(c)
+	}
+
+	var f int            // Unicode boundary flags
+	m := Sx - margin - 1 // Right margin
+	var r rune
+	var x int // Column position in the line
+	for {
+		if s == cursor[Sectn] && c == cursor[Char] {
+			cursx = x
+			cursy = y
+			updateCursorPos()
+			m++
+			x++
+		}
+
+		if len(source) == 0 {
+			break
+		}
+
+		var g []byte // grapheme cluster
+		g, source, f, *state = uniseg.Step(source, *state)
+		b += len(g)
+		r, _ = utf8.DecodeRune(g)
+		if r == utf8.RuneError {
+			continue
+		}
+
+		w := f >> uniseg.ShiftWidth // monospace width of character
+		if w > 0 || r == '\n' {
+			c++
+		}
+
+		isAN := isAlphanumeric(source)
+		if f&uniseg.MaskWord != 0 && isAN {
+			indexWord(c)
+		}
+
+		if r == '\n' || (f&uniseg.MaskSentence != 0 && len(source) > 0) {
+			indexSent(b, c)
+		}
+
+		if r == '\n' {
+			indexPara(b, c)
+		}
+
+		if r == '\f' {
+			indexSectn(b)
+			newSection(s + 1)
+
+			if isAN {
+				iword = []int{0}
+			}
+		}
+
+		if w > 0 {
+			win.MovePrint(y, x, string(g))
+			x += w
+		}
+
+		// Break if at margin or mandatory break that is not just end of source
+		f &= uniseg.MaskLine
+		if x > m ||
+			(f == uniseg.LineMustBreak && (len(source) > 0 || uniseg.HasTrailingLineBreak(document))) ||
+			(f == uniseg.LineCanBreak && x+w+nextSegWidth(source) > m) {
+			break
+		}
+	}
+
+	if x > m && f != uniseg.LineCanBreak {
+		win.MoveAddChar(y, Sx-1, '-'|nc.A_REVERSE)
+	} else {
+		win.Move(y, x)
+		win.ClearToEOL()
+	}
+
+	buffer[y].end_b = b
+	buffer[y].end_c = c
+	buffer[y].r = r
+}
+
 /*
 Draw the edit window.
 
@@ -300,142 +448,63 @@ func DrawWindow() {
 		return
 	}
 
-	var l line   // current line with cumulative counts
-	var x, y int // current screen coordinates
+	var y int // current screen coordinates
 
 	// First find the character the cursor is located at on the screen, if possible
 	if isCursorInBuffer() {
-		y = cursorRow()
+		y = min(cursy, cursorRow())
 	} else {
 		// Nothing has been drawn yet, or the cursor is outside the screen: redraw everything
 		newBuffer()
 	}
 
-	l = buffer[y]
-	source := document[l.bytes:]
+	l := buffer[y]
 	state := -1
-
-	// A new paragraph is often the start of a new word that might not have been recorded yet
-	if isNewParagraph(l.chars) && isAlphanumeric(source) {
-		indexWord(l.chars)
-	}
-
-	for y < Sy-1 {
-		if l.sectn == cursor[Sectn] && l.chars == cursor[Char] {
-			cursx = x
-			cursy = y
-			updateCursorPos()
-			x++
-		}
-
-		if len(source) == 0 {
-			break
-		}
-
-		var f int    // Unicode boundary flags
-		var g []byte // grapheme cluster
-
-		g, source, f, state = uniseg.Step(source, state)
-		l.bytes += len(g)
-		r, _ := utf8.DecodeRune(g)
-		if r == utf8.RuneError {
-			continue
-		}
-
-		w := f >> uniseg.ShiftWidth // monospace width of character
-		if w > 0 || r == '\n' {
-			l.chars++
-		}
-
-		isAN := isAlphanumeric(source)
-		if f&uniseg.MaskWord != 0 && isAN {
-			indexWord(l.chars)
-		}
-
-		if r == '\n' || (f&uniseg.MaskSentence != 0 && len(source) > 0) {
-			indexSent(l.bytes, l.chars)
-		}
-
-		if r == '\n' {
-			indexPara(l.bytes, l.chars)
-		}
-
-		if r == '\f' {
-			indexSectn(l.bytes)
-			l.chars = 0
-			l.sectn++
-			newSection(l.sectn)
-
-			if isAN {
-				iword = []int{0}
-			}
-		}
-
-		if w > 0 {
-			win.MovePrint(y, x, string(g))
-			x += w
-		}
-
-		// Break if at margin or mandatory break that is not just end of source
-		f &= uniseg.MaskLine
-		if x < Sx-1 &&
-			(f != uniseg.LineCanBreak || x+w+nextSegWidth(source) < Sx-1) &&
-			(f != uniseg.LineMustBreak || (len(source) == 0 && !uniseg.HasTrailingLineBreak(document))) {
-			continue
-		}
-
-		if x >= Sx-1 && f != uniseg.LineCanBreak {
-			win.MoveAddChar(y, x, '-'|nc.A_REVERSE)
-		} else {
-			win.Move(y, x)
-			win.ClearToEOL()
-		}
-
-		x = 0
+	for l.beg_b < len(document) {
+		drawLine(y, &state)
+		l = buffer[y]
 		y++
 
 		if y < Sy-1 {
-			if r == '\n' {
-				win.Move(y, x)
-				win.ClearToEOL()
-			}
-			if r == '\f' {
-				win.HLine(y, 0, nc.ACS_HLINE, Sx-1)
-			}
+			drawBreak(y, l.r)
+		} else if l.sectn > cursor[Sectn] || l.end_c >= cursor[Char] {
+			break
 		}
 
-		if r == '\n' || r == '\f' {
+		if l.r == '\n' || l.r == '\f' {
+			if y < Sy-1 {
+				buffer[y] = line{}
+			}
 			y++
 		}
 
-		// At the last line of the window but haven't passed the cursor yet
-		if y >= Sy-1 && l.sectn <= cursor[Sectn] && l.chars <= cursor[Char] {
+		if y >= Sy-1 {
 			lines := (y + 2) - Sy
 			scrollUp(lines)
 			y -= lines
+			drawBreak(y, l.r)
 		}
 
-		if y < Sy-1 {
-			buffer[y] = l
+		if l.r == '\f' {
+			l.end_c = 0
+			l.sectn++
 		}
+
+		l.beg_b = l.end_b
+		l.beg_c = l.end_c
+		l.r = 0
+		buffer[y] = l
 	}
 
-	bufc = l.chars
-
-	if y >= Sy-1 {
-		bufy = Sy - 2
-	} else {
-		win.Move(y, x)
+	if y < Sy-1 {
+		win.Move(y, 0)
 		win.ClearToBottom()
-		if y > bufy {
-			bufy = y
-		}
 	}
 
-	if l.sectn == cursor[Sectn] {
-		total = counts{l.chars, len(iword), len(isent), len(ipara), len(isectn)}
-	} else {
+	if l.r == '\f' || l.sectn != cursor[Sectn] {
 		scanSectn()
+	} else {
+		total = counts{max(total[Char], l.end_c), len(iword), len(isent), len(ipara), len(isectn)}
 	}
 
 	drawStatusBar()

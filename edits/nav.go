@@ -69,6 +69,7 @@ func indexSectn(b int) {
 
 // Reset the sentence and paragraph indexes
 func newSection(s int) {
+	total[Char] = 0
 	iword = nil
 	isent = []index{{isectn[s-1], 0}}
 	ipara = []index{{isectn[s-1], 0}}
@@ -288,10 +289,7 @@ func Home() {
 	}
 
 	if scope < Sent {
-		p := cursor[Para]
-		if p > 0 {
-			p--
-		}
+		p := max(0, cursor[Para]-1)
 		cursor[Char] = ipara[p].c
 		scope = Sent
 	} else if scope == Sent {
@@ -309,7 +307,7 @@ func Home() {
 	} else if cursor[Sectn] == 1 && cursor[Char] == 0 { // Sectn
 		cursor[Sectn] = osectn
 		cursor[Char] = ochar
-		if osectn > 1 {
+		if cursor[Sectn] > 1 {
 			scanSectn()
 		}
 		scope = Char

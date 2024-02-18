@@ -313,7 +313,7 @@ func TestLeft(t *testing.T) {
 		isectn = []int{0, 2}
 		cursor = counts{9, 4, 3, 2, 2}
 		scanSectn()
-		Sx = margin + 1
+		Sx = margin + 7
 		Sy = 4
 		ResizeScreen()
 
@@ -345,8 +345,8 @@ func TestRight(t *testing.T) {
 		isectn = []int{0, 10}
 		cursor = counts{Sectn: 1}
 		scanSectn()
-		Sx = margin + 1
-		Sy = 4
+		Sx = margin + 9
+		Sy = 5
 		ResizeScreen()
 
 		scope = Char
@@ -378,7 +378,7 @@ func TestHome(t *testing.T) {
 		osectn = 0
 		cursor = counts{3, 2, 2, 2, 3}
 		scanSectn()
-		Sx = margin + 1
+		Sx = margin + 2
 		Sy = 4
 		ResizeScreen()
 
@@ -432,7 +432,7 @@ func TestEnd(t *testing.T) {
 		osectn = 0
 		cursor = counts{Sectn: 1}
 		scanSectn()
-		Sx = margin + 1
+		Sx = margin + 3
 		Sy = 4
 		ResizeScreen()
 
