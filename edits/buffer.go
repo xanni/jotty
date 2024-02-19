@@ -101,27 +101,30 @@ var win *nc.Window
 
 func appendParaBreak() {
 	i := len(document) - 1
-	if document[i] != ' ' {
-		AppendRune([]byte{'\n'})
-	} else {
+	if document[i] == ' ' {
 		document[i] = '\n'
-		DrawWindow()
+	} else {
+		document = append(document, '\n')
+		cursor[Char]++
 	}
 	scope = Para
+	DrawWindow()
 }
 
 func appendSectnBreak() {
 	i := len(document) - 1
-	if document[i] != '\n' {
-		document = append(document, '\f')
-	} else {
+	if document[i] == '\n' {
 		document[i] = '\f'
+		scanSectn()
+	} else {
+		document = append(document, '\f')
 	}
 	DrawWindow()
 
 	s := cursor[Sectn] + 1
 	cursor = counts{Sectn: s}
 	scope = Sectn
+	newSection(s)
 	DrawWindow()
 }
 
@@ -137,7 +140,6 @@ func cursorRow() (y int) {
 }
 
 // Draw the cursor
-// TODO erase the old cursor when moving the cursor to a new position
 func drawCursor() {
 	cc := '↑'
 	if !initialCap {
@@ -297,8 +299,9 @@ func AppendRune(rb []byte) {
 	osectn = 0
 	scope = Char
 
-	if len(buffer) == 0 {
-		cursor[Char] = uniseg.GraphemeClusterCount(string(document))
+	if len(buffer) == 0 || cursor[Sectn] != len(isectn) {
+		cursor[Sectn] = len(isectn)
+		cursor[Char] = uniseg.GraphemeClusterCount(string(document[isectn[cursor[Sectn]-1]:]))
 	} else {
 		cursor[Char] = buffer[cursy].beg_c + uniseg.GraphemeClusterCount(string(document[buffer[cursy].beg_b:]))
 		state := -1
@@ -336,6 +339,7 @@ func IncScope() {
 // Draw a paragraph or section break, represented respectively by a blank line
 // and a horizontal rule
 func drawBreak(y int, r rune) {
+	buffer[y] = line{}
 	if r == '\n' {
 		win.Move(y, 0)
 		win.ClearToEOL()
@@ -434,6 +438,39 @@ func drawLine(y int, state *int) {
 	buffer[y].r = r
 }
 
+// Draw any paragraph or section break, scroll the window if required, and
+// update the next line in the buffer.
+func advanceLine(y *int, l *line) {
+	if l.r == '\n' || l.r == '\f' {
+		if *y < Sy-1 {
+			drawBreak(*y, l.r)
+		}
+		*y++
+	}
+
+	if *y >= Sy-1 {
+		lines := (*y + 2) - Sy
+		scrollUp(lines)
+		*y -= lines
+		drawBreak(*y, l.r)
+	}
+
+	if l.r == '\f' {
+		l.end_c = 0
+		l.sectn++
+	}
+
+	if (l.r == '\n' || l.r == '\f') && l.sectn == cursor[Sectn] && l.end_c == cursor[Char] {
+		cursx = 0
+		cursy = *y
+	}
+
+	l.beg_b = l.end_b
+	l.beg_c = l.end_c
+	l.r = 0
+	buffer[*y] = *l
+}
+
 /*
 Draw the edit window.
 
@@ -464,36 +501,11 @@ func DrawWindow() {
 		drawLine(y, &state)
 		l = buffer[y]
 		y++
-
-		if y < Sy-1 {
-			drawBreak(y, l.r)
-		} else if l.sectn > cursor[Sectn] || l.end_c >= cursor[Char] {
+		if y >= Sy-1 && (l.sectn > cursor[Sectn] || l.end_c >= cursor[Char]) {
 			break
 		}
 
-		if l.r == '\n' || l.r == '\f' {
-			if y < Sy-1 {
-				buffer[y] = line{}
-			}
-			y++
-		}
-
-		if y >= Sy-1 {
-			lines := (y + 2) - Sy
-			scrollUp(lines)
-			y -= lines
-			drawBreak(y, l.r)
-		}
-
-		if l.r == '\f' {
-			l.end_c = 0
-			l.sectn++
-		}
-
-		l.beg_b = l.end_b
-		l.beg_c = l.end_c
-		l.r = 0
-		buffer[y] = l
+		advanceLine(&y, &l)
 	}
 
 	if y < Sy-1 {

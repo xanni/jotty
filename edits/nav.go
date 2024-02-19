@@ -77,12 +77,12 @@ func newSection(s int) {
 
 // Count the characters and words in a section and update the sentence and paragraph indexes
 func scanSectn() {
-	p := cursor[Sectn]
+	s := cursor[Sectn]
 	var source []byte
 
-	b := isectn[p-1]
-	if p < len(isectn) {
-		source = document[b:isectn[p]]
+	b := isectn[s-1]
+	if s < len(isectn) {
+		source = document[b:isectn[s]]
 	} else {
 		source = document[b:]
 	}
@@ -90,7 +90,7 @@ func scanSectn() {
 	var c []byte // grapheme cluster
 	var chars int
 	var f int // Unicode boundary flags
-	newSection(p)
+	newSection(s)
 	state := -1
 
 	if isAlphanumeric(source) {
