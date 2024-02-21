@@ -16,6 +16,20 @@ const version = "0"
 
 const CTRL_D, CTRL_Q, CTRL_U, CTRL_W = '\x04', '\x11', '\x15', '\x17'
 
+var dispatch = map[nc.Key]func(){
+	nc.KEY_UP:     edits.IncScope,
+	nc.KEY_DOWN:   edits.DecScope,
+	nc.KEY_RETURN: edits.Enter,
+	nc.KEY_ENTER:  edits.Enter,
+	' ':           edits.Space,
+	nc.KEY_LEFT:   edits.Left,
+	nc.KEY_RIGHT:  edits.Right,
+	nc.KEY_HOME:   edits.Home,
+	CTRL_U:        edits.Home,
+	nc.KEY_END:    edits.End,
+	CTRL_D:        edits.End,
+}
+
 func resize(s *nc.Screen) {
 	s.End() // The old screen must be closed to re-initialise ncurses
 
@@ -75,32 +89,16 @@ func main() {
 		default:
 			// Process input
 			key := win.GetChar()
-			if key <= 32 || key > 255 {
-				crune = nil
-			}
-
-			switch {
-			case key == nc.KEY_RESIZE:
+			if key == nc.KEY_RESIZE {
 				resize(s)
-			case key == nc.KEY_ESC || key == CTRL_Q || key == CTRL_W:
+			} else if key == nc.KEY_ESC || key == CTRL_Q || key == CTRL_W {
 				quit()
-			case key == nc.KEY_UP:
-				edits.IncScope()
-			case key == nc.KEY_DOWN:
-				edits.DecScope()
-			case key == nc.KEY_RETURN || key == nc.KEY_ENTER:
-				edits.Enter()
-			case key == ' ':
-				edits.Space()
-			case key == nc.KEY_LEFT:
-				edits.Left()
-			case key == nc.KEY_RIGHT:
-				edits.Right()
-			case key == nc.KEY_HOME || key == CTRL_U:
-				edits.Home()
-			case key == nc.KEY_END || key == CTRL_D:
-				edits.End()
-			case key > 32 && key <= 255:
+			} else if key <= 32 || key > 255 {
+				crune = nil
+				if f, ok := dispatch[key]; ok {
+					f()
+				}
+			} else {
 				crune = append(crune, byte(key))
 				r, _ := utf8.DecodeLastRune(crune)
 				if r != utf8.RuneError {
