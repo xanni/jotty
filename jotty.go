@@ -93,7 +93,13 @@ func main() {
 				resize(s)
 			} else if key == nc.KEY_ESC || key == CTRL_Q || key == CTRL_W {
 				quit()
-			} else if key <= 32 || key > 255 {
+			}
+
+			if !edits.IsSizeOK() {
+				continue
+			}
+
+			if key <= 32 || key > 255 {
 				crune = nil
 				if f, ok := dispatch[key]; ok {
 					f()

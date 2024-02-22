@@ -45,18 +45,18 @@ func TestAppendSectnBreak(t *testing.T) {
 		document = []byte("\n")
 		ResizeScreen()
 
-		buffer = nil
+		newBuffer()
 		appendSectnBreak()
 		assert.Equal(t, []byte("\f"), document)
 
 		appendSectnBreak()
 		assert.Equal(t, []byte("\f\f"), document)
 
-		buffer = nil
 		cursor = counts{1, 0, 1, 1, 1}
 		document = []byte("\n")
 		isectn = []int{0}
 		newSection(1)
+		newBuffer()
 		DrawWindow()
 		appendSectnBreak()
 		assert.Equal(t, []byte("\f"), document)
@@ -134,7 +134,7 @@ func TestAppendRune(t *testing.T) {
 
 func TestAppendRuneCluster(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		Setup(3, 1)
+		Setup(3, 3)
 		ResizeScreen()
 
 		AppendRune([]byte("🇦"))
@@ -254,9 +254,8 @@ func TestDrawStatusBar(t *testing.T) {
 
 func TestIsCursorInBuffer(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		Setup(1, 2)
+		Setup(1, 3)
 		ResizeScreen()
-		assert.False(t, isCursorInBuffer())
 
 		buffer = []line{{sectn: 2, beg_c: 5, end_c: 9}, {sectn: 2, beg_c: 9, end_c: 9}}
 		cursor = counts{4, 0, 0, 0, 1}
@@ -345,6 +344,37 @@ func TestDrawLine(t *testing.T) {
 	})
 }
 
+func TestAdvanceLine(t *testing.T) {
+	test.WithSimScreen(t, func() {
+		Setup(3, 3)
+		cursor[Char] = 1
+		document = []byte("\n")
+		ResizeScreen()
+		assert.Equal(t, 0, buffer[0].sectn)
+		assert.Equal(t, 1, cursy)
+
+		cursor = counts{Sectn: 1}
+		newBuffer()
+		buffer[0].r = '\f'
+		document = []byte("\f")
+		l := buffer[0]
+		y := 1
+		advanceLine(&y, &l)
+		assert.Equal(t, 1, y)
+		assert.Equal(t, 0, buffer[0].sectn)
+		assert.Equal(t, nc.Char(nc.ACS_HLINE), win.MoveInChar(0, 0))
+
+		document = []byte("\f\f")
+		buffer[1].r = '\f'
+		l = buffer[1]
+		y = 2
+		advanceLine(&y, &l)
+		assert.Equal(t, 1, y)
+		assert.Equal(t, 0, buffer[0].sectn)
+		assert.Equal(t, nc.Char(nc.ACS_HLINE), win.MoveInChar(0, 0))
+	})
+}
+
 func TestDrawWindow(t *testing.T) {
 	test.WithSimScreen(t, func() {
 		Setup(2, 3)
@@ -414,15 +444,15 @@ func TestDrawWindowSentence(t *testing.T) {
 
 func TestDrawWindowParagraph(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		Setup(30, 4)
+		Setup(30, 3)
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie\nOi oi oi!")
 		ResizeScreen()
 		assert.Equal(t, []index{{}, {32, 25}}, ipara)
 		assert.Equal(t, []int{2, 10, 18, 25, 28, 31}, iword)
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 
-		buffer = nil
 		cursor = counts{25, 3, 1, 1, 1}
+		newBuffer()
 		DrawWindow()
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 
@@ -430,8 +460,8 @@ func TestDrawWindowParagraph(t *testing.T) {
 		DrawWindow()
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 
-		buffer = nil
 		cursor = counts{26, 4, 2, 2, 1}
+		newBuffer()
 		DrawWindow()
 		assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 	})
@@ -439,17 +469,17 @@ func TestDrawWindowParagraph(t *testing.T) {
 
 func TestDrawWindowSection(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		Setup(30, 4)
+		Setup(30, 3)
 		document = []byte("🇦🇺 Aussie, Aussie, Aussie\fOi oi oi!")
 		ResizeScreen()
-		assert.Equal(t, nc.Char(nc.ACS_HLINE), win.MoveInChar(1, 0))
+		assert.Equal(t, nc.Char(nc.ACS_HLINE), win.MoveInChar(0, 0))
 		assert.Equal(t, counts{24, 3, 1, 1, 2}, total)
 
 		cursor = counts{9, 3, 1, 1, 2}
 		newSection(2)
 		DrawWindow()
 		assert.Equal(t, counts{9, 3, 1, 1, 2}, total)
-		assert.Equal(t, 2, cursy)
+		assert.Equal(t, 1, cursy)
 
 		document = append(document, '\f')
 		DrawWindow()
@@ -546,7 +576,6 @@ func TestResizeScreen(t *testing.T) {
 		Sy = 1
 		nc.ResizeTerm(Sy, Sx)
 		ResizeScreen()
-		assert.Nil(t, buffer)
 		test.AssertCellContents(t, [][]rune{{' '}})
 	})
 }
@@ -597,19 +626,19 @@ func TestSpace(t *testing.T) {
 		assert.Equal(t, "Test.\n", string(document))
 		assert.Equal(t, scope, Para)
 
-		buffer = nil
-		ipara = []index{{}}
 		cursor = counts{5, 1, 1, 1, 1}
 		document = []byte("Test.")
+		ipara = []index{{}}
+		newBuffer()
 		Space()
 		assert.Equal(t, "Test.\f", string(document))
 		assert.Equal(t, scope, Sectn)
 
-		buffer = nil
-		ipara = []index{{}, {5, 5}}
-		isectn = []int{0}
 		cursor = counts{5, 1, 1, 1, 1}
 		document = []byte("Test\n")
+		ipara = []index{{}, {5, 5}}
+		isectn = []int{0}
+		newBuffer()
 		scope = Para
 		Space()
 		assert.Equal(t, 2, cursy)
@@ -660,7 +689,7 @@ func TestSpaceAfterSpace(t *testing.T) {
 
 func TestEnter(t *testing.T) {
 	test.WithSimScreen(t, func() {
-		Setup(6, 2)
+		Setup(6, 3)
 		ResizeScreen()
 
 		assert.NotPanics(t, func() { Enter() })
@@ -679,12 +708,12 @@ func TestEnter(t *testing.T) {
 		assert.Equal(t, "Test.\f", string(document))
 		assert.Equal(t, scope, Sectn)
 
-		buffer = nil
 		cursor = counts{5, 1, 1, 1, 1}
 		document = []byte("Test ")
 		isectn = []int{0}
 		ipara = []index{{}}
 		scope = Word
+		newBuffer()
 		Enter()
 		assert.Equal(t, "Test\n", string(document))
 		assert.Equal(t, scope, Para)

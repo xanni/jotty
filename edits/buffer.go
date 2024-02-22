@@ -124,6 +124,7 @@ func appendSectnBreak() {
 	s := cursor[Sectn] + 1
 	cursor = counts{Sectn: s}
 	scope = Sectn
+	indexSectn(len(document))
 	newSection(s)
 	DrawWindow()
 }
@@ -212,10 +213,6 @@ func isAlphanumeric(source []byte) bool {
 // a special case if the cursor is one character or word below the screen then
 // scroll up one line to put the cursor back on screen.
 func isCursorInBuffer() bool {
-	if len(buffer) == 0 {
-		return false
-	}
-
 	cur_s, cur_c := cursor[Sectn], cursor[Char]
 	var first_row, last_row int
 	if buffer[first_row].sectn == 0 {
@@ -232,7 +229,7 @@ func isCursorInBuffer() bool {
 		return false
 	}
 
-	if passed_end {
+	if passed_end && last_row > 0 {
 		scrollUp(1)
 	}
 
@@ -267,11 +264,8 @@ func nextSegWidth(source []byte) int {
 	return uniseg.StringWidth(string(seg))
 }
 
+// Scroll the edit window 1 or 2 lines and update the buffer and cursor row
 func scrollUp(lines int) {
-	if lines > Sy-1 {
-		lines = Sy - 1
-	}
-
 	win.Move(Sy-1, 0)
 	win.ClearToBottom() // Erase the status line before scrolling
 	win.Scroll(lines)
@@ -299,7 +293,7 @@ func AppendRune(rb []byte) {
 	osectn = 0
 	scope = Char
 
-	if len(buffer) == 0 || cursor[Sectn] != len(isectn) {
+	if cursor[Sectn] != len(isectn) {
 		cursor[Sectn] = len(isectn)
 		cursor[Char] = uniseg.GraphemeClusterCount(string(document[isectn[cursor[Sectn]-1]:]))
 	} else {
@@ -336,15 +330,15 @@ func IncScope() {
 	drawStatusBar()
 }
 
-// Draw a paragraph or section break, represented respectively by a blank line
-// and a horizontal rule
+// Draw a section or paragraph break, represented respectively by a horizontal
+// rule and a blank line, and clear the buffer entry for that line
 func drawBreak(y int, r rune) {
 	buffer[y] = line{}
-	if r == '\n' {
+	if r == '\f' {
+		win.HLine(y, 0, nc.ACS_HLINE, Sx-1)
+	} else { // r == '\n'
 		win.Move(y, 0)
 		win.ClearToEOL()
-	} else if r == '\f' {
-		win.HLine(y, 0, nc.ACS_HLINE, Sx-1)
 	}
 }
 
@@ -441,7 +435,8 @@ func drawLine(y int, state *int) {
 // Draw any paragraph or section break, scroll the window if required, and
 // update the next line in the buffer.
 func advanceLine(y *int, l *line) {
-	if l.r == '\n' || l.r == '\f' {
+	isBreak := l.r == '\n' || l.r == '\f'
+	if isBreak {
 		if *y < Sy-1 {
 			drawBreak(*y, l.r)
 		}
@@ -450,9 +445,11 @@ func advanceLine(y *int, l *line) {
 
 	if *y >= Sy-1 {
 		lines := (*y + 2) - Sy
-		scrollUp(lines)
+		scrollUp(lines) // Always 1 or 2 lines
 		*y -= lines
-		drawBreak(*y, l.r)
+		if isBreak {
+			drawBreak(*y-1, l.r)
+		}
 	}
 
 	if l.r == '\f' {
@@ -460,7 +457,7 @@ func advanceLine(y *int, l *line) {
 		l.sectn++
 	}
 
-	if (l.r == '\n' || l.r == '\f') && l.sectn == cursor[Sectn] && l.end_c == cursor[Char] {
+	if isBreak && l.sectn == cursor[Sectn] && l.end_c == cursor[Char] {
 		cursx = 0
 		cursy = *y
 	}
@@ -481,10 +478,6 @@ within the screen area, it moves the starting position to bring the cursor
 back in view.  It also updates the navigation indexes and totals counters.
 */
 func DrawWindow() {
-	if Sx <= margin || Sy <= 1 {
-		return
-	}
-
 	var y int // current screen coordinates
 
 	// First find the character the cursor is located at on the screen, if possible
@@ -522,12 +515,17 @@ func DrawWindow() {
 	drawStatusBar()
 }
 
+// True if the window is sufficiently large
+func IsSizeOK() bool {
+	return Sx > margin && Sy > 2
+}
+
 func ResizeScreen() {
-	buffer = nil
 	win = nc.StdScr()
 	win.Clear()
 
-	if Sx > margin && Sy > 2 {
+	if IsSizeOK() {
+		newBuffer()
 		DrawWindow()
 	} else {
 		drawResizeRequest()
