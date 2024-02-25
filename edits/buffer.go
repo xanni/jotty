@@ -141,8 +141,7 @@ func cursorRow() (y int) {
 
 // Draw the status bar that appears on the last line of the screen
 func drawStatusBar() {
-	state := -1
-	drawLine(cursy, &state)
+	drawLine(cursy)
 	if buffer[cursy].brk == Sectn {
 		newSection(cursor[Sectn])
 		scanSectn()
@@ -206,7 +205,7 @@ func isCursorInBuffer() bool {
 		return false
 	}
 
-	if passed_end && last_row > 0 {
+	if passed_end && last_row == len(buffer)-1 {
 		scrollUp(1)
 	}
 
@@ -271,8 +270,7 @@ func AppendRunes(runes []rune) {
 		cursor[Char] = uniseg.GraphemeClusterCount(string(document[isectn[cursor[Sectn]-1]:]))
 	} else {
 		cursor[Char] = buffer[cursy].beg_c + uniseg.GraphemeClusterCount(string(document[buffer[cursy].beg_b:]))
-		state := -1
-		drawLine(cursy, &state)
+		drawLine(cursy)
 	}
 
 	drawWindow()
@@ -321,7 +319,7 @@ func drawBreak(y int, brk Scope) {
 }
 
 // Draw one line in the edit window.  Word wraps at the end of the line.
-func drawLine(y int, state *int) {
+func drawLine(y int) {
 	b := buffer[y].beg_b
 	c := buffer[y].beg_c
 	s := buffer[y].sectn
@@ -336,6 +334,7 @@ func drawLine(y int, state *int) {
 	var f int            // Unicode boundary flags
 	m := ex - margin - 1 // Right margin
 	var r rune
+	state := -1
 	var x int // Column position in the line
 	for {
 		if s == cursor[Sectn] && c == cursor[Char] {
@@ -351,7 +350,7 @@ func drawLine(y int, state *int) {
 		}
 
 		var g []byte // grapheme cluster
-		g, source, f, *state = uniseg.Step(source, *state)
+		g, source, f, state = uniseg.Step(source, state)
 		b += len(g)
 		r, _ = utf8.DecodeRune(g)
 		if r == utf8.RuneError {
@@ -485,9 +484,8 @@ func drawWindow() {
 	}
 
 	l := buffer[y]
-	state := -1
 	for l.beg_b < len(document) {
-		drawLine(y, &state)
+		drawLine(y)
 		l = buffer[y]
 		y++
 		if y >= ey && (l.sectn > cursor[Sectn] || l.end_c >= cursor[Char]) {

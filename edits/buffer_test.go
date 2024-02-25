@@ -269,30 +269,26 @@ func TestDrawLine(t *testing.T) {
 	ResizeScreen(margin+3, 2)
 	newBuffer()
 
-	state := -1
-	drawLine(0, &state)
+	drawLine(0)
 	assert.Equal(t, Char, buffer[0].brk)
 
 	document = []byte("1\xff2")
-	drawLine(0, &state)
+	drawLine(0)
 	assert.Equal(t, 2, buffer[0].end_c)
 
 	document = []byte("\f")
 	buffer[0] = line{sectn: 1}
-	state = -1
-	drawLine(0, &state)
+	drawLine(0)
 	assert.Equal(t, Sectn, buffer[0].brk)
 
 	document = []byte("Test")
 	buffer[0] = line{sectn: 1}
-	state = -1
-	drawLine(0, &state)
+	drawLine(0)
 	assert.Equal(t, "_Tes   -", buffer[0].text)
 
 	document = []byte("12 3")
 	buffer[0] = line{sectn: 1}
-	state = -1
-	drawLine(0, &state)
+	drawLine(0)
 	assert.Equal(t, "_12 ", buffer[0].text)
 }
 
