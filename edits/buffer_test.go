@@ -271,7 +271,7 @@ func TestDrawLine(t *testing.T) {
 
 	state := -1
 	drawLine(0, &state)
-	assert.Equal(t, rune(0), buffer[0].r)
+	assert.Equal(t, Char, buffer[0].brk)
 
 	document = []byte("1\xff2")
 	drawLine(0, &state)
@@ -281,7 +281,7 @@ func TestDrawLine(t *testing.T) {
 	buffer[0] = line{sectn: 1}
 	state = -1
 	drawLine(0, &state)
-	assert.Equal(t, '\f', buffer[0].r)
+	assert.Equal(t, Sectn, buffer[0].brk)
 
 	document = []byte("Test")
 	buffer[0] = line{sectn: 1}
@@ -306,7 +306,7 @@ func TestAdvanceLine(t *testing.T) {
 
 	cursor = counts{Sectn: 1}
 	newBuffer()
-	buffer[0].r = '\f'
+	buffer[0].brk = Sectn
 	document = []byte("\f")
 	l := buffer[0]
 	y := 1
@@ -316,7 +316,7 @@ func TestAdvanceLine(t *testing.T) {
 	assert.Equal(t, strings.Repeat("─", ex), buffer[0].text)
 
 	document = []byte("\f\f")
-	buffer[1].r = '\f'
+	buffer[1].brk = Sectn
 	l = buffer[1]
 	y = 2
 	advanceLine(&y, &l)
@@ -427,11 +427,11 @@ func TestDrawWindowScroll(t *testing.T) {
 
 	document = append(document, []byte("line 3")...)
 	drawWindow()
-	assert.Equal(t, []line{{0, 0, 7, 7, ' ', 1, "Scroll "}, {7, 7, 13, 13, ' ', 1, "_test: "}}, buffer)
+	assert.Equal(t, []line{{0, 0, 7, 7, Char, 1, "Scroll "}, {7, 7, 13, 13, Char, 1, "_test: "}}, buffer)
 
 	cursor = counts{14, 2, 1, 1, 1}
 	drawWindow()
-	assert.Equal(t, []line{{7, 7, 13, 13, ' ', 1, "test: "}, {13, 13, 19, 19, '3', 1, "l_ine 3"}}, buffer)
+	assert.Equal(t, []line{{7, 7, 13, 13, Char, 1, "test: "}, {13, 13, 19, 19, Char, 1, "l_ine 3"}}, buffer)
 }
 
 func TestDrawWindowWordCount(t *testing.T) {

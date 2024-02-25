@@ -77,7 +77,7 @@ type counts [MaxScope]int
 type line struct {
 	beg_b, beg_c int    // cumulative counts at start of line
 	end_b, end_c int    // cumulative counts at end of line
-	r            rune   // the last rune on the line
+	brk          Scope  // whether the line ends in a break
 	sectn        int    // section that contains the line
 	text         string // rendered line including cursor and marks
 }
@@ -143,7 +143,7 @@ func cursorRow() (y int) {
 func drawStatusBar() {
 	state := -1
 	drawLine(cursy, &state)
-	if buffer[cursy].r == '\f' {
+	if buffer[cursy].brk == Sectn {
 		newSection(cursor[Sectn])
 		scanSectn()
 	}
@@ -313,9 +313,9 @@ func cursorString() string {
 
 // Draw a section or paragraph break, represented respectively by a horizontal
 // rule and a blank line, and clear the buffer entry for that line
-func drawBreak(y int, r rune) {
+func drawBreak(y int, brk Scope) {
 	buffer[y] = line{}
-	if r == '\f' {
+	if brk == Sectn {
 		buffer[y].text = strings.Repeat("─", ex)
 	}
 }
@@ -399,24 +399,30 @@ func drawLine(y int, state *int) {
 		}
 	}
 
-	if x > m && f != uniseg.LineCanBreak {
+	switch {
+	case r == '\f':
+		buffer[y].brk = Sectn
+	case r == '\n':
+		buffer[y].brk = Para
+	case x > m && f != uniseg.LineCanBreak:
 		t.WriteString(strings.Repeat(" ", ex-x-1))
 		t.WriteString(output.String("-").Reverse().String())
+		buffer[y].brk = Word
+	default:
+		buffer[y].brk = Char
 	}
 
 	buffer[y].end_b = b
 	buffer[y].end_c = c
-	buffer[y].r = r
 	buffer[y].text = t.String()
 }
 
 // Draw any paragraph or section break, scroll the window if required, and
 // update the next line in the buffer.
 func advanceLine(y *int, l *line) {
-	isBreak := l.r == '\n' || l.r == '\f'
-	if isBreak {
+	if l.brk >= Para {
 		if *y < ey {
-			drawBreak(*y, l.r)
+			drawBreak(*y, l.brk)
 		}
 		*y++
 	}
@@ -425,24 +431,24 @@ func advanceLine(y *int, l *line) {
 		lines := (*y + 1) - ey
 		scrollUp(lines) // Always 1 or 2 lines
 		*y -= lines
-		if isBreak {
-			drawBreak(*y-1, l.r)
+		if l.brk >= Para {
+			drawBreak(*y-1, l.brk)
 		}
 	}
 
-	if l.r == '\f' {
+	if l.brk == Sectn {
 		l.end_c = 0
 		l.sectn++
 	}
 
-	if isBreak && l.sectn == cursor[Sectn] && l.end_c == cursor[Char] {
+	if l.brk >= Para && l.sectn == cursor[Sectn] && l.end_c == cursor[Char] {
 		cursy = *y
 		buffer[*y].text = cursorString()
 	}
 
 	l.beg_b = l.end_b
 	l.beg_c = l.end_c
-	l.r = 0
+	l.brk = Char
 	l.text = ""
 	buffer[*y] = *l
 }
@@ -495,7 +501,7 @@ func drawWindow() {
 		buffer[i] = line{}
 	}
 
-	if l.r == '\f' || l.sectn != cursor[Sectn] {
+	if l.brk == Sectn || l.sectn != cursor[Sectn] {
 		scanSectn()
 	} else {
 		total = counts{max(total[Char], l.end_c), len(iword), len(isent), len(ipara), len(isectn)}
