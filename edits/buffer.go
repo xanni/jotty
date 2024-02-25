@@ -38,24 +38,25 @@ horizontal rule.  Selections cannot cross section boundaries.
 */
 
 import (
+	"os"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/muesli/termenv"
 	"github.com/rivo/uniseg"
-	nc "github.com/vit1251/go-ncursesw"
 )
+
+var ID string         // the program name and version
+var StatusLine string // the status line at the bottom of the window
+var ex, ey int        // edit window dimensions
 
 var counterChar = [...]rune{'@', '#', '$', '¶', '§'}
 var cursorChar = [...]rune{'_', '#', '$', '¶', '§'}
-var cursorStyle = nc.A_BLINK
-var errorStyle = nc.ColorPair(1) | nc.A_REVERSE
+var output = termenv.NewOutput(os.Stdout)
 
 const margin = 5 // up to 3 edit marks, cursor and wrap indicator
-
-var ID string  // the program name and version
-var Sx, Sy int // screen dimensions
 
 type Scope int
 
@@ -74,10 +75,11 @@ type counts [MaxScope]int
 
 // Cache for a single line in the terminal window
 type line struct {
-	beg_b, beg_c int  // cumulative counts at start of line
-	end_b, end_c int  // cumulative counts at end of line
-	r            rune // the last rune on the line
-	sectn        int  // section that contains the line
+	beg_b, beg_c int    // cumulative counts at start of line
+	end_b, end_c int    // cumulative counts at end of line
+	r            rune   // the last rune on the line
+	sectn        int    // section that contains the line
+	text         string // rendered line including cursor and marks
 }
 
 /*
@@ -93,11 +95,10 @@ entries and should be skipped.
 
 var buffer []line
 var cursor = counts{Sectn: 1} // current position in the section/document
-var cursx, cursy int          // current position in the edit window
+var cursy int                 // current row in the edit window
 var document []byte
 var initialCap = true // initial capital at the start of a sentence
 var total counts
-var win *nc.Window
 
 func appendParaBreak() {
 	i := len(document) - 1
@@ -108,7 +109,6 @@ func appendParaBreak() {
 		cursor[Char]++
 	}
 	scope = Para
-	DrawWindow()
 }
 
 func appendSectnBreak() {
@@ -119,14 +119,13 @@ func appendSectnBreak() {
 	} else {
 		document = append(document, '\f')
 	}
-	DrawWindow()
+	drawWindow()
 
 	s := cursor[Sectn] + 1
 	cursor = counts{Sectn: s}
 	scope = Sectn
 	indexSectn(len(document))
 	newSection(s)
-	DrawWindow()
 }
 
 // Find which screen row contains the character position of the cursor
@@ -140,67 +139,45 @@ func cursorRow() (y int) {
 	return y
 }
 
-// Draw the cursor
-func drawCursor() {
-	cc := '↑'
-	if !initialCap {
-		cc = cursorChar[scope]
-	}
-
-	win.AttrSet(nc.Char(cursorStyle))
-	win.MovePrint(cursy, cursx, string(cc))
-	win.AttrSet(nc.A_NORMAL)
-	win.Move(cursy, cursx)
-	win.NoutRefresh()
-}
-
-func drawResizeRequest() {
-	if Sx < 2 || Sy < 1 {
-		return
-	}
-
-	win.AttrSet(errorStyle)
-	win.MovePrint((Sy-1)/2, 0, "<"+strings.Repeat("-", Sx-2)+">")
-	win.AttrSet(nc.A_NORMAL)
-	win.NoutRefresh()
-}
-
-// Draw a status bar on the last line of the screen, then the cursor
+// Draw the status bar that appears on the last line of the screen
 func drawStatusBar() {
-	win.Move(Sy-1, 0)
-	win.ClearToBottom()
+	state := -1
+	drawLine(cursy, &state)
+	if buffer[cursy].r == '\f' {
+		newSection(cursor[Sectn])
+		scanSectn()
+	}
 
 	var c [MaxScope]string // counters for each scope
 	var w int              // width of counters
 	for s := Char; s <= Sectn; s++ {
 		c[s] = string(counterChar[s]) + strconv.Itoa(cursor[s]) + "/" + strconv.Itoa(total[s])
-		w += utf8.RuneCountInString(c[s])
+		w += uniseg.StringWidth(c[s])
 	}
 
-	win.Move(Sy-1, 0)
-	if Sx >= len(ID)+w+6 {
-		win.Print(ID + "  ")
+	var t strings.Builder
+	if ex >= len(ID)+w+6 {
+		t.WriteString(ID)
+		t.WriteString("  ")
 	}
 
-	if Sx < w+6 {
-		win.Print(c[scope])
+	if ex < w+6 {
+		t.WriteString(c[scope])
 	} else {
 		for s := Sectn; s >= Char; s-- {
 			if s != scope {
-				win.Print(c[s])
+				t.WriteString(c[s])
 			} else {
-				win.AttrOn(nc.A_BOLD)
-				win.Print(c[s])
-				win.AttrOff(nc.A_BOLD)
+				t.WriteString(output.String(c[s]).Bold().String())
 			}
 			if s == Sectn {
-				win.AddChar(':')
+				t.WriteByte(':')
 			}
-			win.AddChar(' ')
+			t.WriteByte(' ')
 		}
 	}
 
-	drawCursor()
+	StatusLine = t.String()
 }
 
 // True if the first rune in source is a Unicode letter or number
@@ -248,8 +225,7 @@ func isNewParagraph(c int) bool {
 
 // Set up a fresh display buffer before redrawing the entire window
 func newBuffer() {
-	buffer = make([]line, Sy-1)
-	cursx = 0
+	buffer = make([]line, ey)
 	cursy = 0
 	p := getPara()
 	if p > len(ipara)-1 || !isNewParagraph(cursor[Char]) {
@@ -266,9 +242,7 @@ func nextSegWidth(source []byte) int {
 
 // Scroll the edit window 1 or 2 lines and update the buffer and cursor row
 func scrollUp(lines int) {
-	win.Move(Sy-1, 0)
-	win.ClearToBottom() // Erase the status line before scrolling
-	win.Scroll(lines)
+	// TODO implement scrolling region
 	buffer = append(buffer[lines:], make([]line, lines)...)
 	cursy -= lines
 	if cursy < 0 {
@@ -280,15 +254,14 @@ func scrollUp(lines int) {
 	}
 }
 
-// Append a UTF-8 encoded rune to the document.
+// Append runes to the document.
 // TODO implement insertion instead
-func AppendRune(rb []byte) {
-	r, _ := utf8.DecodeRune(rb)
-	if initialCap && unicode.IsLower(r) {
-		rb = []byte(string(unicode.ToUpper(r)))
+func AppendRunes(runes []rune) {
+	if initialCap && unicode.IsLower(runes[0]) {
+		runes[0] = unicode.ToUpper(runes[0])
 	}
 
-	document = append(document, rb...)
+	document = append(document, []byte(string(runes))...)
 	initialCap = false
 	osectn = 0
 	scope = Char
@@ -302,7 +275,7 @@ func AppendRune(rb []byte) {
 		drawLine(cursy, &state)
 	}
 
-	DrawWindow()
+	drawWindow()
 }
 
 func DecScope() {
@@ -330,15 +303,20 @@ func IncScope() {
 	drawStatusBar()
 }
 
+func cursorString() string {
+	cc := '↑'
+	if !initialCap {
+		cc = cursorChar[scope]
+	}
+	return output.String(string(cc)).Reverse().Blink().String()
+}
+
 // Draw a section or paragraph break, represented respectively by a horizontal
 // rule and a blank line, and clear the buffer entry for that line
 func drawBreak(y int, r rune) {
 	buffer[y] = line{}
 	if r == '\f' {
-		win.HLine(y, 0, nc.ACS_HLINE, Sx-1)
-	} else { // r == '\n'
-		win.Move(y, 0)
-		win.ClearToEOL()
+		buffer[y].text = strings.Repeat("─", ex)
 	}
 }
 
@@ -347,6 +325,7 @@ func drawLine(y int, state *int) {
 	b := buffer[y].beg_b
 	c := buffer[y].beg_c
 	s := buffer[y].sectn
+	var t strings.Builder
 	source := document[b:]
 
 	// A new paragraph is often the start of a new word that might not have been recorded yet
@@ -355,12 +334,12 @@ func drawLine(y int, state *int) {
 	}
 
 	var f int            // Unicode boundary flags
-	m := Sx - margin - 1 // Right margin
+	m := ex - margin - 1 // Right margin
 	var r rune
 	var x int // Column position in the line
 	for {
 		if s == cursor[Sectn] && c == cursor[Char] {
-			cursx = x
+			t.WriteString(cursorString())
 			cursy = y
 			updateCursorPos()
 			m++
@@ -407,7 +386,7 @@ func drawLine(y int, state *int) {
 		}
 
 		if w > 0 {
-			win.MovePrint(y, x, string(g))
+			t.Write(g)
 			x += w
 		}
 
@@ -421,15 +400,14 @@ func drawLine(y int, state *int) {
 	}
 
 	if x > m && f != uniseg.LineCanBreak {
-		win.MoveAddChar(y, Sx-1, '-'|nc.A_REVERSE)
-	} else {
-		win.Move(y, x)
-		win.ClearToEOL()
+		t.WriteString(strings.Repeat(" ", ex-x-1))
+		t.WriteString(output.String("-").Reverse().String())
 	}
 
 	buffer[y].end_b = b
 	buffer[y].end_c = c
 	buffer[y].r = r
+	buffer[y].text = t.String()
 }
 
 // Draw any paragraph or section break, scroll the window if required, and
@@ -437,14 +415,14 @@ func drawLine(y int, state *int) {
 func advanceLine(y *int, l *line) {
 	isBreak := l.r == '\n' || l.r == '\f'
 	if isBreak {
-		if *y < Sy-1 {
+		if *y < ey {
 			drawBreak(*y, l.r)
 		}
 		*y++
 	}
 
-	if *y >= Sy-1 {
-		lines := (*y + 2) - Sy
+	if *y >= ey {
+		lines := (*y + 1) - ey
 		scrollUp(lines) // Always 1 or 2 lines
 		*y -= lines
 		if isBreak {
@@ -458,14 +436,26 @@ func advanceLine(y *int, l *line) {
 	}
 
 	if isBreak && l.sectn == cursor[Sectn] && l.end_c == cursor[Char] {
-		cursx = 0
 		cursy = *y
+		buffer[*y].text = cursorString()
 	}
 
 	l.beg_b = l.end_b
 	l.beg_c = l.end_c
 	l.r = 0
+	l.text = ""
 	buffer[*y] = *l
+}
+
+// The entire screen including the edits window and status line
+func Screen() string {
+	var t strings.Builder
+	for i := 0; i < ey; i++ {
+		t.WriteString(buffer[i].text)
+		t.WriteByte('\n')
+	}
+	t.WriteString(StatusLine)
+	return t.String()
 }
 
 /*
@@ -477,7 +467,7 @@ or the end of the document, whichever comes first.  If the cursor is not
 within the screen area, it moves the starting position to bring the cursor
 back in view.  It also updates the navigation indexes and totals counters.
 */
-func DrawWindow() {
+func drawWindow() {
 	var y int // current screen coordinates
 
 	// First find the character the cursor is located at on the screen, if possible
@@ -494,16 +484,15 @@ func DrawWindow() {
 		drawLine(y, &state)
 		l = buffer[y]
 		y++
-		if y >= Sy-1 && (l.sectn > cursor[Sectn] || l.end_c >= cursor[Char]) {
+		if y >= ey && (l.sectn > cursor[Sectn] || l.end_c >= cursor[Char]) {
 			break
 		}
 
 		advanceLine(&y, &l)
 	}
 
-	if y < Sy-1 {
-		win.Move(y, 0)
-		win.ClearToBottom()
+	for i := y + 1; i < ey; i++ {
+		buffer[i] = line{}
 	}
 
 	if l.r == '\f' || l.sectn != cursor[Sectn] {
@@ -515,21 +504,10 @@ func DrawWindow() {
 	drawStatusBar()
 }
 
-// True if the window is sufficiently large
-func IsSizeOK() bool {
-	return Sx > margin && Sy > 2
-}
-
-func ResizeScreen() {
-	win = nc.StdScr()
-	win.Clear()
-
-	if IsSizeOK() {
-		newBuffer()
-		DrawWindow()
-	} else {
-		drawResizeRequest()
-	}
+func ResizeScreen(x, y int) {
+	ex, ey = x, y-1
+	newBuffer()
+	drawWindow()
 }
 
 func Space() {
@@ -543,7 +521,7 @@ func Space() {
 	case Char:
 		lr, _ := utf8.DecodeLastRune(document)
 		if lb != ' ' && lb != '\n' && lb != '\f' {
-			AppendRune([]byte{' '})
+			AppendRunes([]rune(" "))
 		}
 		if unicode.Is(unicode.Sentence_Terminal, lr) {
 			scope = Sent
@@ -552,13 +530,13 @@ func Space() {
 		}
 	case Word:
 		if lb != ' ' && lb != '\n' && lb != '\f' {
-			AppendRune([]byte{' '})
+			AppendRunes([]rune(" "))
 		}
 		if lb == ' ' {
 			lr, _ := utf8.DecodeLastRune(document[:i])
 			if unicode.In(lr, unicode.L, unicode.N) { // alphanumeric
 				document[i] = '.'
-				AppendRune([]byte{' '})
+				AppendRunes([]rune(" "))
 			}
 		}
 		scope = Sent
@@ -570,7 +548,7 @@ func Space() {
 
 	initialCap = scope >= Sent
 	osectn = 0
-	drawStatusBar()
+	drawWindow()
 }
 
 func Enter() {
@@ -586,5 +564,5 @@ func Enter() {
 
 	initialCap = true
 	osectn = 0
-	drawStatusBar()
+	drawWindow()
 }

@@ -13,7 +13,7 @@ a combination of the current section 1..total[Sectn] and the current character
 0..total[Char]
 
 The cursor screen x, y coordinates and current word, sentence and paragraph
-are computed by DrawWindow()
+are computed by drawWindow()
 
 The user navigates via scope units (characters, words, sentences, paragraphs
 and sections) but the document is stored as a UTF-8 encoded Unicode string.
@@ -262,7 +262,7 @@ func Left() {
 	default: // Sectn
 		leftSectn()
 	}
-	DrawWindow()
+	drawWindow()
 }
 
 func Right() {
@@ -279,7 +279,7 @@ func Right() {
 	default: // Sectn
 		rightSectn()
 	}
-	DrawWindow()
+	drawWindow()
 }
 
 func Home() {
@@ -312,7 +312,7 @@ func Home() {
 		}
 		scope = Char
 	}
-	DrawWindow()
+	drawWindow()
 }
 
 func End() {
@@ -348,5 +348,5 @@ func End() {
 		}
 		scope = Char
 	}
-	DrawWindow()
+	drawWindow()
 }

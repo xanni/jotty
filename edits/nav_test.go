@@ -3,7 +3,6 @@ package edits
 import (
 	"testing"
 
-	"git.sericyb.com.au/jotty/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -308,176 +307,160 @@ func TestRightSectn(t *testing.T) {
 }
 
 func TestLeft(t *testing.T) {
-	test.WithSimScreen(t, func() {
-		document = []byte("1\f2\n3. 4 56")
-		isectn = []int{0, 2}
-		cursor = counts{9, 4, 3, 2, 2}
-		scanSectn()
-		Sx = margin + 7
-		Sy = 4
-		ResizeScreen()
+	document = []byte("1\f2\n3. 4 56")
+	isectn = []int{0, 2}
+	cursor = counts{9, 4, 3, 2, 2}
+	scanSectn()
+	ResizeScreen(margin+7, 4)
 
-		scope = Char
-		Left()
-		assert.Equal(t, counts{8, 4, 3, 2, 2}, cursor)
+	scope = Char
+	Left()
+	assert.Equal(t, counts{8, 4, 3, 2, 2}, cursor)
 
-		scope = Word
-		Left()
-		assert.Equal(t, counts{7, 3, 3, 2, 2}, cursor)
+	scope = Word
+	Left()
+	assert.Equal(t, counts{7, 3, 3, 2, 2}, cursor)
 
-		scope = Sent
-		Left()
-		assert.Equal(t, counts{5, 2, 2, 2, 2}, cursor)
+	scope = Sent
+	Left()
+	assert.Equal(t, counts{5, 2, 2, 2, 2}, cursor)
 
-		scope = Para
-		Left()
-		assert.Equal(t, counts{2, 1, 1, 1, 2}, cursor)
+	scope = Para
+	Left()
+	assert.Equal(t, counts{2, 1, 1, 1, 2}, cursor)
 
-		scope = Sectn
-		Left()
-		assert.Equal(t, counts{Sectn: 1}, cursor)
-	})
+	scope = Sectn
+	Left()
+	assert.Equal(t, counts{Sectn: 1}, cursor)
 }
 
 func TestRight(t *testing.T) {
-	test.WithSimScreen(t, func() {
-		document = []byte("12 3. 4\n5\f6")
-		isectn = []int{0, 10}
-		cursor = counts{Sectn: 1}
-		scanSectn()
-		Sx = margin + 9
-		Sy = 5
-		ResizeScreen()
+	document = []byte("12 3. 4\n5\f6")
+	isectn = []int{0, 10}
+	cursor = counts{Sectn: 1}
+	scanSectn()
+	ResizeScreen(margin+9, 5)
 
-		scope = Char
-		Right()
-		assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
+	scope = Char
+	Right()
+	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
 
-		scope = Word
-		Right()
-		assert.Equal(t, counts{3, 1, 1, 1, 1}, cursor)
+	scope = Word
+	Right()
+	assert.Equal(t, counts{3, 1, 1, 1, 1}, cursor)
 
-		scope = Sent
-		Right()
-		assert.Equal(t, counts{6, 2, 1, 1, 1}, cursor)
+	scope = Sent
+	Right()
+	assert.Equal(t, counts{6, 2, 1, 1, 1}, cursor)
 
-		scope = Para
-		Right()
-		assert.Equal(t, counts{8, 3, 2, 1, 1}, cursor)
+	scope = Para
+	Right()
+	assert.Equal(t, counts{8, 3, 2, 1, 1}, cursor)
 
-		scope = Sectn
-		Right()
-		assert.Equal(t, counts{Sectn: 2}, cursor)
-	})
+	scope = Sectn
+	Right()
+	assert.Equal(t, counts{Sectn: 2}, cursor)
 }
 
 func TestHome(t *testing.T) {
-	test.WithSimScreen(t, func() {
-		document = []byte("1\f2\f3\n4")
-		isectn = []int{0, 2, 4}
-		osectn = 0
-		cursor = counts{3, 2, 2, 2, 3}
-		scanSectn()
-		Sx = margin + 2
-		Sy = 4
-		ResizeScreen()
+	document = []byte("1\f2\f3\n4")
+	isectn = []int{0, 2, 4}
+	osectn = 0
+	cursor = counts{3, 2, 2, 2, 3}
+	scanSectn()
+	ResizeScreen(margin+2, 4)
 
-		scope = Char
-		Home()
-		assert.Equal(t, counts{2, 1, 1, 1, 3}, cursor)
-		assert.Equal(t, Sent, scope)
+	scope = Char
+	Home()
+	assert.Equal(t, counts{2, 1, 1, 1, 3}, cursor)
+	assert.Equal(t, Sent, scope)
 
-		Home()
-		assert.Equal(t, counts{Sectn: 2}, cursor)
-		assert.Equal(t, Para, scope)
+	Home()
+	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, Para, scope)
 
-		Home()
-		assert.Equal(t, counts{Sectn: 1}, cursor)
-		assert.Equal(t, Sectn, scope)
+	Home()
+	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, Sectn, scope)
 
-		Home()
-		assert.Equal(t, counts{3, 2, 2, 2, 3}, cursor)
-		assert.Equal(t, Char, scope)
+	Home()
+	assert.Equal(t, counts{3, 2, 2, 2, 3}, cursor)
+	assert.Equal(t, Char, scope)
 
-		cursor = counts{Sectn: 1}
-		Home()
-		assert.Equal(t, counts{Sectn: 1}, cursor)
-		assert.Equal(t, Sent, scope)
+	cursor = counts{Sectn: 1}
+	Home()
+	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, Sent, scope)
 
-		Home()
-		assert.Equal(t, counts{Sectn: 1}, cursor)
-		assert.Equal(t, Para, scope)
+	Home()
+	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, Para, scope)
 
-		cursor = counts{1, 1, 1, 1, 1}
-		scope = Sectn
-		Home()
-		assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
+	cursor = counts{1, 1, 1, 1, 1}
+	scope = Sectn
+	Home()
+	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
 
-		cursor = counts{Sectn: 2}
-		Home()
-		assert.Equal(t, counts{Sectn: 2}, cursor)
+	cursor = counts{Sectn: 2}
+	Home()
+	assert.Equal(t, counts{Sectn: 2}, cursor)
 
-		cursor = counts{Sectn: 1}
-		osectn = 1
-		ochar = 1
-		Home()
-		assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
-	})
+	cursor = counts{Sectn: 1}
+	osectn = 1
+	ochar = 1
+	Home()
+	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
 }
 
 func TestEnd(t *testing.T) {
-	test.WithSimScreen(t, func() {
-		document = []byte("12\n3\f4\f5")
-		isectn = []int{0, 5, 7}
-		osectn = 0
-		cursor = counts{Sectn: 1}
-		scanSectn()
-		Sx = margin + 3
-		Sy = 4
-		ResizeScreen()
+	document = []byte("12\n3\f4\f5")
+	isectn = []int{0, 5, 7}
+	osectn = 0
+	cursor = counts{Sectn: 1}
+	scanSectn()
+	ResizeScreen(margin+3, 4)
 
-		scope = Char
-		End()
-		assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
-		assert.Equal(t, Sent, scope)
+	scope = Char
+	End()
+	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
+	assert.Equal(t, Sent, scope)
 
-		End()
-		assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
-		assert.Equal(t, Para, scope)
+	End()
+	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
+	assert.Equal(t, Para, scope)
 
-		End()
-		assert.Equal(t, counts{1, 1, 1, 1, 3}, cursor)
-		assert.Equal(t, Sectn, scope)
+	End()
+	assert.Equal(t, counts{1, 1, 1, 1, 3}, cursor)
+	assert.Equal(t, Sectn, scope)
 
-		End()
-		assert.Equal(t, counts{Sectn: 1}, cursor)
-		assert.Equal(t, Char, scope)
+	End()
+	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, Char, scope)
 
-		cursor = counts{1, 1, 1, 1, 1}
-		scanSectn()
-		End()
-		assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
+	cursor = counts{1, 1, 1, 1, 1}
+	scanSectn()
+	End()
+	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
 
-		scope = Char
-		End()
-		assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
+	scope = Char
+	End()
+	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
 
-		scope = Char
-		End()
-		assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
+	scope = Char
+	End()
+	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
 
-		scope = Sectn
-		End()
-		assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
+	scope = Sectn
+	End()
+	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
 
-		cursor = counts{Sectn: 3}
-		scanSectn()
-		End()
-		assert.Equal(t, counts{Sectn: 3}, cursor)
+	cursor = counts{Sectn: 3}
+	scanSectn()
+	End()
+	assert.Equal(t, counts{Sectn: 3}, cursor)
 
-		cursor = counts{1, 1, 1, 1, 3}
-		osectn = 3
-		End()
-		assert.Equal(t, counts{Sectn: 3}, cursor)
-	})
+	cursor = counts{1, 1, 1, 1, 3}
+	osectn = 3
+	End()
+	assert.Equal(t, counts{Sectn: 3}, cursor)
 }
