@@ -48,9 +48,8 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-var ID string         // the program name and version
-var StatusLine string // the status line at the bottom of the window
-var ex, ey int        // edit window dimensions
+var ID string  // the program name and version
+var ex, ey int // edit window dimensions
 
 var counterChar = [...]rune{'@', '#', '$', '¶', '§'}
 var cursorChar = [...]rune{'_', '#', '$', '¶', '§'}
@@ -140,9 +139,7 @@ func cursorRow() (y int) {
 }
 
 // Draw the status bar that appears on the last line of the screen
-func drawStatusBar() {
-	drawLine(cursy)
-
+func StatusLine() string {
 	var c [MaxScope]string // counters for each scope
 	var w int              // width of counters
 
@@ -175,7 +172,7 @@ func drawStatusBar() {
 		}
 	}
 
-	StatusLine = t.String()
+	return t.String()
 }
 
 // True if the first rune in source is a Unicode letter or number
@@ -288,7 +285,7 @@ func DecScope() {
 		initialCap = false
 	}
 
-	drawStatusBar()
+	drawLine(cursy)
 }
 
 func IncScope() {
@@ -299,7 +296,18 @@ func IncScope() {
 		scope++
 	}
 
-	drawStatusBar()
+	drawLine(cursy)
+}
+
+// The entire screen including the edits window and status line
+func Screen() string {
+	var t strings.Builder
+	for i := 0; i < ey; i++ {
+		t.WriteString(buffer[i].text)
+		t.WriteByte('\n')
+	}
+	t.WriteString(StatusLine())
+	return t.String()
 }
 
 func cursorString() string {
@@ -452,17 +460,6 @@ func advanceLine(y *int, l *line) {
 	buffer[*y] = *l
 }
 
-// The entire screen including the edits window and status line
-func Screen() string {
-	var t strings.Builder
-	for i := 0; i < ey; i++ {
-		t.WriteString(buffer[i].text)
-		t.WriteByte('\n')
-	}
-	t.WriteString(StatusLine)
-	return t.String()
-}
-
 /*
 Draw the edit window.
 
@@ -500,13 +497,12 @@ func drawWindow() {
 	for i := y + 1; i < ey; i++ {
 		buffer[i] = line{}
 	}
-
-	drawStatusBar()
 }
 
 func ResizeScreen(x, y int) {
 	ex, ey = x, y-1
 	newBuffer()
+	drawLine(cursy)
 	drawWindow()
 }
 

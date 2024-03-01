@@ -190,23 +190,15 @@ func TestCursorRow(t *testing.T) {
 	assert.Equal(t, 4, cursorRow())
 }
 
-func TestDrawStatusBar(t *testing.T) {
+func TestDrawStatusLine(t *testing.T) {
 	Setup()
 	ID = "Jotty v0"
 	initialCap = false
-	ResizeScreen(margin+1, 3)
-
-	for scope = Char; scope <= Sectn; scope++ {
-		drawStatusBar()
-		assert.Equal(t, string(cursorChar[scope]), buffer[0].text)
-	}
-
-	scope = Char
 	ResizeScreen(26, 3)
-	assert.Equal(t, "§1/1: ¶0/1 $0/1 #0/0 @0/0 ", StatusLine)
+	assert.Equal(t, "§1/1: ¶0/1 $0/1 #0/0 @0/0 ", StatusLine())
 
 	ResizeScreen(36, 3)
-	assert.Equal(t, "Jotty v0  §1/1: ¶0/1 $0/1 #0/0 @0/0 ", StatusLine)
+	assert.Equal(t, "Jotty v0  §1/1: ¶0/1 $0/1 #0/0 @0/0 ", StatusLine())
 }
 
 func TestIsCursorInBuffer(t *testing.T) {
@@ -293,6 +285,17 @@ func TestDrawLine(t *testing.T) {
 	buffer[0] = line{sectn: 1}
 	drawLine(0)
 	assert.Equal(t, "_12 ", buffer[0].text)
+}
+
+func TestDrawLineCursor(t *testing.T) {
+	Setup()
+	initialCap = false
+	ResizeScreen(margin+1, 3)
+
+	for scope = Char; scope <= Sectn; scope++ {
+		drawLine(0)
+		assert.Equal(t, string(cursorChar[scope]), buffer[0].text)
+	}
 }
 
 func TestAdvanceLine(t *testing.T) {
