@@ -13,9 +13,8 @@ func Setup() {
 	cursy = 0
 	document = nil
 	initialCap = false
-	isectn = []int{0}
-	newSection(1)
 	scope = Char
+	resetIndex()
 }
 
 func TestAppendParaBreak(t *testing.T) {
@@ -38,7 +37,6 @@ func TestAppendSectnBreak(t *testing.T) {
 	document = []byte("\n")
 	ResizeScreen(margin+1, 5)
 
-	newBuffer()
 	appendSectnBreak()
 	assert.Equal(t, []byte("\f"), document)
 
@@ -47,8 +45,7 @@ func TestAppendSectnBreak(t *testing.T) {
 
 	cursor = counts{1, 0, 1, 1, 1}
 	document = []byte("\n")
-	isectn = []int{0}
-	newSection(1)
+	resetIndex()
 	newBuffer()
 	drawWindow()
 	appendSectnBreak()
@@ -88,20 +85,20 @@ func TestAppendRune(t *testing.T) {
 	AppendRunes([]rune("å"))
 	assert.Equal(t, []byte("•üÅ"), document)
 	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, []int{1}, iword)
+	assert.Equal(t, []int{1}, sections[0].cword)
 	assert.Equal(t, counts{3, 1, 1, 1, 1}, total)
 
 	AppendRunes([]rune{'\n'})
 	assert.Equal(t, []byte("•üÅ\n"), document)
 	assert.Equal(t, Char, scope)
 	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, []int{1}, iword)
+	assert.Equal(t, []int{1}, sections[0].cword)
 	assert.Equal(t, counts{4, 1, 2, 2, 1}, total)
 
 	AppendRunes([]rune{'X'})
 	assert.Equal(t, []byte("•üÅ\nX"), document)
 	assert.Equal(t, 5, cursor[Char])
-	assert.Equal(t, []int{1, 4}, iword)
+	assert.Equal(t, []int{1, 4}, sections[0].cword)
 	assert.Equal(t, counts{5, 2, 2, 2, 1}, total)
 
 	appendSectnBreak()
@@ -110,14 +107,14 @@ func TestAppendRune(t *testing.T) {
 	assert.Equal(t, []byte("•üÅ\nX\fY"), document)
 	assert.Equal(t, Char, scope)
 	assert.Equal(t, 1, cursor[Char])
-	assert.Equal(t, []int{0}, iword)
+	assert.Equal(t, []int{0}, sections[1].cword)
 	assert.Equal(t, counts{1, 1, 1, 1, 2}, total)
 
 	cursor = counts{Sectn: 1}
 	AppendRunes([]rune{'Z'})
 	assert.Equal(t, []byte("•üÅ\nX\fYZ"), document)
 	assert.Equal(t, 2, cursor[Char])
-	assert.Equal(t, []int{0}, iword)
+	assert.Equal(t, []int{0}, sections[1].cword)
 	assert.Equal(t, counts{2, 1, 1, 1, 2}, total)
 }
 
@@ -253,9 +250,11 @@ func TestIsCursorInBuffer(t *testing.T) {
 }
 
 func TestIsNewParagraph(t *testing.T) {
+	Setup()
 	assert.True(t, isNewParagraph(0))
 
-	ipara = []index{{}, {2, 2}}
+	sections[0].bpara = []int{0, 2}
+	sections[0].cpara = []int{0, 2}
 	cursor[Para] = 1
 	assert.False(t, isNewParagraph(1))
 	assert.True(t, isNewParagraph(2))
@@ -356,24 +355,24 @@ func TestDrawWindowSentence(t *testing.T) {
 	Setup()
 	document = []byte("This is a sentence.")
 	ResizeScreen(margin+25, 3)
-	assert.Equal(t, []index{{}}, isent)
+	assert.Equal(t, []int{0}, sections[0].csent)
 	assert.Equal(t, counts{19, 4, 1, 1, 1}, total)
 
 	document = append(document, []byte(" More")...)
 	drawWindow()
-	assert.Equal(t, []index{{}, {20, 20}}, isent)
+	assert.Equal(t, []int{0, 20}, sections[0].csent)
 	assert.Equal(t, counts{24, 5, 2, 1, 1}, total)
 
 	drawWindow()
-	assert.Equal(t, []index{{}, {20, 20}}, isent)
+	assert.Equal(t, []int{0, 20}, sections[0].csent)
 }
 
 func TestDrawWindowParagraph(t *testing.T) {
 	Setup()
 	document = []byte("🇦🇺 Aussie, Aussie, Aussie\nOi oi oi!")
 	ResizeScreen(margin+30, 3)
-	assert.Equal(t, []index{{}, {32, 25}}, ipara)
-	assert.Equal(t, []int{2, 10, 18, 25, 28, 31}, iword)
+	assert.Equal(t, []int{0, 25}, sections[0].cpara)
+	assert.Equal(t, []int{2, 10, 18, 25, 28, 31}, sections[0].cword)
 	assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
 
 	cursor = counts{25, 3, 1, 1, 1}
@@ -399,7 +398,6 @@ func TestDrawWindowSection(t *testing.T) {
 	assert.Equal(t, counts{24, 3, 1, 1, 2}, total)
 
 	cursor = counts{9, 3, 1, 1, 2}
-	newSection(2)
 	drawWindow()
 	assert.Equal(t, counts{9, 3, 1, 1, 2}, total)
 	assert.Equal(t, 1, cursy)
@@ -409,14 +407,12 @@ func TestDrawWindowSection(t *testing.T) {
 	assert.Equal(t, counts{9, 3, 1, 1, 3}, total)
 
 	cursor = counts{Sectn: 1}
-	newSection(1)
 	drawWindow()
 	assert.Equal(t, counts{24, 3, 1, 1, 3}, total)
 }
 
 func TestDrawWindowScroll(t *testing.T) {
 	Setup()
-	ipara = []index{{}}
 	cursor = counts{7, 1, 1, 1, 1}
 	document = []byte("Scroll test: ")
 	ResizeScreen(margin+12, 3)
@@ -486,7 +482,7 @@ func TestSpace(t *testing.T) {
 
 	cursor = counts{5, 1, 1, 1, 1}
 	document = []byte("Test,")
-	isectn = []int{0}
+	resetIndex()
 	scope = Word
 	Space()
 	assert.Equal(t, "Test, ", string(document))
@@ -504,7 +500,7 @@ func TestSpace(t *testing.T) {
 
 	cursor = counts{5, 1, 1, 1, 1}
 	document = []byte("Test.")
-	ipara = []index{{}}
+	resetIndex()
 	newBuffer()
 	Space()
 	assert.Equal(t, "Test.\f", string(document))
@@ -512,8 +508,9 @@ func TestSpace(t *testing.T) {
 
 	cursor = counts{5, 1, 1, 1, 1}
 	document = []byte("Test\n")
-	ipara = []index{{}, {5, 5}}
-	isectn = []int{0}
+	resetIndex()
+	sections[0].bpara = []int{0, 5}
+	sections[0].cpara = []int{0, 5}
 	newBuffer()
 	scope = Para
 	Space()
@@ -579,8 +576,7 @@ func TestEnter(t *testing.T) {
 
 	cursor = counts{5, 1, 1, 1, 1}
 	document = []byte("Test ")
-	isectn = []int{0}
-	ipara = []index{{}}
+	resetIndex()
 	scope = Word
 	newBuffer()
 	Enter()

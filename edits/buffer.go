@@ -115,7 +115,9 @@ func appendSectnBreak() {
 	i := len(document) - 1
 	if document[i] == '\n' {
 		document[i] = '\f'
-		scanSectn()
+		s := &sections[cursor[Sectn]-1]
+		s.bpara = s.bpara[:len(s.bpara)-1]
+		s.cpara = s.cpara[:len(s.cpara)-1]
 	} else {
 		document = append(document, '\f')
 	}
@@ -125,7 +127,6 @@ func appendSectnBreak() {
 	cursor = counts{Sectn: s}
 	scope = Sectn
 	indexSectn(len(document))
-	newSection(s)
 }
 
 // Find which screen row contains the character position of the cursor
@@ -142,16 +143,12 @@ func cursorRow() (y int) {
 // Draw the status bar that appears on the last line of the screen
 func drawStatusBar() {
 	drawLine(cursy)
-	if buffer[cursy].brk == Sectn {
-		newSection(cursor[Sectn])
-		scanSectn()
-	}
 
 	var c [MaxScope]string // counters for each scope
 	var w int              // width of counters
-	for s := Char; s <= Sectn; s++ {
-		c[s] = string(counterChar[s]) + strconv.Itoa(cursor[s]) + "/" + strconv.Itoa(total[s])
-		w += uniseg.StringWidth(c[s])
+	for sc := Char; sc <= Sectn; sc++ {
+		c[sc] = string(counterChar[sc]) + strconv.Itoa(cursor[sc]) + "/" + strconv.Itoa(total[sc])
+		w += uniseg.StringWidth(c[sc])
 	}
 
 	var t strings.Builder
@@ -163,13 +160,13 @@ func drawStatusBar() {
 	if ex < w+6 {
 		t.WriteString(c[scope])
 	} else {
-		for s := Sectn; s >= Char; s-- {
-			if s != scope {
-				t.WriteString(c[s])
+		for sc := Sectn; sc >= Char; sc-- {
+			if sc != scope {
+				t.WriteString(c[sc])
 			} else {
-				t.WriteString(output.String(c[s]).Bold().String())
+				t.WriteString(output.String(c[sc]).Bold().String())
 			}
-			if s == Sectn {
+			if sc == Sectn {
 				t.WriteByte(':')
 			}
 			t.WriteByte(' ')
@@ -219,7 +216,8 @@ func isNewParagraph(c int) bool {
 	}
 
 	p := cursor[Para]
-	return p < len(ipara) && c == ipara[p].c
+	cpara := sections[cursor[Sectn]-1].cpara
+	return p < len(cpara) && c == cpara[p]
 }
 
 // Set up a fresh display buffer before redrawing the entire window
@@ -227,10 +225,11 @@ func newBuffer() {
 	buffer = make([]line, ey)
 	cursy = 0
 	p := getPara()
-	if p > len(ipara)-1 || !isNewParagraph(cursor[Char]) {
+	s := sections[cursor[Sectn]-1]
+	if p > len(s.cpara)-1 || !isNewParagraph(cursor[Char]) {
 		p--
 	}
-	buffer[0] = line{beg_b: ipara[p].b, beg_c: ipara[p].c, sectn: cursor[Sectn]}
+	buffer[0] = line{beg_b: s.bpara[p], beg_c: s.cpara[p], sectn: cursor[Sectn]}
 }
 
 // Get the monospace display width of the next breakable segment in source
@@ -265,9 +264,9 @@ func AppendRunes(runes []rune) {
 	osectn = 0
 	scope = Char
 
-	if cursor[Sectn] != len(isectn) {
-		cursor[Sectn] = len(isectn)
-		cursor[Char] = uniseg.GraphemeClusterCount(string(document[isectn[cursor[Sectn]-1]:]))
+	if cursor[Sectn] != len(sections) {
+		cursor[Sectn] = len(sections)
+		cursor[Char] = uniseg.GraphemeClusterCount(string(document[sections[cursor[Sectn]-1].bsectn:]))
 	} else {
 		cursor[Char] = buffer[cursy].beg_c + uniseg.GraphemeClusterCount(string(document[buffer[cursy].beg_b:]))
 		drawLine(cursy)
@@ -328,7 +327,7 @@ func drawLine(y int) {
 
 	// A new paragraph is often the start of a new word that might not have been recorded yet
 	if isNewParagraph(c) && isAlphanumeric(source) {
-		indexWord(c)
+		indexWord(s, c)
 	}
 
 	var f int            // Unicode boundary flags
@@ -363,24 +362,23 @@ func drawLine(y int) {
 		}
 
 		isAN := isAlphanumeric(source)
-		if f&uniseg.MaskWord != 0 && isAN {
-			indexWord(c)
+		if r != '\f' && f&uniseg.MaskWord != 0 && isAN {
+			indexWord(s, c)
 		}
 
 		if r == '\n' || (f&uniseg.MaskSentence != 0 && len(source) > 0) {
-			indexSent(b, c)
+			indexSent(s, c)
 		}
 
 		if r == '\n' {
-			indexPara(b, c)
+			indexPara(s, b, c)
 		}
 
 		if r == '\f' {
 			indexSectn(b)
-			newSection(s + 1)
 
 			if isAN {
-				iword = []int{0}
+				indexWord(s+1, 0)
 			}
 		}
 
@@ -487,6 +485,8 @@ func drawWindow() {
 	for l.beg_b < len(document) {
 		drawLine(y)
 		l = buffer[y]
+		s := &sections[l.sectn-1]
+		s.chars = max(s.chars, l.end_c)
 		y++
 		if y >= ey && (l.sectn > cursor[Sectn] || l.end_c >= cursor[Char]) {
 			break
@@ -499,11 +499,8 @@ func drawWindow() {
 		buffer[i] = line{}
 	}
 
-	if l.brk == Sectn || l.sectn != cursor[Sectn] {
-		scanSectn()
-	} else {
-		total = counts{max(total[Char], l.end_c), len(iword), len(isent), len(ipara), len(isectn)}
-	}
+	s := &sections[cursor[Sectn]-1]
+	total = counts{s.chars, len(s.cword), len(s.csent), len(s.cpara), len(sections)}
 
 	drawStatusBar()
 }
