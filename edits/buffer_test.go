@@ -85,21 +85,23 @@ func TestAppendRune(t *testing.T) {
 	AppendRunes([]rune("å"))
 	assert.Equal(t, []byte("•üÅ"), document)
 	assert.Equal(t, 3, cursor[Char])
+	assert.Equal(t, 3, sections[0].chars)
 	assert.Equal(t, []int{1}, sections[0].cword)
-	assert.Equal(t, counts{3, 1, 1, 1, 1}, total)
 
 	AppendRunes([]rune{'\n'})
 	assert.Equal(t, []byte("•üÅ\n"), document)
 	assert.Equal(t, Char, scope)
 	assert.Equal(t, 4, cursor[Char])
+	assert.Equal(t, 4, sections[0].chars)
 	assert.Equal(t, []int{1}, sections[0].cword)
-	assert.Equal(t, counts{4, 1, 2, 2, 1}, total)
+	assert.Equal(t, []int{0, 4}, sections[0].csent)
+	assert.Equal(t, []int{0, 4}, sections[0].cpara)
 
 	AppendRunes([]rune{'X'})
 	assert.Equal(t, []byte("•üÅ\nX"), document)
 	assert.Equal(t, 5, cursor[Char])
+	assert.Equal(t, 5, sections[0].chars)
 	assert.Equal(t, []int{1, 4}, sections[0].cword)
-	assert.Equal(t, counts{5, 2, 2, 2, 1}, total)
 
 	appendSectnBreak()
 	drawWindow()
@@ -107,15 +109,17 @@ func TestAppendRune(t *testing.T) {
 	assert.Equal(t, []byte("•üÅ\nX\fY"), document)
 	assert.Equal(t, Char, scope)
 	assert.Equal(t, 1, cursor[Char])
+	assert.Equal(t, 1, sections[1].chars)
 	assert.Equal(t, []int{0}, sections[1].cword)
-	assert.Equal(t, counts{1, 1, 1, 1, 2}, total)
+	assert.Equal(t, []int{0}, sections[1].csent)
+	assert.Equal(t, []int{0}, sections[1].cpara)
+	assert.Equal(t, 2, len(sections))
 
 	cursor = counts{Sectn: 1}
 	AppendRunes([]rune{'Z'})
 	assert.Equal(t, []byte("•üÅ\nX\fYZ"), document)
 	assert.Equal(t, 2, cursor[Char])
-	assert.Equal(t, []int{0}, sections[1].cword)
-	assert.Equal(t, counts{2, 1, 1, 1, 2}, total)
+	assert.Equal(t, 2, sections[1].chars)
 }
 
 func TestAppendRuneCluster(t *testing.T) {
@@ -325,15 +329,18 @@ func TestDrawWindow(t *testing.T) {
 	cursor = counts{1, 0, 1, 1, 1}
 	document = []byte("🇦🇺")
 	ResizeScreen(margin+2, 3)
-	assert.Equal(t, counts{1, 0, 1, 1, 1}, total)
+	assert.Equal(t, 1, sections[0].chars)
+	assert.Equal(t, []int(nil), sections[0].cword)
 
 	document = []byte("🇦🇺 Aussie")
 	ResizeScreen(24, 3)
-	assert.Equal(t, counts{8, 1, 1, 1, 1}, total)
+	assert.Equal(t, 8, sections[0].chars)
+	assert.Equal(t, []int{2}, sections[0].cword)
 
 	document = []byte("🇦🇺 Aussie, Aussie, Aussie")
 	drawWindow()
-	assert.Equal(t, counts{24, 3, 1, 1, 1}, total)
+	assert.Equal(t, 24, sections[0].chars)
+	assert.Equal(t, []int{2, 10, 18}, sections[0].cword)
 }
 
 func TestDrawWindowLineBreak(t *testing.T) {
@@ -343,27 +350,24 @@ func TestDrawWindowLineBreak(t *testing.T) {
 	initialCap = false
 	ResizeScreen(margin+5, 3)
 	assert.Equal(t, "lengt    -\nh_\n@6/6", Screen())
-	assert.Equal(t, 1, total[Word])
+	assert.Equal(t, []int{0}, sections[0].cword)
 
 	document = []byte("length +")
 	ResizeScreen(margin+8, 3)
 	assert.Equal(t, "length_ \n+\n@6/8", Screen())
-	assert.Equal(t, 1, total[Word])
+	assert.Equal(t, []int{0}, sections[0].cword)
 }
 
 func TestDrawWindowSentence(t *testing.T) {
 	Setup()
 	document = []byte("This is a sentence.")
 	ResizeScreen(margin+25, 3)
+	assert.Equal(t, 19, sections[0].chars)
 	assert.Equal(t, []int{0}, sections[0].csent)
-	assert.Equal(t, counts{19, 4, 1, 1, 1}, total)
 
 	document = append(document, []byte(" More")...)
 	drawWindow()
-	assert.Equal(t, []int{0, 20}, sections[0].csent)
-	assert.Equal(t, counts{24, 5, 2, 1, 1}, total)
-
-	drawWindow()
+	assert.Equal(t, 24, sections[0].chars)
 	assert.Equal(t, []int{0, 20}, sections[0].csent)
 }
 
@@ -371,23 +375,26 @@ func TestDrawWindowParagraph(t *testing.T) {
 	Setup()
 	document = []byte("🇦🇺 Aussie, Aussie, Aussie\nOi oi oi!")
 	ResizeScreen(margin+30, 3)
-	assert.Equal(t, []int{0, 25}, sections[0].cpara)
+	assert.Equal(t, 34, sections[0].chars)
 	assert.Equal(t, []int{2, 10, 18, 25, 28, 31}, sections[0].cword)
-	assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
+	assert.Equal(t, []int{0, 25}, sections[0].cpara)
 
 	cursor = counts{25, 3, 1, 1, 1}
 	newBuffer()
 	drawWindow()
-	assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
+	assert.Equal(t, 34, sections[0].chars)
+	assert.Equal(t, []int{0, 25}, sections[0].cpara)
 
 	cursor = counts{5, 1, 1, 1, 1}
 	drawWindow()
-	assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
+	assert.Equal(t, 34, sections[0].chars)
+	assert.Equal(t, []int{0, 25}, sections[0].cpara)
 
 	cursor = counts{26, 4, 2, 2, 1}
 	newBuffer()
 	drawWindow()
-	assert.Equal(t, counts{34, 6, 2, 2, 1}, total)
+	assert.Equal(t, 34, sections[0].chars)
+	assert.Equal(t, []int{0, 25}, sections[0].cpara)
 }
 
 func TestDrawWindowSection(t *testing.T) {
@@ -395,20 +402,24 @@ func TestDrawWindowSection(t *testing.T) {
 	document = []byte("🇦🇺 Aussie, Aussie, Aussie\fOi oi oi!")
 	ResizeScreen(margin+30, 3)
 	assert.Equal(t, strings.Repeat("─", ex), buffer[0].text)
-	assert.Equal(t, counts{24, 3, 1, 1, 2}, total)
+	assert.Equal(t, 24, sections[0].chars)
+	assert.Equal(t, 2, len(sections))
 
 	cursor = counts{9, 3, 1, 1, 2}
 	drawWindow()
-	assert.Equal(t, counts{9, 3, 1, 1, 2}, total)
+	assert.Equal(t, 9, sections[1].chars)
+	assert.Equal(t, 2, len(sections))
 	assert.Equal(t, 1, cursy)
 
 	document = append(document, '\f')
 	drawWindow()
-	assert.Equal(t, counts{9, 3, 1, 1, 3}, total)
+	assert.Equal(t, 9, sections[1].chars)
+	assert.Equal(t, 3, len(sections))
 
 	cursor = counts{Sectn: 1}
 	drawWindow()
-	assert.Equal(t, counts{24, 3, 1, 1, 3}, total)
+	assert.Equal(t, 24, sections[0].chars)
+	assert.Equal(t, 3, len(sections))
 }
 
 func TestDrawWindowScroll(t *testing.T) {

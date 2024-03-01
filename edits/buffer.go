@@ -98,7 +98,6 @@ var cursor = counts{Sectn: 1} // current position in the section/document
 var cursy int                 // current row in the edit window
 var document []byte
 var initialCap = true // initial capital at the start of a sentence
-var total counts
 
 func appendParaBreak() {
 	i := len(document) - 1
@@ -146,6 +145,9 @@ func drawStatusBar() {
 
 	var c [MaxScope]string // counters for each scope
 	var w int              // width of counters
+
+	s := &sections[cursor[Sectn]-1]
+	total := counts{s.chars, len(s.cword), len(s.csent), len(s.cpara), len(sections)}
 	for sc := Char; sc <= Sectn; sc++ {
 		c[sc] = string(counterChar[sc]) + strconv.Itoa(cursor[sc]) + "/" + strconv.Itoa(total[sc])
 		w += uniseg.StringWidth(c[sc])
@@ -468,7 +470,7 @@ It word wraps, buffers and displays a portion of the document starting from
 the line the cursor is on and ending at the last line of the edit window
 or the end of the document, whichever comes first.  If the cursor is not
 within the screen area, it moves the starting position to bring the cursor
-back in view.  It also updates the navigation indexes and totals counters.
+back in view.  It also updates the navigation indexes.
 */
 func drawWindow() {
 	var y int // current screen coordinates
@@ -498,9 +500,6 @@ func drawWindow() {
 	for i := y + 1; i < ey; i++ {
 		buffer[i] = line{}
 	}
-
-	s := &sections[cursor[Sectn]-1]
-	total = counts{s.chars, len(s.cword), len(s.csent), len(s.cpara), len(sections)}
 
 	drawStatusBar()
 }
