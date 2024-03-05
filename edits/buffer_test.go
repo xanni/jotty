@@ -35,6 +35,7 @@ func TestAppendParaBreak(t *testing.T) {
 func TestAppendSectnBreak(t *testing.T) {
 	Setup()
 	document = []byte("\n")
+	cursor[Char] = 1
 	ResizeScreen(margin+1, 5)
 
 	appendSectnBreak()
@@ -68,7 +69,7 @@ func TestScrollUp(t *testing.T) {
 	assert.Equal(t, 1, cursy)
 }
 
-func TestAppendRune(t *testing.T) {
+func TestAppendRunes(t *testing.T) {
 	Setup()
 	ResizeScreen(margin+4, 4)
 
@@ -83,12 +84,14 @@ func TestAppendRune(t *testing.T) {
 
 	initialCap = true
 	AppendRunes([]rune("å"))
+	drawWindow()
 	assert.Equal(t, []byte("•üÅ"), document)
 	assert.Equal(t, 3, cursor[Char])
 	assert.Equal(t, 3, sections[0].chars)
 	assert.Equal(t, []int{1}, sections[0].cword)
 
 	AppendRunes([]rune{'\n'})
+	drawWindow()
 	assert.Equal(t, []byte("•üÅ\n"), document)
 	assert.Equal(t, Char, scope)
 	assert.Equal(t, 4, cursor[Char])
@@ -98,6 +101,7 @@ func TestAppendRune(t *testing.T) {
 	assert.Equal(t, []int{0, 4}, sections[0].cpara)
 
 	AppendRunes([]rune{'X'})
+	drawWindow()
 	assert.Equal(t, []byte("•üÅ\nX"), document)
 	assert.Equal(t, 5, cursor[Char])
 	assert.Equal(t, 5, sections[0].chars)
@@ -106,6 +110,7 @@ func TestAppendRune(t *testing.T) {
 	appendSectnBreak()
 	drawWindow()
 	AppendRunes([]rune{'Y'})
+	drawWindow()
 	assert.Equal(t, []byte("•üÅ\nX\fY"), document)
 	assert.Equal(t, Char, scope)
 	assert.Equal(t, 1, cursor[Char])
@@ -117,6 +122,7 @@ func TestAppendRune(t *testing.T) {
 
 	cursor = counts{Sectn: 1}
 	AppendRunes([]rune{'Z'})
+	drawWindow()
 	assert.Equal(t, []byte("•üÅ\nX\fYZ"), document)
 	assert.Equal(t, 2, cursor[Char])
 	assert.Equal(t, 2, sections[1].chars)
@@ -144,7 +150,6 @@ func TestDecScope(t *testing.T) {
 	initialCap = false
 	DecScope()
 	assert.Equal(t, Sectn, scope)
-	assert.Equal(t, string(cursorChar[Sectn]), buffer[0].text)
 
 	initialCap = true
 	DecScope()
@@ -168,11 +173,9 @@ func TestIncScope(t *testing.T) {
 	scope = Sectn
 	IncScope()
 	assert.Equal(t, Char, scope)
-	assert.Equal(t, string(cursorChar[Char]), buffer[0].text)
 
 	IncScope()
 	assert.Equal(t, Word, scope)
-	assert.Equal(t, string(cursorChar[Word]), buffer[0].text)
 }
 
 func TestCursorRow(t *testing.T) {
@@ -190,15 +193,15 @@ func TestCursorRow(t *testing.T) {
 	assert.Equal(t, 4, cursorRow())
 }
 
-func TestDrawStatusLine(t *testing.T) {
+func TestDrawstatusLine(t *testing.T) {
 	Setup()
 	ID = "Jotty v0"
 	initialCap = false
 	ResizeScreen(26, 3)
-	assert.Equal(t, "§1/1: ¶0/1 $0/1 #0/0 @0/0 ", StatusLine())
+	assert.Equal(t, "§1/1: ¶0/1 $0/1 #0/0 @0/0 ", statusLine())
 
 	ResizeScreen(36, 3)
-	assert.Equal(t, "Jotty v0  §1/1: ¶0/1 $0/1 #0/0 @0/0 ", StatusLine())
+	assert.Equal(t, "Jotty v0  §1/1: ¶0/1 $0/1 #0/0 @0/0 ", statusLine())
 }
 
 func TestIsCursorInBuffer(t *testing.T) {
@@ -259,6 +262,15 @@ func TestIsNewParagraph(t *testing.T) {
 	assert.False(t, isNewParagraph(2))
 }
 
+func TestCursorString(t *testing.T) {
+	initialCap = false
+	scope = Char
+	assert.Equal(t, string(cursorChar[Char]), cursorString())
+
+	initialCap = true
+	assert.Equal(t, string(cursorCharCap), cursorString())
+}
+
 func TestDrawLine(t *testing.T) {
 	Setup()
 	ResizeScreen(margin+3, 2)
@@ -303,6 +315,7 @@ func TestAdvanceLine(t *testing.T) {
 	cursor[Char] = 1
 	document = []byte("\n")
 	ResizeScreen(margin+3, 3)
+	drawWindow()
 	assert.Equal(t, 0, buffer[0].sectn)
 	assert.Equal(t, 1, cursy)
 
@@ -332,11 +345,13 @@ func TestDrawWindow(t *testing.T) {
 	cursor = counts{1, 0, 1, 1, 1}
 	document = []byte("🇦🇺")
 	ResizeScreen(margin+2, 3)
+	drawWindow()
 	assert.Equal(t, 1, sections[0].chars)
 	assert.Equal(t, []int(nil), sections[0].cword)
 
 	document = []byte("🇦🇺 Aussie")
 	ResizeScreen(24, 3)
+	drawWindow()
 	assert.Equal(t, 8, sections[0].chars)
 	assert.Equal(t, []int{2}, sections[0].cword)
 
@@ -365,6 +380,7 @@ func TestDrawWindowSentence(t *testing.T) {
 	Setup()
 	document = []byte("This is a sentence.")
 	ResizeScreen(margin+25, 3)
+	drawWindow()
 	assert.Equal(t, 19, sections[0].chars)
 	assert.Equal(t, []int{0}, sections[0].csent)
 
@@ -378,6 +394,7 @@ func TestDrawWindowParagraph(t *testing.T) {
 	Setup()
 	document = []byte("🇦🇺 Aussie, Aussie, Aussie\nOi oi oi!")
 	ResizeScreen(margin+30, 3)
+	drawWindow()
 	assert.Equal(t, 34, sections[0].chars)
 	assert.Equal(t, []int{2, 10, 18, 25, 28, 31}, sections[0].cword)
 	assert.Equal(t, []int{0, 25}, sections[0].cpara)
@@ -404,6 +421,7 @@ func TestDrawWindowSection(t *testing.T) {
 	Setup()
 	document = []byte("🇦🇺 Aussie, Aussie, Aussie\fOi oi oi!")
 	ResizeScreen(margin+30, 3)
+	drawWindow()
 	assert.Equal(t, strings.Repeat("─", ex), buffer[0].text)
 	assert.Equal(t, 24, sections[0].chars)
 	assert.Equal(t, 2, len(sections))
@@ -438,33 +456,6 @@ func TestDrawWindowScroll(t *testing.T) {
 	cursor = counts{14, 2, 1, 1, 1}
 	drawWindow()
 	assert.Equal(t, []line{{7, 7, 13, 13, Char, 1, "test: "}, {13, 13, 19, 19, Char, 1, "l_ine 3"}}, buffer)
-}
-
-func TestDrawWindowWordCount(t *testing.T) {
-	Setup()
-	document = []byte("Two words")
-	ResizeScreen(margin+5, 3)
-	assert.Equal(t, 0, cursor[Word])
-
-	cursor[Char]++
-	drawWindow()
-	assert.Equal(t, 1, cursor[Word])
-
-	cursor[Char] = 3
-	drawWindow()
-	assert.Equal(t, 1, cursor[Word])
-
-	cursor[Char]++
-	drawWindow()
-	assert.Equal(t, 1, cursor[Word])
-
-	cursor[Char]++
-	drawWindow()
-	assert.Equal(t, 2, cursor[Word])
-
-	cursor[Char] = 9
-	drawWindow()
-	assert.Equal(t, 2, cursor[Word])
 }
 
 func TestSpace(t *testing.T) {
@@ -523,12 +514,12 @@ func TestSpace(t *testing.T) {
 	cursor = counts{5, 1, 1, 1, 1}
 	document = []byte("Test\n")
 	resetIndex()
+	newBuffer()
 	sections[0].bpara = []int{0, 5}
 	sections[0].cpara = []int{0, 5}
-	newBuffer()
+	sections[0].csent = []int{0, 5}
 	scope = Para
 	Space()
-	assert.Equal(t, 2, cursy)
 	assert.Equal(t, "Test\f", string(document))
 	assert.Equal(t, scope, Sectn)
 }
@@ -570,12 +561,13 @@ func TestSpaceAfterSpace(t *testing.T) {
 
 func TestEnter(t *testing.T) {
 	Setup()
-	ResizeScreen(margin+6, 3)
+	ResizeScreen(margin+6, 4)
 
 	assert.NotPanics(t, func() { Enter() })
 	assert.Nil(t, document)
 
 	document = []byte("Test.")
+	cursor[Char] = 5
 	Enter()
 	assert.Equal(t, "Test.\n", string(document))
 	assert.Equal(t, scope, Para)

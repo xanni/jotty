@@ -122,6 +122,17 @@ func TestLeftWord(t *testing.T) {
 	updateCursorPos()
 	assert.Equal(t, 2, cursor[Char])
 	assert.Equal(t, 1, cursor[Word])
+
+	document = []byte("1\f\f2")
+	sections = []index{
+		{chars: 1, cword: []int{0}},
+		{bsectn: 2, chars: 0, cword: []int(nil)},
+		{bsectn: 3, chars: 1, cword: []int{0}},
+	}
+	cursor = counts{0, 0, 1, 1, 3}
+	leftWord()
+	updateCursorPos()
+	assert.Equal(t, counts{Sectn: 2}, cursor)
 }
 
 func TestRightWord(t *testing.T) {
@@ -352,22 +363,27 @@ func TestLeft(t *testing.T) {
 
 	scope = Char
 	Left()
+	updateCursorPos()
 	assert.Equal(t, counts{8, 4, 3, 2, 2}, cursor)
 
 	scope = Word
 	Left()
+	updateCursorPos()
 	assert.Equal(t, counts{7, 3, 3, 2, 2}, cursor)
 
 	scope = Sent
 	Left()
+	updateCursorPos()
 	assert.Equal(t, counts{5, 2, 2, 2, 2}, cursor)
 
 	scope = Para
 	Left()
+	updateCursorPos()
 	assert.Equal(t, counts{2, 1, 1, 1, 2}, cursor)
 
 	scope = Sectn
 	Left()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 1}, cursor)
 }
 
@@ -382,22 +398,27 @@ func TestRight(t *testing.T) {
 
 	scope = Char
 	Right()
+	updateCursorPos()
 	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
 
 	scope = Word
 	Right()
+	updateCursorPos()
 	assert.Equal(t, counts{3, 1, 1, 1, 1}, cursor)
 
 	scope = Sent
 	Right()
+	updateCursorPos()
 	assert.Equal(t, counts{6, 2, 1, 1, 1}, cursor)
 
 	scope = Para
 	Right()
+	updateCursorPos()
 	assert.Equal(t, counts{8, 3, 2, 1, 1}, cursor)
 
 	scope = Sectn
 	Right()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 2}, cursor)
 }
 
@@ -414,43 +435,52 @@ func TestHome(t *testing.T) {
 
 	scope = Char
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{2, 1, 1, 1, 3}, cursor)
 	assert.Equal(t, Sent, scope)
 
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 2}, cursor)
 	assert.Equal(t, Para, scope)
 
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 1}, cursor)
 	assert.Equal(t, Sectn, scope)
 
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{3, 2, 2, 2, 3}, cursor)
 	assert.Equal(t, Char, scope)
 
 	cursor = counts{Sectn: 1}
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 1}, cursor)
 	assert.Equal(t, Sent, scope)
 
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 1}, cursor)
 	assert.Equal(t, Para, scope)
 
 	cursor = counts{1, 1, 1, 1, 1}
 	scope = Sectn
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
 
 	cursor = counts{Sectn: 2}
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 2}, cursor)
 
 	cursor = counts{Sectn: 1}
 	osectn = 1
 	ochar = 1
 	Home()
+	updateCursorPos()
 	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
 }
 
@@ -467,43 +497,53 @@ func TestEnd(t *testing.T) {
 
 	scope = Char
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
 	assert.Equal(t, Sent, scope)
 
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
 	assert.Equal(t, Para, scope)
 
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{1, 1, 1, 1, 3}, cursor)
 	assert.Equal(t, Sectn, scope)
 
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 1}, cursor)
 	assert.Equal(t, Char, scope)
 
 	cursor = counts{1, 1, 1, 1, 1}
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
 
 	scope = Char
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
 
 	scope = Char
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
 
 	scope = Sectn
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
 
 	cursor = counts{Sectn: 3}
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 3}, cursor)
 
 	cursor = counts{1, 1, 1, 1, 3}
 	osectn = 3
 	End()
+	updateCursorPos()
 	assert.Equal(t, counts{Sectn: 3}, cursor)
 }

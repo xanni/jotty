@@ -55,6 +55,7 @@ var counterChar = [...]rune{'@', '#', '$', '¶', '§'}
 var cursorChar = [...]rune{'_', '#', '$', '¶', '§'}
 var output = termenv.NewOutput(os.Stdout)
 
+const cursorCharCap = '↑'
 const margin = 5 // up to 3 edit marks, cursor and wrap indicator
 
 type Scope int
@@ -72,7 +73,7 @@ var scope Scope
 
 type counts [MaxScope]int
 
-// Cache for a single line in the terminal window
+// Information about a single line in the terminal window
 type line struct {
 	beg_b, beg_c int    // cumulative counts at start of line
 	end_b, end_c int    // cumulative counts at end of line
@@ -83,10 +84,10 @@ type line struct {
 
 /*
 The "buffer" variable caches the starting and ending byte offsets within the
-document, the starting and ending character offsets within the section, the
-last rune on the line (to record whether it's a paragraph or section break)
-and the current section for each line displayed in the terminal to speed up
-rendering by avoiding constantly redrawing the entire terminal window.
+document, the starting and ending character offsets within the section,
+whether the line ends with a paragraph or section break and the current
+section for each line displayed in the terminal in order to speed up rendering
+by avoiding constantly redrawing the entire terminal window.
 
 The blank lines between paragraphs and sections are represented by all zero
 entries and should be skipped.
@@ -111,18 +112,26 @@ func appendParaBreak() {
 
 func appendSectnBreak() {
 	i := len(document) - 1
-	if document[i] == '\n' {
+	if document[i] != '\n' {
+		document = append(document, '\f')
+	} else {
 		document[i] = '\f'
 		s := &sections[cursor[Sectn]-1]
+		s.chars--
 		s.bpara = s.bpara[:len(s.bpara)-1]
 		s.cpara = s.cpara[:len(s.cpara)-1]
-	} else {
-		document = append(document, '\f')
+		s.csent = s.csent[:len(s.csent)-1]
+		y := cursy - 2
+		if y >= 0 {
+			l := buffer[y]
+			l.brk = Sectn
+			y++
+			advanceLine(&y, &l)
+		}
 	}
-	drawWindow()
 
-	s := cursor[Sectn] + 1
-	cursor = counts{Sectn: s}
+	sn := cursor[Sectn] + 1
+	cursor = counts{Sectn: sn}
 	scope = Sectn
 	indexSectn(len(document))
 }
@@ -139,7 +148,7 @@ func cursorRow() (y int) {
 }
 
 // Draw the status bar that appears on the last line of the screen
-func StatusLine() string {
+func statusLine() string {
 	var c [MaxScope]string // counters for each scope
 	var w int              // width of counters
 
@@ -268,10 +277,7 @@ func AppendRunes(runes []rune) {
 		cursor[Char] = uniseg.GraphemeClusterCount(string(document[sections[cursor[Sectn]-1].bsectn:]))
 	} else {
 		cursor[Char] = buffer[cursy].beg_c + uniseg.GraphemeClusterCount(string(document[buffer[cursy].beg_b:]))
-		drawLine(cursy)
 	}
-
-	drawWindow()
 }
 
 func DecScope() {
@@ -284,8 +290,6 @@ func DecScope() {
 	if scope < Sent {
 		initialCap = false
 	}
-
-	drawLine(cursy)
 }
 
 func IncScope() {
@@ -295,23 +299,22 @@ func IncScope() {
 	} else {
 		scope++
 	}
-
-	drawLine(cursy)
 }
 
 // The entire screen including the edits window and status line
 func Screen() string {
+	drawWindow()
 	var t strings.Builder
 	for i := 0; i < ey; i++ {
 		t.WriteString(buffer[i].text)
 		t.WriteByte('\n')
 	}
-	t.WriteString(StatusLine())
+	t.WriteString(statusLine())
 	return t.String()
 }
 
 func cursorString() string {
-	cc := '↑'
+	cc := cursorCharCap
 	if !initialCap {
 		cc = cursorChar[scope]
 	}
@@ -450,13 +453,14 @@ func advanceLine(y *int, l *line) {
 
 	if l.brk >= Para && l.sectn == cursor[Sectn] && l.end_c == cursor[Char] {
 		cursy = *y
-		buffer[*y].text = cursorString()
+		l.text = cursorString()
+	} else {
+		l.text = ""
 	}
 
 	l.beg_b = l.end_b
 	l.beg_c = l.end_c
 	l.brk = Char
-	l.text = ""
 	buffer[*y] = *l
 }
 
@@ -481,6 +485,10 @@ func drawWindow() {
 	}
 
 	l := buffer[y]
+	if l.beg_b == len(document) {
+		buffer[y].text = cursorString()
+	}
+
 	for l.beg_b < len(document) {
 		drawLine(y)
 		l = buffer[y]
@@ -502,8 +510,6 @@ func drawWindow() {
 func ResizeScreen(x, y int) {
 	ex, ey = x, y-1
 	newBuffer()
-	drawLine(cursy)
-	drawWindow()
 }
 
 func Space() {
@@ -544,7 +550,6 @@ func Space() {
 
 	initialCap = scope >= Sent
 	osectn = 0
-	drawWindow()
 }
 
 func Enter() {
@@ -560,5 +565,4 @@ func Enter() {
 
 	initialCap = true
 	osectn = 0
-	drawWindow()
 }
