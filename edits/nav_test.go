@@ -3,113 +3,148 @@ package edits
 import (
 	"testing"
 
+	doc "git.sericyb.com.au/jotty/document"
 	"github.com/stretchr/testify/assert"
 )
 
-func resetIndex() {
-	sections = []index{{bpara: []int{0}, cpara: []int{0}, csent: []int{0}}}
+func setNewSection(sn int, t string) {
+	doc.CreateSection(sn)
+	doc.SetText(sn, 1, t)
 }
 
-func TestScanSection(t *testing.T) {
+func setNewParagraph(sn, pn int, t string) {
+	doc.CreateParagraph(sn, pn)
+	doc.SetText(sn, pn, t)
+}
+
+func resetIndex() {
+	sections = nil
+	indexSectn()
+}
+
+func TestIndexWord(t *testing.T) {
 	resetIndex()
-	document = nil
-	ScanSection(1)
-	s := &sections[0]
-	assert.Equal(t, 0, s.chars)
-	assert.Equal(t, 0, len(s.cword))
-	assert.Equal(t, 1, len(s.csent))
-	assert.Equal(t, 1, len(s.cpara))
 
-	document = []byte("Six words, two sentences.\nTwo paragraphs.")
-	ScanSection(1)
-	assert.Equal(t, 41, s.chars)
-	assert.Equal(t, 6, len(s.cword))
-	assert.Equal(t, 2, len(s.csent))
-	assert.Equal(t, 2, len(s.cpara))
+	indexWord(1, 1, 0)
+	assert.Equal(t, []int{0}, sections[0].p[0].cword)
 
-	document = append(document, []byte("\fAnother section.")...)
-	indexSectn(42)
-	ScanSection(1)
-	assert.Equal(t, 41, s.chars)
-	assert.Equal(t, 6, len(s.cword))
-	assert.Equal(t, 2, len(s.csent))
-	assert.Equal(t, 2, len(s.cpara))
+	indexWord(1, 1, 0)
+	assert.Equal(t, []int{0}, sections[0].p[0].cword)
 
+	indexWord(1, 1, 1)
+	assert.Equal(t, []int{0, 1}, sections[0].p[0].cword)
+}
+
+func TestIndexSent(t *testing.T) {
 	resetIndex()
-	document = []byte{'1', 255, '2'}
-	ScanSection(1)
-	s = &sections[0]
-	assert.Equal(t, 2, s.chars)
-	assert.Equal(t, 1, len(s.cword))
-	assert.Equal(t, 1, len(s.csent))
-	assert.Equal(t, 1, len(s.cpara))
+
+	indexSent(1, 1, 0)
+	assert.Equal(t, []int{0}, sections[0].p[0].csent)
+
+	indexSent(1, 1, 0)
+	assert.Equal(t, []int{0}, sections[0].p[0].csent)
+
+	indexSent(1, 1, 1)
+	assert.Equal(t, []int{0, 1}, sections[0].p[0].csent)
+}
+
+func TestIndexPara(t *testing.T) {
+	resetIndex()
+
+	indexPara(1)
+	assert.Equal(t, 2, len(sections[0].p))
+}
+
+func TestIndexSectn(t *testing.T) {
+	resetIndex()
+
+	indexSectn()
+	assert.Equal(t, 2, len(sections))
 }
 
 func TestLeftChar(t *testing.T) {
-	document = []byte("One\fTwo")
-	sections = []index{{chars: 3}, {chars: 3}}
-	cursor[Sectn] = 2
-	cursor[Char] = 1
+	doc.SetText(1, 1, "One")
+	setNewSection(2, "Two")
+	setNewParagraph(2, 2, "Three")
+	sections = []isectn{{chars: 3, p: []ipara{{chars: 3}}}, {chars: 8, p: []ipara{{chars: 3}, {chars: 5}}}}
+	cursor = counts{1, 0, 0, 2, 2}
 
 	leftChar()
-	assert.Equal(t, 2, cursor[Sectn])
-	assert.Equal(t, 0, cursor[Char])
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
 
 	leftChar()
-	assert.Equal(t, 1, cursor[Sectn])
-	assert.Equal(t, 3, cursor[Char])
+	assert.Equal(t, counts{3, 0, 0, 1, 2}, cursor)
 
-	cursor[Char] = 1
+	cursor[Char] = 0
 	leftChar()
-	assert.Equal(t, 1, cursor[Sectn])
-	assert.Equal(t, 0, cursor[Char])
+	assert.Equal(t, counts{3, 0, 0, 1, 1}, cursor)
 
+	cursor[Char] = 0
 	leftChar()
-	assert.Equal(t, 1, cursor[Sectn])
-	assert.Equal(t, 0, cursor[Char])
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
+
+	doc.CreateSection(3)
+	cursor[Sectn] = 3
+	leftChar()
+	assert.Equal(t, counts{5, 0, 0, 2, 2}, cursor)
+
+	doc.DeleteSection(3)
+	doc.DeleteSection(2)
 }
 
 func TestRightChar(t *testing.T) {
-	document = []byte("One\fTwo")
-	sections = []index{{chars: 3}, {chars: 3}}
-	cursor[Sectn] = 1
-	cursor[Char] = 2
+	doc.SetText(1, 1, "One")
+	setNewSection(2, "Two")
+	setNewParagraph(2, 2, "Three")
+	sections = []isectn{{chars: 3, p: []ipara{{chars: 3}}}, {chars: 8, p: []ipara{{chars: 3}, {chars: 5}}}}
+	cursor = counts{2, 0, 0, 1, 1}
 
 	rightChar()
-	assert.Equal(t, 1, cursor[Sectn])
-	assert.Equal(t, 3, cursor[Char])
+	assert.Equal(t, counts{3, 0, 0, 1, 1}, cursor)
 
 	rightChar()
-	assert.Equal(t, 2, cursor[Sectn])
-	assert.Equal(t, 0, cursor[Char])
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	cursor[Char] = 3
 	rightChar()
-	assert.Equal(t, 2, cursor[Sectn])
-	assert.Equal(t, 3, cursor[Char])
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
+
+	cursor[Char] = 5
+	rightChar()
+	assert.Equal(t, counts{5, 0, 0, 2, 2}, cursor)
+
+	doc.DeleteSection(2)
 }
 
 func TestLeftWord(t *testing.T) {
-	document = []byte("1 23\f4")
-	sections = []index{{chars: 5, cword: []int{0, 2}}, {bsectn: 5, chars: 1, cword: []int{0}}}
-	cursor = counts{1, 1, 1, 1, 2}
+	doc.SetText(1, 1, "1 23")
+	setNewSection(2, "4")
+	setNewParagraph(2, 2, "5")
+	sections = []isectn{
+		{words: 2, chars: 4, p: []ipara{{chars: 4, cword: []int{0, 2}}}},
+		{words: 2, chars: 2, p: []ipara{{chars: 1, cword: []int{0}}, {chars: 1, cword: []int{0}}}},
+	}
+	cursor = counts{1, 1, 1, 2, 2}
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, 2, cursor[Char])
-	assert.Equal(t, 1, cursor[Word])
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{2, 1, 0, 1, 1}, cursor)
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
+
+	leftWord()
+	updateCursorPos()
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 
 	cursor = counts{4, 2, 1, 1, 1}
 	leftWord()
@@ -123,26 +158,35 @@ func TestLeftWord(t *testing.T) {
 	assert.Equal(t, 2, cursor[Char])
 	assert.Equal(t, 1, cursor[Word])
 
-	document = []byte("1\f\f2")
-	sections = []index{
-		{chars: 1, cword: []int{0}},
-		{bsectn: 2, chars: 0, cword: []int(nil)},
-		{bsectn: 3, chars: 1, cword: []int{0}},
+	doc.SetText(1, 1, "1")
+	doc.CreateSection(2)
+	doc.SetText(3, 1, "2")
+	sections = []isectn{
+		{chars: 1, p: []ipara{{chars: 1, cword: []int{0}}}},
+		{p: []ipara{{}}},
+		{chars: 1, p: []ipara{{chars: 1, cword: []int{0}}}},
 	}
 	cursor = counts{0, 0, 1, 1, 3}
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
+
+	doc.DeleteSection(3)
+	doc.DeleteSection(2)
 }
 
 func TestRightWord(t *testing.T) {
-	document = []byte("1\f23 4")
-	sections = []index{{chars: 1, cword: []int{0}}, {bsectn: 2, chars: 4, cword: []int{0, 3}}}
-	cursor = counts{Sectn: 1}
+	doc.SetText(1, 1, "1")
+	setNewSection(2, "23 4")
+	sections = []isectn{
+		{chars: 1, p: []ipara{{chars: 1, cword: []int{0}}}},
+		{chars: 4, p: []ipara{{chars: 4, cword: []int{0, 3}}}},
+	}
+	cursor = counts{0, 0, 0, 1, 1}
 
 	rightWord()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	cursor = counts{0, 0, 0, 1, 2}
 
 	rightWord()
 	updateCursorPos()
@@ -170,16 +214,32 @@ func TestRightWord(t *testing.T) {
 	updateCursorPos()
 	assert.Equal(t, 3, cursor[Char])
 	assert.Equal(t, 1, cursor[Word])
+
+	doc.DeleteSection(2)
 }
 
 func TestLeftSent(t *testing.T) {
-	document = []byte("1. 23\f4")
-	sections = []index{{chars: 5, csent: []int{0, 3}}, {bsectn: 6, chars: 1, csent: []int{0}}}
-	cursor = counts{1, 1, 1, 1, 2}
+	doc.SetText(1, 1, "1. 23")
+	setNewSection(2, "4")
+	doc.CreateParagraph(2, 2)
+	setNewParagraph(2, 3, "5")
+	sections = []isectn{
+		{sents: 2, chars: 5, p: []ipara{{chars: 5, csent: []int{0, 3}}}},
+		{sents: 2, chars: 2, p: []ipara{{chars: 1, csent: []int{0}}, {}, {chars: 1, csent: []int{0}}}},
+	}
+	cursor = counts{1, 1, 1, 3, 2}
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 3, 2}, cursor)
+
+	leftSent()
+	updateCursorPos()
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
+
+	leftSent()
+	updateCursorPos()
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	leftSent()
 	updateCursorPos()
@@ -188,27 +248,33 @@ func TestLeftSent(t *testing.T) {
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 
 	cursor = counts{4, 2, 2, 1, 1}
 	leftSent()
 	updateCursorPos()
 	assert.Equal(t, 3, cursor[Char])
 	assert.Equal(t, 1, cursor[Sent])
+
+	doc.DeleteSection(2)
 }
 
 func TestRightSent(t *testing.T) {
-	document = []byte("1\f23. 4")
-	sections = []index{{chars: 1, csent: []int{0}}, {bsectn: 2, chars: 5, csent: []int{0, 4}}}
-	cursor = counts{Sectn: 1}
+	doc.SetText(1, 1, "1")
+	setNewSection(2, "23. 4")
+	sections = []isectn{
+		{chars: 1, p: []ipara{{chars: 1, csent: []int{0}}}},
+		{chars: 5, p: []ipara{{chars: 5, csent: []int{0, 4}}}},
+	}
+	cursor = counts{0, 0, 0, 1, 1}
 
 	rightSent()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	rightSent()
 	updateCursorPos()
@@ -236,164 +302,176 @@ func TestRightSent(t *testing.T) {
 	updateCursorPos()
 	assert.Equal(t, 4, cursor[Char])
 	assert.Equal(t, 1, cursor[Sent])
+
+	doc.DeleteSection(2)
 }
 
 func TestLeftPara(t *testing.T) {
-	document = []byte("1\n23\f4")
-	sections = []index{
-		{chars: 4, bpara: []int{0, 2}, cpara: []int{0, 2}},
-		{bsectn: 5, chars: 1, bpara: []int{5}, cpara: []int{0}},
+	doc.SetText(1, 1, "1")
+	setNewParagraph(1, 2, "23")
+	setNewSection(2, "4")
+	sections = []isectn{
+		{chars: 3, p: []ipara{{chars: 1}, {chars: 2}}},
+		{chars: 1, p: []ipara{{chars: 1}}},
 	}
-	cursor = counts{1, 1, 1, 1, 2}
+	cursor = counts{1, 0, 0, 1, 2}
 
 	leftPara()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	leftPara()
-	updateCursorPos()
-	assert.Equal(t, 2, cursor[Char])
-	assert.Equal(t, 1, cursor[Para])
+	assert.Equal(t, counts{0, 0, 0, 2, 1}, cursor)
 
 	leftPara()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 
 	leftPara()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 
-	cursor = counts{3, 2, 2, 2, 1}
+	cursor = counts{3, 0, 0, 2, 1}
 	leftPara()
-	updateCursorPos()
-	assert.Equal(t, 2, cursor[Char])
-	assert.Equal(t, 1, cursor[Para])
+	assert.Equal(t, counts{0, 0, 0, 2, 1}, cursor)
+
+	doc.DeleteSection(2)
+	doc.DeleteParagraph(1, 2)
 }
 
 func TestRightPara(t *testing.T) {
-	document = []byte("1\f23\n4")
-	sections = []index{
-		{chars: 1, bpara: []int{0}, cpara: []int{0}},
-		{bsectn: 2, chars: 4, bpara: []int{2, 5}, cpara: []int{0, 3}},
+	doc.SetText(1, 1, "1")
+	setNewSection(2, "23")
+	setNewParagraph(2, 2, "4")
+	sections = []isectn{
+		{chars: 1, p: []ipara{{chars: 1}}},
+		{chars: 3, p: []ipara{{chars: 2}, {chars: 1}}},
 	}
-	cursor = counts{Sectn: 1}
+	cursor = counts{0, 0, 0, 1, 1}
 
 	rightPara()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	rightPara()
-	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Para])
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
 
 	rightPara()
-	updateCursorPos()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, 2, cursor[Para])
+	assert.Equal(t, counts{1, 0, 0, 2, 2}, cursor)
 
 	rightPara()
-	updateCursorPos()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, 2, cursor[Para])
+	assert.Equal(t, counts{1, 0, 0, 2, 2}, cursor)
 
-	cursor = counts{1, 1, 1, 1, 2}
+	cursor = counts{1, 0, 0, 1, 2}
 	rightPara()
-	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Para])
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
 
-	cursor = counts{2, 1, 1, 1, 2}
+	cursor = counts{2, 0, 0, 1, 2}
 	rightPara()
-	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Para])
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
+
+	doc.DeleteSection(2)
 }
 
 func TestLeftSectn(t *testing.T) {
-	document = []byte("1\f23\f4")
-	sections = []index{{chars: 1}, {bsectn: 2, chars: 2}, {bsectn: 5, chars: 1}}
-	cursor = counts{1, 1, 1, 1, 3}
+	doc.SetText(1, 1, "1")
+	setNewSection(2, "23")
+	setNewSection(3, "4")
+	sections = []isectn{
+		{chars: 1, p: []ipara{{chars: 1}}},
+		{chars: 2, p: []ipara{{chars: 2}}},
+		{chars: 1, p: []ipara{{chars: 1}}},
+	}
+	cursor = counts{1, 0, 0, 1, 3}
 
 	leftSectn()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	leftSectn()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 
 	leftSectn()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
+
+	doc.DeleteSection(3)
+	doc.DeleteSection(2)
 }
 
 func TestRightSectn(t *testing.T) {
-	document = []byte("1\f23\f4")
-	sections = []index{{chars: 1}, {bsectn: 2, chars: 2}, {bsectn: 5, chars: 1}}
-	cursor = counts{Sectn: 1}
+	doc.SetText(1, 1, "1")
+	setNewSection(2, "23")
+	setNewSection(3, "4")
+	sections = []isectn{
+		{chars: 1, p: []ipara{{chars: 1}}},
+		{chars: 2, p: []ipara{{chars: 2}}},
+		{chars: 1, p: []ipara{{chars: 1}}},
+	}
+	cursor = counts{0, 0, 0, 1, 1}
 
 	rightSectn()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
 	rightSectn()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 3}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 3}, cursor)
 
 	rightSectn()
-	updateCursorPos()
-	assert.Equal(t, 1, cursor[Char])
-	assert.Equal(t, 3, cursor[Sectn])
+	assert.Equal(t, counts{1, 0, 0, 1, 3}, cursor)
 
 	rightSectn()
-	updateCursorPos()
-	assert.Equal(t, 1, cursor[Char])
-	assert.Equal(t, 3, cursor[Sectn])
+	assert.Equal(t, counts{1, 0, 0, 1, 3}, cursor)
+
+	doc.DeleteSection(3)
+	doc.DeleteSection(2)
 }
 
 func TestLeft(t *testing.T) {
-	document = []byte("1\f2\n3. 4 56")
-	sections = []index{
-		{chars: 1, bpara: []int{0}, cpara: []int{0}, csent: []int{0}, cword: []int{0}},
-		{bsectn: 2, chars: 9, bpara: []int{2, 4}, cpara: []int{0, 2}, csent: []int{0, 2, 5}, cword: []int{0, 2, 5, 7}},
+	doc.SetText(1, 1, "1")
+	setNewSection(2, "2")
+	setNewParagraph(2, 2, "3. 4 56")
+	sections = []isectn{
+		{1, 1, 1, []ipara{{[]int{0}, []int{0}, 1}}},
+		{3, 4, 8, []ipara{{[]int{0}, []int{0}, 1}, {[]int{0, 3}, []int{0, 3, 5}, 1}}},
 	}
-	cursor = counts{9, 4, 3, 2, 2}
+	cursor = counts{7, 3, 2, 2, 2}
 	ResizeScreen(margin+7, 4)
 
 	scope = Char
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{8, 4, 3, 2, 2}, cursor)
+	assert.Equal(t, counts{6, 3, 2, 2, 2}, cursor)
 
 	scope = Word
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{7, 3, 3, 2, 2}, cursor)
+	assert.Equal(t, counts{5, 2, 2, 2, 2}, cursor)
 
 	scope = Sent
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{5, 2, 2, 2, 2}, cursor)
+	assert.Equal(t, counts{3, 1, 1, 2, 2}, cursor)
 
 	scope = Para
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{2, 1, 1, 1, 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
 
 	scope = Sectn
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
+
+	Left()
+	updateCursorPos()
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
+
+	doc.DeleteSection(2)
 }
 
 func TestRight(t *testing.T) {
-	document = []byte("12 3. 4\n5\f6")
-	sections = []index{
-		{chars: 9, bpara: []int{0, 8}, cpara: []int{0, 8}, csent: []int{0, 6, 8}, cword: []int{0, 3, 6, 8}},
-		{bsectn: 10, chars: 1, bpara: []int{10}, cpara: []int{0}, csent: []int{0}, cword: []int{0}},
+	doc.SetText(1, 1, "12 3. 4")
+	setNewParagraph(1, 2, "5")
+	setNewSection(2, "6")
+	sections = []isectn{
+		{3, 4, 8, []ipara{{[]int{0, 6}, []int{0, 3, 6}, 7}, {[]int{0}, []int{0}, 1}}},
+		{1, 1, 1, []ipara{{[]int{0}, []int{0}, 1}}},
 	}
-	cursor = counts{Sectn: 1}
+	cursor = counts{0, 0, 0, 1, 1}
 	ResizeScreen(margin+9, 5)
 
 	scope = Char
@@ -414,136 +492,125 @@ func TestRight(t *testing.T) {
 	scope = Para
 	Right()
 	updateCursorPos()
-	assert.Equal(t, counts{8, 3, 2, 1, 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 2, 1}, cursor)
 
 	scope = Sectn
 	Right()
 	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
+
+	doc.DeleteSection(2)
+	doc.DeleteParagraph(1, 2)
 }
 
 func TestHome(t *testing.T) {
-	document = []byte("1\f2\f3\n4")
-	sections = []index{
-		{chars: 1, bpara: []int{0}, cpara: []int{0}, csent: []int{0}, cword: []int{0}},
-		{bsectn: 2, chars: 1, bpara: []int{2}, cpara: []int{0}, csent: []int{0}, cword: []int{0}},
-		{bsectn: 4, chars: 3, bpara: []int{4, 6}, cpara: []int{0, 2}, csent: []int{0, 2}, cword: []int{0, 2}},
-	}
-	osectn = 0
-	cursor = counts{3, 2, 2, 2, 3}
+	doc.SetText(1, 1, "1")
+	setNewSection(2, "2")
+	setNewParagraph(2, 2, "3")
+	sections = []isectn{{1, 1, 1, []ipara{{chars: 1}}}, {2, 2, 2, []ipara{{chars: 1}, {chars: 1}}}}
+
+	ocursor = counts{}
+	cursor = counts{1, 0, 0, 2, 2}
 	ResizeScreen(margin+2, 4)
 
 	scope = Char
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{2, 1, 1, 1, 3}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 2, 2}, cursor)
 	assert.Equal(t, Sent, scope)
 
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 	assert.Equal(t, Para, scope)
 
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 	assert.Equal(t, Sectn, scope)
 
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{3, 2, 2, 2, 3}, cursor)
+	assert.Equal(t, counts{1, 0, 0, 2, 2}, cursor)
 	assert.Equal(t, Char, scope)
 
-	cursor = counts{Sectn: 1}
+	cursor = counts{0, 0, 0, 1, 1}
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 	assert.Equal(t, Sent, scope)
 
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 	assert.Equal(t, Para, scope)
 
 	cursor = counts{1, 1, 1, 1, 1}
 	scope = Sectn
 	Home()
-	updateCursorPos()
 	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
 
-	cursor = counts{Sectn: 2}
+	cursor = counts{0, 0, 0, 1, 2}
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 2}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 
-	cursor = counts{Sectn: 1}
-	osectn = 1
-	ochar = 1
+	cursor = counts{0, 0, 0, 1, 1}
+	ocursor = cursor
 	Home()
-	updateCursorPos()
-	assert.Equal(t, counts{1, 1, 1, 1, 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
+
+	doc.DeleteSection(2)
 }
 
 func TestEnd(t *testing.T) {
-	document = []byte("12\n3\f4\f5")
-	sections = []index{
-		{chars: 4, bpara: []int{0, 3}, cpara: []int{0, 3}, csent: []int{0, 3}, cword: []int{0, 3}},
-		{bsectn: 5, chars: 1, bpara: []int{5}, cpara: []int{0}, csent: []int{0}, cword: []int{0}},
-		{bsectn: 7, chars: 1, bpara: []int{7}, cpara: []int{0}, csent: []int{0}, cword: []int{0}},
+	doc.SetText(1, 1, "12")
+	setNewParagraph(1, 2, "3")
+	setNewSection(2, "4")
+	setNewSection(3, "5")
+	setNewParagraph(3, 2, "6")
+	sections = []isectn{
+		{3, 2, 2, []ipara{{chars: 2}, {chars: 1}}},
+		{1, 1, 1, []ipara{{chars: 1}}},
+		{1, 1, 1, []ipara{{chars: 1}, {chars: 1}}},
 	}
-	osectn = 0
-	cursor = counts{Sectn: 1}
+
+	ocursor = counts{}
+	cursor = counts{0, 0, 0, 1, 1}
 	ResizeScreen(margin+3, 4)
 
 	scope = Char
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
+	assert.Equal(t, counts{2, 0, 0, 1, 1}, cursor)
 	assert.Equal(t, Sent, scope)
 
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
+	assert.Equal(t, counts{1, 0, 0, 2, 1}, cursor)
 	assert.Equal(t, Para, scope)
 
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{1, 1, 1, 1, 3}, cursor)
+	assert.Equal(t, counts{1, 0, 0, 2, 3}, cursor)
 	assert.Equal(t, Sectn, scope)
 
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 1}, cursor)
+	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursor)
 	assert.Equal(t, Char, scope)
 
 	cursor = counts{1, 1, 1, 1, 1}
 	End()
-	updateCursorPos()
 	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
 
 	scope = Char
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
-
-	scope = Char
-	End()
-	updateCursorPos()
-	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
+	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
 
 	scope = Sectn
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{4, 2, 2, 2, 1}, cursor)
+	assert.Equal(t, counts{2, 1, 1, 1, 1}, cursor)
 
-	cursor = counts{Sectn: 3}
+	cursor = counts{0, 0, 1, 1, 3}
+	ocursor = counts{0, 0, 0, 1, 1}
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 3}, cursor)
+	assert.Equal(t, counts{0, 0, 1, 1, 3}, cursor)
 
-	cursor = counts{1, 1, 1, 1, 3}
-	osectn = 3
+	cursor = counts{0, 0, 1, 2, 3}
 	End()
-	updateCursorPos()
-	assert.Equal(t, counts{Sectn: 3}, cursor)
+	assert.Equal(t, counts{0, 0, 1, 2, 3}, cursor)
+
+	doc.DeleteSection(3)
+	doc.DeleteSection(2)
+	doc.DeleteParagraph(1, 2)
 }

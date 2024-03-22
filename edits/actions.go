@@ -1,69 +1,70 @@
 package edits
 
 import (
+	"slices"
 	"unicode"
 	"unicode/utf8"
 
+	doc "git.sericyb.com.au/jotty/document"
 	"github.com/rivo/uniseg"
 )
 
 // Implements miscellaneous actions
 
 func appendParaBreak() {
-	i := len(document) - 1
-	if document[i] == ' ' {
-		document[i] = '\n'
-	} else {
-		document = append(document, '\n')
-		cursor[Char]++
+	if sectionChars(cursor[Sectn]) == 0 {
+		return
 	}
+
+	p := doc.GetText(cursor[Sectn], cursor[Para])
+	i := len(p) - 1
+	if p[i] == ' ' {
+		doc.SetText(cursor[Sectn], cursor[Para], p[:i])
+	}
+
+	cursor[Para]++
+	cursor[Char] = 0
+	doc.CreateParagraph(cursor[Sectn], cursor[Para])
+	initialCap = true
+	ocursor = counts{}
 	scope = Para
+	indexPara(cursor[Sectn])
 }
 
 func appendSectnBreak() {
-	i := len(document) - 1
-	if document[i] != '\n' {
-		document = append(document, '\f')
-	} else {
-		document[i] = '\f'
-		s := &sections[cursor[Sectn]-1]
-		s.chars--
-		s.bpara = s.bpara[:len(s.bpara)-1]
-		s.cpara = s.cpara[:len(s.cpara)-1]
-		s.csent = s.csent[:len(s.csent)-1]
-		y := cursy - 2
-		if y >= 0 {
-			l := buffer[y]
-			l.brk = Sectn
-			y++
-			advanceLine(&y, &l)
-		}
+	if sectionChars(cursor[Sectn]) == 0 {
+		return
 	}
 
-	sn := cursor[Sectn] + 1
-	cursor = counts{Sectn: sn}
+	sn := cursor[Sectn]
+	pn := cursor[Para]
+	if paragraphChars(sn, pn) == 0 {
+		doc.DeleteParagraph(sn, pn)
+		sections[sn-1].p = slices.Delete[[]ipara](sections[sn-1].p, pn-1, pn)
+		buffer = slices.Delete(buffer, curs_buff, curs_buff+1)
+		curs_buff = max(0, curs_buff-1)
+	}
+	cursor = counts{0, 0, 0, 1, sn + 1}
+	doc.CreateSection(cursor[Sectn])
+	initialCap = true
+	ocursor = counts{}
 	scope = Sectn
-	indexSectn(len(document))
+	indexSectn()
 }
 
 // Append runes to the document.
-// TODO implement insertion instead
+// TODO Implement insertion instead
 func AppendRunes(runes []rune) {
 	if initialCap && unicode.IsLower(runes[0]) {
 		runes[0] = unicode.ToUpper(runes[0])
 	}
 
-	document = append(document, []byte(string(runes))...)
+	t := string(runes)
+	doc.AppendText(cursor[Sectn], cursor[Para], t)
+	cursor[Char] += uniseg.GraphemeClusterCount(t)
 	initialCap = false
-	osectn = 0
+	ocursor = counts{}
 	scope = Char
-
-	if cursor[Sectn] != len(sections) {
-		cursor[Sectn] = len(sections)
-		cursor[Char] = uniseg.GraphemeClusterCount(string(document[sections[cursor[Sectn]-1].bsectn:]))
-	} else {
-		cursor[Char] = buffer[cursy].beg_c + uniseg.GraphemeClusterCount(string(document[buffer[cursy].beg_b:]))
-	}
 }
 
 func DecScope() {
@@ -88,47 +89,60 @@ func IncScope() {
 }
 
 func Space() {
-	i := len(document) - 1
-	if scope == Sectn || i < 0 {
+	switch scope {
+	case Sectn:
+		return
+	case Para:
+		appendSectnBreak()
+		return
+	case Sent:
+		appendParaBreak()
 		return
 	}
 
-	lb := document[i]
-	switch scope {
-	case Char:
-		lr, _ := utf8.DecodeLastRune(document)
-		if lb != ' ' && lb != '\n' && lb != '\f' {
-			AppendRunes([]rune(" "))
-		}
-		if unicode.Is(unicode.Sentence_Terminal, lr) {
-			scope = Sent
-		} else {
-			scope = Word
-		}
-	case Word:
-		if lb != ' ' && lb != '\n' && lb != '\f' {
-			AppendRunes([]rune(" "))
-		}
-		if lb == ' ' {
-			lr, _ := utf8.DecodeLastRune(document[:i])
-			if unicode.In(lr, unicode.L, unicode.N) { // alphanumeric
-				document[i] = '.'
-				AppendRunes([]rune(" "))
-			}
-		}
-		scope = Sent
-	case Sent:
-		appendParaBreak()
-	default: // Para because Sectn has already been excluded above
-		appendSectnBreak()
+	p := []byte(doc.GetText(cursor[Sectn], cursor[Para]))
+	i := len(p) - 1
+	if i < 0 {
+		return
 	}
 
-	initialCap = scope >= Sent
-	osectn = 0
+	lb := p[i]
+	if scope == Char {
+		if lb != ' ' {
+			AppendRunes([]rune(" "))
+		}
+
+		lr, _ := utf8.DecodeLastRune(p)
+		if unicode.Is(unicode.Sentence_Terminal, lr) {
+			initialCap = true
+			scope = Sent
+		} else {
+			initialCap = false
+			scope = Word
+		}
+
+		return
+	}
+
+	// scope == Word by elimination
+	if lb != ' ' {
+		AppendRunes([]rune(" "))
+	} else {
+		initialCap = true
+		lr, _ := utf8.DecodeLastRune(p[:i])
+		if unicode.In(lr, unicode.L, unicode.N) { // Alphanumeric
+			p = slices.Insert(p, i, '.')
+			doc.SetText(cursor[Sectn], cursor[Para], string(p))
+			cursor[Char]++
+			ocursor = counts{}
+		}
+	}
+
+	scope = Sent
 }
 
 func Enter() {
-	if scope == Sectn || len(document) == 0 {
+	if scope == Sectn {
 		return
 	}
 
@@ -137,7 +151,4 @@ func Enter() {
 	} else { // scope == Para
 		appendSectnBreak()
 	}
-
-	initialCap = true
-	osectn = 0
 }

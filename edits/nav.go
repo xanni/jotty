@@ -1,176 +1,157 @@
 package edits
 
 import (
-	"sort"
-	"unicode/utf8"
+	"slices"
 
-	"github.com/rivo/uniseg"
+	doc "git.sericyb.com.au/jotty/document"
 )
 
 /*
 Implements navigation through the document.  The logical cursor position is
-a combination of the current section 1..len(sections) and the current
-character 0..sections[cursor[Sectn]-1].chars
+a combination of the current section 1..Sections(), the current paragraph
+1..Paragraphs(cursor[Sectn]) and the current character
+0..sections[cursor[Sectn]-1].p[cursor[Para]-1].chars
 
-The cursor screen x, y coordinates and current word, sentence and paragraph
-are computed by drawWindow() when called from Screen()
+The cursor screen x, y coordinates and current word and sentence are computed
+by drawWindow() when called from Screen()
 
 The user navigates via scope units (characters, words, sentences, paragraphs
-and sections) but the document is stored as a UTF-8 encoded Unicode string.
+and sections) but the document is stored as UTF-8 encoded Unicode strings.
 For character navigation we can just decode and scan through the grapheme
 clusters sequentially, but for simplicity and performance we cache
-the character indexes of the words, sentences and paragraphs in the current
-section and the byte indexes of all the sections that have been parsed so far.
-
-Note that character indexes are relative to the start of the current section
-while byte indexes are absolute positions within the document.
+the character indexes of the words and sentences in the current paragraph.
 */
 
-type index struct {
-	bsectn       int   // byte index of the section in the document
-	chars        int   // total number of characters in the section
-	bpara, cpara []int // byte and character indexes of each paragraph in the section
-	csent        []int // character index of each sentence in the section
-	cword        []int // character index of each word in the section
+// Paragraph index
+type ipara struct {
+	csent []int // character index of each sentence in the paragraph
+	cword []int // character index of each word in the paragraph
+	chars int   // total number of characters in the paragraph
 }
 
-var sections = []index{{bpara: []int{0}, cpara: []int{0}, csent: []int{0}}}
-var osectn, ochar int // original cursor position
-
-// Find the current paragraph
-func getPara() int {
-	cpara := sections[cursor[Sectn]-1].cpara
-	return sort.Search(len(cpara), func(i int) bool { return cpara[i] >= cursor[Char] })
+// Section index
+type isectn struct {
+	sents, words, chars int     // Total number of sentences, words and characters in the section
+	p                   []ipara // Paragraphs in the section
 }
+
+var sections = []isectn{{p: []ipara{{}}}}
+var ocursor counts // Original cursor position
 
 // Add a word to the index if not already present
-func indexWord(sn, c int) {
+func indexWord(sn, pn, c int) {
 	s := &sections[sn-1]
-	if len(s.cword) == 0 || c > s.cword[len(s.cword)-1] {
-		s.cword = append(s.cword, c)
+	p := &s.p[pn-1]
+	if len(p.cword) == 0 || c > p.cword[len(p.cword)-1] {
+		s.words++
+		p.cword = append(p.cword, c)
 	}
 }
 
 // Add a sentence to the index if not already present
-func indexSent(sn, c int) {
+func indexSent(sn, pn, c int) {
 	s := &sections[sn-1]
-	if c > s.csent[len(s.csent)-1] {
-		s.csent = append(s.csent, c)
+	p := &s.p[pn-1]
+	if len(p.csent) == 0 || c > p.csent[len(p.csent)-1] {
+		s.sents++
+		p.csent = append(p.csent, c)
 	}
 }
 
-// Add a paragraph to the index if not already present
-func indexPara(sn, b, c int) {
+// Add a paragraph to the index
+func indexPara(sn int) {
 	s := &sections[sn-1]
-	if b > s.bpara[len(s.bpara)-1] {
-		s.bpara = append(s.bpara, b)
-		s.cpara = append(s.cpara, c)
-	}
+	s.p = append(s.p, ipara{})
 }
 
-// Add a section to the index if not already present
-func indexSectn(b int) {
-	if b > sections[len(sections)-1].bsectn {
-		sections = append(sections,
-			index{bsectn: b, bpara: []int{b}, cpara: []int{0}, csent: []int{0}})
-	}
+// Add a section to the index
+func indexSectn() {
+	sections = append(sections, isectn{p: []ipara{{}}}) // Empty paragraph
 }
 
-// Count the characters and words in a section and update the sentence and paragraph indexes
-func ScanSection(sn int) {
-	var source []byte
-
-	b := sections[sn-1].bsectn
-	if sn < len(sections) {
-		source = document[b:sections[sn].bsectn]
-	} else {
-		source = document[b:]
+// Last sentence in the paragraph
+func lastSentence(sn, pn int) int {
+	csent := sections[sn-1].p[pn-1].csent
+	if len(csent) > 0 {
+		return csent[len(csent)-1]
 	}
 
-	var c []byte // grapheme cluster
-	var chars int
-	var f int // Unicode boundary flags
-	s := &sections[sn-1]
-	state := -1
-
-	if isAlphanumeric(source) {
-		s.cword = []int{0}
-	}
-
-	for len(source) > 0 {
-		c, source, f, state = uniseg.Step(source, state)
-		b += len(c)
-		r, _ := utf8.DecodeRune(c)
-		if r == utf8.RuneError {
-			continue
-		}
-
-		if (f>>uniseg.ShiftWidth) > 0 || r == '\n' {
-			chars++
-		}
-
-		if len(source) > 0 {
-			if f&uniseg.MaskWord != 0 && isAlphanumeric(source) {
-				s.cword = append(s.cword, chars)
-			}
-
-			if f&uniseg.MaskSentence != 0 {
-				s.csent = append(s.csent, chars)
-			}
-		}
-
-		if r == '\n' {
-			s.bpara = append(s.bpara, b)
-			s.cpara = append(s.cpara, chars)
-		}
-	}
-
-	s.chars = chars
+	return 0
 }
 
-// Find the current word, sentence and paragraph in the indexes
+// Last word in the paragraph
+func lastWord(sn, pn int) int {
+	cword := sections[sn-1].p[pn-1].cword
+	if len(cword) > 0 {
+		return cword[len(cword)-1]
+	}
+
+	return 0
+}
+
+// Characters in the paragraph
+func paragraphChars(s, p int) int {
+	return sections[s-1].p[p-1].chars
+}
+
+// Characters in the section
+func sectionChars(s int) int {
+	return sections[s-1].chars
+}
+
+// Find the current word and sentence in the indexes
 func updateCursorPos() {
-	c := cursor[Char]
-	s := sections[cursor[Sectn]-1]
-	cursor[Word] = sort.Search(len(s.cword), func(i int) bool { return s.cword[i] >= c })
-	cursor[Sent] = sort.Search(len(s.csent), func(i int) bool { return s.csent[i] >= c })
-	cursor[Para] = getPara()
+	p := sections[cursor[Sectn]-1].p[cursor[Para]-1]
+	cursor[Sent], _ = slices.BinarySearch[[]int](p.csent, cursor[Char])
+	cursor[Word], _ = slices.BinarySearch[[]int](p.cword, cursor[Char])
 }
 
 func leftChar() {
-	if cursor[Char] > 0 {
+	switch {
+	case cursor[Char] > 0:
 		cursor[Char]--
-	} else if cursor[Sectn] > 1 {
+	case cursor[Para] > 1:
+		cursor[Para]--
+		cursor[Char] = paragraphChars(cursor[Sectn], cursor[Para])
+	case cursor[Sectn] > 1:
 		cursor[Sectn]--
-		cursor[Char] = sections[cursor[Sectn]-1].chars
+		cursor[Para] = doc.Paragraphs(cursor[Sectn])
+		cursor[Char] = paragraphChars(cursor[Sectn], cursor[Para])
 	}
 }
 
 func rightChar() {
-	if cursor[Char] < sections[cursor[Sectn]-1].chars {
+	switch {
+	case cursor[Char] < paragraphChars(cursor[Sectn], cursor[Para]):
 		cursor[Char]++
-	} else if cursor[Sectn] < len(sections) {
+	case cursor[Para] < doc.Paragraphs(cursor[Sectn]):
+		cursor[Para]++
+		cursor[Char] = 0
+	case cursor[Sectn] < doc.Sections():
 		cursor[Sectn]++
+		cursor[Para] = 1
 		cursor[Char] = 0
 	}
 }
 
 func leftWord() {
-	cursor[Char] = 0
-
-	if cursor[Word] > 0 {
-		cursor[Char] = sections[cursor[Sectn]-1].cword[cursor[Word]-1]
-	} else if cursor[Sectn] > 1 {
+	switch {
+	case cursor[Word] > 0:
+		cursor[Char] = sections[cursor[Sectn]-1].p[cursor[Para]-1].cword[cursor[Word]-1]
+	case cursor[Para] > 1:
+		cursor[Para]--
+		cursor[Char] = lastWord(cursor[Sectn], cursor[Para])
+	case cursor[Sectn] > 1:
 		cursor[Sectn]--
-		cword := sections[cursor[Sectn]-1].cword
-		if len(cword) > 0 {
-			cursor[Char] = cword[len(cword)-1]
-		}
+		cursor[Para] = doc.Paragraphs(cursor[Sectn])
+		cursor[Char] = lastWord(cursor[Sectn], cursor[Para])
+	default:
+		cursor[Char] = 0
 	}
 }
 
 func rightWord() {
-	cword := sections[cursor[Sectn]-1].cword
+	cword := sections[cursor[Sectn]-1].p[cursor[Para]-1].cword
 	w := cursor[Word]
 	if w < len(cword) && cursor[Char] == cword[w] {
 		w++
@@ -179,24 +160,28 @@ func rightWord() {
 	if w < len(cword) {
 		cursor[Char] = cword[w]
 	} else {
-		rightSectn()
+		rightPara()
 	}
 }
 
 func leftSent() {
-	if cursor[Sent] > 0 {
-		cursor[Char] = sections[cursor[Sectn]-1].csent[cursor[Sent]-1]
-	} else if cursor[Sectn] > 1 {
+	switch {
+	case cursor[Sent] > 0:
+		cursor[Char] = sections[cursor[Sectn]-1].p[cursor[Para]-1].csent[cursor[Sent]-1]
+	case cursor[Para] > 1:
+		cursor[Para]--
+		cursor[Char] = lastSentence(cursor[Sectn], cursor[Para])
+	case cursor[Sectn] > 1:
 		cursor[Sectn]--
-		csent := sections[cursor[Sectn]-1].csent
-		cursor[Char] = csent[len(csent)-1]
-	} else {
+		cursor[Para] = doc.Paragraphs(cursor[Sectn])
+		cursor[Char] = lastSentence(cursor[Sectn], cursor[Para])
+	default:
 		cursor[Char] = 0
 	}
 }
 
 func rightSent() {
-	csent := sections[cursor[Sectn]-1].csent
+	csent := sections[cursor[Sectn]-1].p[cursor[Para]-1].csent
 	s := cursor[Sent]
 	if s < len(csent) && cursor[Char] == csent[s] {
 		s++
@@ -205,54 +190,54 @@ func rightSent() {
 	if s < len(csent) {
 		cursor[Char] = csent[s]
 	} else {
-		rightSectn()
+		rightPara()
 	}
 }
 
 func leftPara() {
-	if cursor[Para] > 0 {
-		cursor[Char] = sections[cursor[Sectn]-1].cpara[cursor[Para]-1]
-	} else if cursor[Sectn] > 1 {
-		cursor[Sectn]--
-		cpara := sections[cursor[Sectn]-1].cpara
-		cursor[Char] = cpara[len(cpara)-1]
-	} else {
+	switch {
+	case cursor[Char] > 0:
 		cursor[Char] = 0
+	case cursor[Para] > 1:
+		cursor[Para]--
+		cursor[Char] = 0
+	default:
+		leftSectn()
 	}
 }
 
 func rightPara() {
-	cpara := sections[cursor[Sectn]-1].cpara
-	p := cursor[Para]
-	if p < len(cpara) && cursor[Char] == cpara[p] {
-		p++
-	}
-
-	if p < len(cpara) {
-		cursor[Char] = cpara[p]
+	if cursor[Para] < doc.Paragraphs(cursor[Sectn]) {
+		cursor[Para]++
+		cursor[Char] = 0
 	} else {
 		rightSectn()
 	}
 }
 
 func leftSectn() {
-	if cursor[Sectn] > 1 {
+	if cursor[Para] > 1 {
+		cursor[Para] = 1
+	} else if cursor[Sectn] > 1 {
 		cursor[Sectn]--
+		cursor[Para] = doc.Paragraphs(cursor[Sectn])
 	}
 	cursor[Char] = 0
 }
 
 func rightSectn() {
-	if cursor[Sectn] < len(sections) {
+	if cursor[Sectn] < doc.Sections() {
 		cursor[Sectn]++
+		cursor[Para] = 1
 		cursor[Char] = 0
 	} else {
-		cursor[Char] = sections[cursor[Sectn]-1].chars
+		cursor[Para] = doc.Paragraphs(cursor[Sectn])
+		cursor[Char] = paragraphChars(cursor[Sectn], cursor[Para])
 	}
 }
 
 func Left() {
-	osectn = 0
+	ocursor = counts{}
 	switch scope {
 	case Char:
 		leftChar()
@@ -268,7 +253,7 @@ func Left() {
 }
 
 func Right() {
-	osectn = 0
+	ocursor = counts{}
 	switch scope {
 	case Char:
 		rightChar()
@@ -284,60 +269,50 @@ func Right() {
 }
 
 func Home() {
-	if osectn == 0 {
-		osectn = cursor[Sectn]
-		ochar = cursor[Char]
+	if ocursor[Sectn] == 0 {
+		ocursor = cursor
 	}
 
-	if scope < Sent {
-		p := max(0, cursor[Para]-1)
-		cursor[Char] = sections[cursor[Sectn]-1].cpara[p]
+	switch {
+	case scope < Sent:
+		cursor[Char] = 0
 		scope = Sent
-	} else if scope == Sent {
-		if cursor[Sectn] > 1 {
-			cursor[Sectn]--
-		}
+	case scope == Sent:
+		cursor[Para] = 1
 		cursor[Char] = 0
 		scope = Para
-	} else if scope == Para {
-		cursor[Sectn] = 1
-		cursor[Char] = 0
+	case scope == Para:
+		cursor = counts{0, 0, 0, 1, 1}
 		scope = Sectn
-	} else if cursor[Sectn] == 1 && cursor[Char] == 0 { // Sectn
-		cursor[Sectn] = osectn
-		cursor[Char] = ochar
+	case cursor == (counts{0, 0, 0, 1, 1}): // scope == Sectn
+		cursor = ocursor
 		scope = Char
 	}
 }
 
 func End() {
-	if osectn == 0 {
-		osectn = cursor[Sectn]
-		ochar = cursor[Char]
+	if ocursor[Sectn] == 0 {
+		ocursor = cursor
 	}
 
-	s := &sections[cursor[Sectn]-1]
-	if scope < Sent {
-		p := cursor[Para]
-		if p == 0 || (p < len(s.cpara) && cursor[Char] == s.cpara[p]-1) {
-			p++
-		}
-		if p < len(s.cpara) {
-			cursor[Char] = s.cpara[p] - 1
-		} else {
-			cursor[Char] = s.chars
-		}
+	ts := doc.Sections()
+	switch {
+	case scope < Sent:
+		cursor[Char] = paragraphChars(cursor[Sectn], cursor[Para])
 		scope = Sent
-	} else if scope == Sent {
-		cursor[Char] = s.chars
+	case scope == Sent:
+		cursor[Para] = doc.Paragraphs(cursor[Sectn])
+		cursor[Char] = paragraphChars(cursor[Sectn], cursor[Para])
 		scope = Para
-	} else if scope == Para {
-		cursor[Sectn] = len(sections)
-		cursor[Char] = sections[len(sections)-1].chars
+	case scope == Para:
+		cursor[Sectn] = ts
+		cursor[Para] = doc.Paragraphs(cursor[Sectn])
+		cursor[Char] = paragraphChars(cursor[Sectn], cursor[Para])
 		scope = Sectn
-	} else if cursor[Sectn] == len(sections) && cursor[Char] == s.chars { // Sectn
-		cursor[Sectn] = osectn
-		cursor[Char] = ochar
+	case cursor[Sectn] == ts &&
+		cursor[Para] == doc.Paragraphs(ts) &&
+		cursor[Char] == paragraphChars(ts, doc.Paragraphs(ts)): // scope == Sectn
+		cursor = ocursor
 		scope = Char
 	}
 }
