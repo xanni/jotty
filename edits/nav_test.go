@@ -62,6 +62,19 @@ func TestIndexSectn(t *testing.T) {
 	assert.Equal(t, 2, len(sections))
 }
 
+func TestMoveParas(t *testing.T) {
+	resetIndex()
+	indexSectn()
+	moveParas(1, 1, 2, 2)
+	expect := []isectn{{0, 0, 0, []ipara{{nil, nil, 0}}}, {0, 0, 0, []ipara{{nil, nil, 0}, {nil, nil, 0}}}}
+	assert.Equal(t, expect, sections)
+
+	sections[1] = isectn{2, 2, 3, []ipara{{[]int{0}, []int{0}, 1}, {[]int{0}, []int{0}, 2}}}
+	moveParas(2, 2, 1, 1)
+	expect = []isectn{{1, 1, 2, []ipara{{[]int{0}, []int{0}, 2}, {nil, nil, 0}}}, {1, 1, 1, []ipara{{[]int{0}, []int{0}, 1}}}}
+	assert.Equal(t, expect, sections)
+}
+
 func TestLeftChar(t *testing.T) {
 	doc.SetText(1, 1, "One")
 	setNewSection(2, "Two")

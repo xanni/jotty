@@ -40,6 +40,15 @@ func DeleteSection(sn int) { document = slices.Delete(document, sn-1, sn) }
 // Get the text of a paragraph
 func GetText(sn, pn int) string { return string(document[sn-1][pn-1]) }
 
+// Move paragraphs starting at (osn, opn) to (nsn, npn)
+func MoveParagraphs(osn, opn, nsn, npn int) {
+	document[nsn-1] = slices.Insert(document[nsn-1], npn-1, document[osn-1][opn-1:]...)
+	document[osn-1] = slices.Delete(document[osn-1], opn-1, len(document[osn-1]))
+	if len(document[osn-1]) == 0 {
+		document[osn-1] = [][]byte{{}}
+	}
+}
+
 // Number of paragraphs in a section
 func Paragraphs(sn int) int { return len(document[sn-1]) }
 

@@ -1,6 +1,7 @@
 package edits
 
 import (
+	"slices"
 	"testing"
 
 	doc "git.sericyb.com.au/jotty/document"
@@ -9,26 +10,60 @@ import (
 
 func TestAppendParaBreak(t *testing.T) {
 	setupTest()
+	ResizeScreen(margin+4, 8)
 	appendParaBreak()
 	assert.Equal(t, 1, doc.Paragraphs(1))
 
 	doc.SetText(1, 1, "Test")
 	sections[0].chars = 4
 	cursor = counts{4, 0, 0, 1, 1}
+	drawWindow()
 	appendParaBreak()
+	drawWindow()
 	assert.Equal(t, 2, cursor[Para])
 	assert.Equal(t, 2, doc.Paragraphs(1))
 	assert.Equal(t, "Test", doc.GetText(1, 1))
 
 	doc.DeleteParagraph(1, 2)
+	buffer = slices.Delete(buffer, 1, 2)
+	curs_buff = 0
 	doc.SetText(1, 1, "Test ")
 	sections[0].chars = 5
 	cursor = counts{5, 0, 0, 1, 1}
 	appendParaBreak()
+	drawWindow()
 	assert.Equal(t, 2, cursor[Para])
 	assert.Equal(t, 2, doc.Paragraphs(1))
 	assert.Equal(t, "Test", doc.GetText(1, 1))
+	assert.Equal(t, []para{{1, 1, []string{"Test", ""}}, {1, 2, []string{string(cursorCharCap), ""}}}, buffer)
 
+	doc.CreateSection(2)
+	indexSectn()
+	cursor = counts{0, 0, 0, 1, 2}
+	drawWindow()
+	cursor = counts{0, 0, 0, 2, 1}
+	drawWindow()
+	appendParaBreak()
+	drawWindow()
+	assert.Equal(t, 3, cursor[Para])
+	assert.Equal(t, 3, doc.Paragraphs(1))
+	expect := []para{
+		{1, 1, []string{"Test", ""}},
+		{1, 2, []string{"", ""}},
+		{1, 3, []string{string(cursorCharCap), "─────────"}},
+		{2, 1, []string{"", ""}},
+	}
+	assert.Equal(t, expect, buffer)
+
+	cursor = counts{5, 0, 0, 1, 1}
+	drawWindow()
+	appendParaBreak()
+	assert.Equal(t, 2, cursor[Para])
+	assert.Equal(t, 4, doc.Paragraphs(1))
+
+	doc.DeleteSection(2)
+	doc.DeleteParagraph(1, 4)
+	doc.DeleteParagraph(1, 3)
 	doc.DeleteParagraph(1, 2)
 }
 
@@ -42,20 +77,37 @@ func TestAppendSectnBreak(t *testing.T) {
 	sections[0].chars = 4
 	sections[0].p[0].chars = 4
 	cursor = counts{4, 0, 0, 1, 1}
+	drawWindow()
 	appendSectnBreak()
 	assert.Equal(t, 2, cursor[Sectn])
 	assert.Equal(t, 2, doc.Sections())
 
 	doc.DeleteSection(2)
+	sections = slices.Delete(sections, 1, 1)
+	doc.SetText(1, 1, "Test")
+	sections[0].chars = 4
+	sections[0].p[0].chars = 4
+	cursor = counts{4, 0, 0, 1, 1}
+	buffer = nil
+	drawWindow()
 	doc.CreateParagraph(1, 2)
 	indexPara(1)
-	cursor = counts{4, 0, 0, 2, 1}
+	cursor = counts{0, 0, 0, 2, 1}
 	drawWindow()
 	appendSectnBreak()
 	assert.Equal(t, counts{0, 0, 0, 1, 2}, cursor)
 	assert.Equal(t, 2, doc.Sections())
 	assert.Equal(t, 1, doc.Paragraphs(1))
 
+	ResizeScreen(margin+4, 8)
+	doc.CreateParagraph(1, 2)
+	indexPara(1)
+	cursor = counts{0, 0, 0, 1, 1}
+	drawWindow()
+	appendSectnBreak()
+	assert.Equal(t, 3, doc.Sections())
+
+	doc.DeleteSection(3)
 	doc.DeleteSection(2)
 }
 

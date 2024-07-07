@@ -85,7 +85,7 @@ The "buffer" variable caches the paragraphs displayed in the terminal in order
 to speed up rendering by avoiding constantly redrawing the entire window.
 
 The "cursor" variable contains the current cursor position for navigation
-purposes, with the character, word and sentence values relative to the current
+purposes, where the character, word and sentence values are relative to the current
 paragraph.
 */
 
@@ -94,10 +94,10 @@ var cursor = counts{Sectn: 1, Para: 1} // Current cursor position
 var initialCap = true                  // Initial capital at the start of a sentence
 var scope Scope
 
-// The current cursor position within the section
+// The current cursor position within the whole section, not just the paragraph
 func cursorPos() (c counts) {
 	c = cursor
-	s := sections[cursor[Sectn]-1]
+	s := sections[c[Sectn]-1]
 	for i := 0; i < c[Para]-1; i++ {
 		p := s.p[i]
 		c[Sent] += len(p.csent)
@@ -119,8 +119,9 @@ func cursorString() string {
 
 // Draw the status bar that appears on the last line of the screen
 func statusLine() string {
+	const separators = 6   // One space after each scope and a colon after the section
 	var c [MaxScope]string // Counters for each scope
-	var w int              // Width of counters
+	var w int              // Total width of counters in character cells
 
 	current := cursorPos()
 	s := &sections[cursor[Sectn]-1]
@@ -131,19 +132,19 @@ func statusLine() string {
 	}
 
 	var t strings.Builder
-	if ex >= len(ID)+w+6 {
+	if ex >= len(ID)+w+separators {
 		t.WriteString(ID)
 		t.WriteString("  ")
 	}
 
-	if ex < w+6 {
+	if ex < w+separators {
 		t.WriteString(c[scope])
 	} else {
 		for sc := Sectn; sc >= Char; sc-- {
-			if sc != scope {
-				t.WriteString(c[sc])
-			} else {
+			if sc == scope {
 				t.WriteString(output.String(c[sc]).Bold().String())
+			} else {
+				t.WriteString(c[sc])
 			}
 			if sc == Sectn {
 				t.WriteByte(':')
@@ -180,7 +181,13 @@ func nextSegWidth(source []byte) (width int) {
 	return width
 }
 
-// Draw one line in the edit window.  Word wraps at the end of the line.
+/*
+Draw one line in the edit window.  Word wraps at the end of the line.
+
+Takes the current section number, paragraph number, character count, document
+source text and uniseg state and returns the text of the line.  Consumes text
+from the document source and updates the character count and uniseg state.
+*/
 func drawLine(sn, pn int, c *int, source *[]byte, state *int) string {
 	var f int            // Unicode boundary flags
 	m := ex - margin - 1 // Right margin
@@ -214,8 +221,7 @@ func drawLine(sn, pn int, c *int, source *[]byte, state *int) string {
 			continue
 		}
 
-		isAN := isAlphanumeric(*source)
-		if f&uniseg.MaskWord != 0 && isAN {
+		if f&uniseg.MaskWord != 0 && isAlphanumeric(*source) {
 			indexWord(sn, pn, *c)
 		}
 
@@ -323,6 +329,8 @@ func drawWindow() {
 			return
 		}
 
+		// TODO Draw a newly inserted paragraph
+
 		for i := range buffer {
 			if buffer[i].sn == sn && buffer[i].pn == pn {
 				// Redraw current paragraph
@@ -334,10 +342,11 @@ func drawWindow() {
 				return
 			}
 		}
+
+		// The cursor is outside the screen: redraw everything
+		buffer = nil
 	}
 
-	// The cursor is outside the screen: redraw everything
-	buffer = nil
 	curs_buff, first_buff, first_line = 0, 0, 0
 	var rows int // Number of rows drawn
 	for {

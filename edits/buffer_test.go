@@ -187,6 +187,7 @@ func TestDrawWindow(t *testing.T) {
 	doc.SetText(1, 1, "")
 	drawWindow()
 	assert.Equal(t, []para{{1, 1, []string{"_", ""}}}, buffer)
+	assert.Equal(t, 0, curs_buff)
 
 	doc.CreateSection(2)
 	indexSectn()
@@ -196,9 +197,9 @@ func TestDrawWindow(t *testing.T) {
 	expect := []para{{1, 1, []string{"", "─────────"}}, {2, 1, []string{"_Test", ""}}}
 	assert.Equal(t, expect, buffer)
 
-	doc.CreateParagraph(2, 2)
-	indexPara(2)
-	cursor[Para] = 2
+	appendParaBreak()
+	initialCap = false
+	scope = Char
 	drawWindow()
 	expect[1].text[0] = "Test"
 	expect = append(expect, para{sn: 2, pn: 2, text: []string{"_", ""}})
@@ -239,6 +240,8 @@ func TestDrawWindow(t *testing.T) {
 		expect = append(expect, para{2, pn, []string{"", ""}})
 	}
 	assert.Equal(t, expect, buffer)
+
+	// TODO Test that inserting a new paragraph or section still draws the text below
 
 	doc.DeleteSection(2)
 }

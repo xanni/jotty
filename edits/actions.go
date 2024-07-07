@@ -2,6 +2,7 @@ package edits
 
 import (
 	"slices"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -12,44 +13,72 @@ import (
 // Implements miscellaneous actions
 
 func appendParaBreak() {
-	if sectionChars(cursor[Sectn]) == 0 {
+	sn := cursor[Sectn]
+	if sectionChars(sn) == 0 {
 		return
 	}
 
-	p := doc.GetText(cursor[Sectn], cursor[Para])
+	// TODO Split an existing paragraph
+	pn := cursor[Para]
+	p := doc.GetText(sn, pn)
 	i := len(p) - 1
-	if p[i] == ' ' {
-		doc.SetText(cursor[Sectn], cursor[Para], p[:i])
+	if i >= 0 && p[i] == ' ' {
+		doc.SetText(sn, pn, p[:i])
 	}
 
-	cursor[Para]++
-	cursor[Char] = 0
-	doc.CreateParagraph(cursor[Sectn], cursor[Para])
+	pn++
+	cursor = counts{0, 0, 0, pn, sn}
+	doc.CreateParagraph(sn, pn)
 	initialCap = true
 	ocursor = counts{}
 	scope = Para
-	indexPara(cursor[Sectn])
+	indexPara(sn)
+	buffer = slices.Insert(buffer, curs_buff+1, para{sn, pn, nil})
+	for i := curs_buff + 2; i < len(buffer) && buffer[i].sn == sn; i++ {
+		buffer[i].pn++
+	}
 }
 
 func appendSectnBreak() {
-	if sectionChars(cursor[Sectn]) == 0 {
+	sn := cursor[Sectn]
+	if sectionChars(sn) == 0 {
 		return
 	}
 
-	sn := cursor[Sectn]
+	// TODO Split an existing paragraph
 	pn := cursor[Para]
 	if paragraphChars(sn, pn) == 0 {
 		doc.DeleteParagraph(sn, pn)
 		sections[sn-1].p = slices.Delete[[]ipara](sections[sn-1].p, pn-1, pn)
 		buffer = slices.Delete(buffer, curs_buff, curs_buff+1)
-		curs_buff = max(0, curs_buff-1)
+		if curs_buff > 0 {
+			curs_buff--
+			t := &buffer[curs_buff].text
+			(*t)[len(*t)-1] = strings.Repeat("─", ex)
+		}
 	}
-	cursor = counts{0, 0, 0, 1, sn + 1}
-	doc.CreateSection(cursor[Sectn])
+
+	sn++
+	doc.CreateSection(sn)
+	indexSectn()
+	if doc.Paragraphs(sn-1) >= pn {
+		doc.DeleteParagraph(sn, 1)
+		doc.MoveParagraphs(sn-1, pn, sn, 1)
+		sections[sn-1].p = nil
+		moveParas(sn-1, pn, sn, 1)
+	}
+
+	for i := curs_buff + 1; i < len(buffer); i++ {
+		buffer[i].sn++
+		if buffer[i].sn == sn {
+			buffer[i].pn -= (pn - 1)
+		}
+	}
+
+	cursor = counts{0, 0, 0, 1, sn}
 	initialCap = true
 	ocursor = counts{}
 	scope = Sectn
-	indexSectn()
 }
 
 // Append runes to the document.

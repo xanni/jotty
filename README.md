@@ -191,7 +191,7 @@ Section -> Character : text\nUp
 
 In the quit confirmation, `Space`, `Enter`, `^Q` and `^W` confirm the quit while undo and `Escape` cancel it.  Note that no progress will be lost due to a quit.  A quit confirmation may not be required when Jotty is being used as a library as that may be implemented by the calling application.
 
-`^E` or an `Export` menu item allow exporting the entire document (if there are no edit marks), the region beween a single edit mark and the cursor, or the region between the first and last edit marks if there are more than one edit mark.  A file name will be required and the output will be written as a linear UTF-8 sequence of the selected characters.  This action may not be available when Jotty is being used as a library to provide an editor window for another application which is then responsible for requesting the contents of the edit buffer as required.
+`^E` or an `Export` menu item allow exporting the entire document (if there are no edit marks), the region beween a single edit mark and the cursor, or the region between the first and last edit marks if there is more than one edit mark.  A file name will be required and the output will be written as a linear UTF-8 sequence of the selected characters.  This action may not be available when Jotty is being used as a library to provide an editor window for another application which is then responsible for requesting the contents of the edit buffer as required.
 
 If implemented, `^O` or an `Import` menu item allow importing external documents at the current cursor position as a single insert operation.
 

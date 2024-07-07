@@ -89,14 +89,39 @@ func lastWord(sn, pn int) int {
 	return 0
 }
 
+// Move paragraphs starting at (osn, opn) to (nsn, npn)
+func moveParas(osn, opn, nsn, npn int) {
+	os := &sections[osn-1] // Old section
+	ns := &sections[nsn-1] // New section
+
+	// Update section totals
+	for i := opn - 1; i < len(os.p); i++ {
+		c := os.p[i].chars
+		ns.chars += c
+		os.chars -= c
+		w := len(os.p[i].cword)
+		ns.words += w
+		os.words -= w
+		s := len(os.p[i].csent)
+		ns.sents += s
+		os.sents -= s
+	}
+
+	ns.p = slices.Insert(ns.p, npn-1, os.p[opn-1:]...)
+	os.p = slices.Delete(os.p, opn-1, len(os.p))
+	if len(os.p) == 0 {
+		os.p = []ipara{{}}
+	}
+}
+
 // Characters in the paragraph
-func paragraphChars(s, p int) int {
-	return sections[s-1].p[p-1].chars
+func paragraphChars(sn, pn int) int {
+	return sections[sn-1].p[pn-1].chars
 }
 
 // Characters in the section
-func sectionChars(s int) int {
-	return sections[s-1].chars
+func sectionChars(sn int) int {
+	return sections[sn-1].chars
 }
 
 // Find the current word and sentence in the indexes
