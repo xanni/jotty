@@ -9,24 +9,24 @@ import (
 
 func setupTest() {
 	ID = "J"
-	cursor = counts{Para: 1, Sectn: 1}
+	cursor = counts{Para: 1}
 	first_buff, first_line = 0, 0
 	initialCap = false
 	scope = Char
-	doc.SetText(1, 1, "")
+	doc.SetText(1, "")
 	resetIndex()
 }
 
 func TestCursorPos(t *testing.T) {
 	resetIndex()
-	cursor = counts{Para: 1, Sectn: 1}
-	assert.Equal(t, counts{0, 0, 0, 1, 1}, cursorPos())
+	cursor = counts{Para: 1}
+	assert.Equal(t, counts{0, 0, 0, 1}, cursorPos())
 
-	indexPara(1)
-	indexSent(1, 1, 0)
-	indexWord(1, 1, 0)
+	indexPara()
+	indexSent(1, 0)
+	indexWord(1, 0)
 	cursor[Para] = 2
-	assert.Equal(t, counts{0, 1, 1, 2, 1}, cursorPos())
+	assert.Equal(t, counts{0, 1, 1, 2}, cursorPos())
 }
 
 func TestCursorString(t *testing.T) {
@@ -40,16 +40,17 @@ func TestCursorString(t *testing.T) {
 
 func TestStatusLine(t *testing.T) {
 	setupTest()
+	resetIndex()
 	ID = "Jotty v0"
 	initialCap = false
 	ResizeScreen(6, 3)
 	assert.Equal(t, "@0/0", statusLine())
 
-	ResizeScreen(26, 3)
-	assert.Equal(t, "§1/1: ¶1/1 $0/0 #0/0 @0/0 ", statusLine())
+	ResizeScreen(20, 3)
+	assert.Equal(t, "¶1/1 $0/0 #0/0 @0/0 ", statusLine())
 
-	ResizeScreen(36, 3)
-	assert.Equal(t, "Jotty v0  §1/1: ¶1/1 $0/0 #0/0 @0/0 ", statusLine())
+	ResizeScreen(30, 3)
+	assert.Equal(t, "Jotty v0  ¶1/1 $0/0 #0/0 @0/0 ", statusLine())
 }
 
 func TestNextSegWidth(t *testing.T) {
@@ -65,166 +66,134 @@ func TestDrawLine(t *testing.T) {
 	c := 0
 	source := []byte{}
 	state := -1
-	assert.Equal(t, "_", drawLine(1, 1, &c, &source, &state))
-	assert.Equal(t, "", drawLine(1, 2, &c, &source, &state))
-	assert.Equal(t, "", drawLine(2, 1, &c, &source, &state))
+	assert.Equal(t, "_", drawLine(1, &c, &source, &state))
+	assert.Equal(t, "", drawLine(2, &c, &source, &state))
 
 	source = []byte("1\xff2")
 	state = -1
-	assert.Equal(t, "_12", drawLine(1, 1, &c, &source, &state))
+	assert.Equal(t, "_12", drawLine(1, &c, &source, &state))
 	assert.Equal(t, 2, c)
 
 	source = []byte("Test")
 	state = -1
-	assert.Equal(t, "Tes    -", drawLine(1, 1, &c, &source, &state))
+	assert.Equal(t, "Tes    -", drawLine(1, &c, &source, &state))
 
 	c = 0
 	cursor[Char] = 3
 	source = []byte("12 3")
 	state = -1
-	assert.Equal(t, "12 ", drawLine(1, 1, &c, &source, &state))
-	assert.Equal(t, "_3", drawLine(1, 1, &c, &source, &state))
+	assert.Equal(t, "12 ", drawLine(1, &c, &source, &state))
+	assert.Equal(t, "_3", drawLine(1, &c, &source, &state))
 
 	c = 0
 	source = []byte(". Test")
 	state = -1
-	assert.Equal(t, ". ", drawLine(1, 1, &c, &source, &state))
-	assert.Equal(t, 1, lastSentence(1, 1))
+	assert.Equal(t, ". ", drawLine(1, &c, &source, &state))
+	assert.Equal(t, 1, lastSentence(1))
 
 	c = 0
 	source = []byte("1\n2")
 	state = -1
-	assert.Equal(t, "1", drawLine(1, 1, &c, &source, &state))
+	assert.Equal(t, "1", drawLine(1, &c, &source, &state))
 
 	c = 0
 	cursor[Char] = 1
 	source = []byte("1\u200b2") // Zero-width space
 	state = -1
-	assert.Equal(t, "1_2", drawLine(1, 1, &c, &source, &state))
+	assert.Equal(t, "1_2", drawLine(1, &c, &source, &state))
 
 	source = []byte("12  ")
 	state = -1
-	assert.Equal(t, "12 ", drawLine(1, 1, &c, &source, &state))
+	assert.Equal(t, "12 ", drawLine(1, &c, &source, &state))
 }
 
 func TestDrawLineCursor(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+1, 3)
 
-	for scope = Char; scope <= Sectn; scope++ {
+	for scope = Char; scope < MaxScope; scope++ {
 		c := 0
 		source := []byte{}
 		state := -1
-		assert.Equal(t, string(cursorChar[scope]), drawLine(1, 1, &c, &source, &state))
+		assert.Equal(t, string(cursorChar[scope]), drawLine(1, &c, &source, &state))
 	}
 }
 
 func TestDrawPara(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 2)
-	assert.Equal(t, []string{"_", ""}, drawPara(1, 1))
+	assert.Equal(t, []string{"_", ""}, drawPara(1))
 
-	doc.SetText(1, 1, "Test")
-	assert.Equal(t, []string{"_Test", ""}, drawPara(1, 1))
-	assert.Equal(t, 0, lastSentence(1, 1))
-	assert.Equal(t, 0, lastWord(1, 1))
-	assert.Equal(t, 1, sections[0].sents)
-	assert.Equal(t, 1, sections[0].words)
-	assert.Equal(t, 4, sectionChars(1))
+	doc.SetText(1, "Test")
+	assert.Equal(t, []string{"_Test", ""}, drawPara(1))
+	assert.Equal(t, 0, lastSentence(1))
+	assert.Equal(t, 0, lastWord(1))
+	assert.Equal(t, counts{4, 1, 1, 1}, total)
 
 	cursor[Char] = 4
-	assert.Equal(t, []string{"Test_", ""}, drawPara(1, 1))
+	assert.Equal(t, []string{"Test_", ""}, drawPara(1))
 	assert.Equal(t, 0, curs_line)
-	assert.Equal(t, 0, lastSentence(1, 1))
-	assert.Equal(t, 0, lastWord(1, 1))
-	assert.Equal(t, 1, sections[0].sents)
-	assert.Equal(t, 1, sections[0].words)
-	assert.Equal(t, 4, sectionChars(1))
+	assert.Equal(t, 0, lastSentence(1))
+	assert.Equal(t, 0, lastWord(1))
+	assert.Equal(t, counts{4, 1, 1, 1}, total)
 
-	doc.SetText(1, 1, "One two")
-	assert.Equal(t, []string{"One ", "_two", ""}, drawPara(1, 1))
+	doc.SetText(1, "One two")
+	assert.Equal(t, []string{"One ", "_two", ""}, drawPara(1))
 	assert.Equal(t, 1, curs_line)
-	assert.Equal(t, 0, lastSentence(1, 1))
-	assert.Equal(t, 3, lastWord(1, 1))
-	assert.Equal(t, 1, sections[0].sents)
-	assert.Equal(t, 2, sections[0].words)
-	assert.Equal(t, 7, sectionChars(1))
+	assert.Equal(t, 0, lastSentence(1))
+	assert.Equal(t, 3, lastWord(1))
+	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	cursor[Char] = 0
-	assert.Equal(t, []string{"_One ", "two", ""}, drawPara(1, 1))
-	assert.Equal(t, 0, lastSentence(1, 1))
-	assert.Equal(t, 3, lastWord(1, 1))
-	assert.Equal(t, 1, sections[0].sents)
-	assert.Equal(t, 2, sections[0].words)
-	assert.Equal(t, 7, sectionChars(1))
+	assert.Equal(t, []string{"_One ", "two", ""}, drawPara(1))
+	assert.Equal(t, 0, lastSentence(1))
+	assert.Equal(t, 3, lastWord(1))
+	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
-	doc.CreateSection(2)
-	indexSectn()
-	assert.Equal(t, []string{"_One ", "two", "─────────"}, drawPara(1, 1))
-	assert.Equal(t, []string{"", ""}, drawPara(2, 1))
-	assert.Equal(t, 0, lastSentence(2, 1))
-	assert.Equal(t, 0, lastWord(2, 1))
-	assert.Equal(t, 0, sections[1].sents)
-	assert.Equal(t, 0, sections[1].words)
-	assert.Equal(t, 0, sectionChars(2))
+	doc.CreateParagraph(2)
+	indexPara()
+	assert.Equal(t, []string{"", ""}, drawPara(2))
 
-	doc.CreateParagraph(2, 2)
-	indexPara(2)
-	cursor = counts{0, 0, 0, 1, 2}
-	assert.Equal(t, []string{"", ""}, drawPara(2, 2))
-
-	doc.CreateSection(3)
-	indexSectn()
-	assert.Equal(t, []string{"_", ""}, drawPara(2, 1))
-
-	doc.DeleteSection(3)
-	doc.DeleteSection(2)
+	doc.DeleteParagraph(2)
 }
 
 func TestDrawWindow(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
-	doc.SetText(1, 1, "")
+	doc.SetText(1, "")
 	drawWindow()
-	assert.Equal(t, []para{{1, 1, []string{"_", ""}}}, buffer)
+	assert.Equal(t, []para{{1, []string{"_", ""}}}, buffer)
 	assert.Equal(t, 0, curs_buff)
 
-	doc.CreateSection(2)
-	indexSectn()
-	doc.SetText(2, 1, "Test")
-	cursor[Sectn] = 2
+	doc.CreateParagraph(2)
+	defer doc.DeleteParagraph(2)
+	indexPara()
+	doc.SetText(2, "Test")
+	cursor[Para] = 2
 	drawWindow()
-	expect := []para{{1, 1, []string{"", "─────────"}}, {2, 1, []string{"_Test", ""}}}
+	expect := []para{{1, []string{"", ""}}, {2, []string{"_Test", ""}}}
 	assert.Equal(t, expect, buffer)
 
 	appendParaBreak()
+	defer doc.DeleteParagraph(3)
 	initialCap = false
 	scope = Char
 	drawWindow()
 	expect[1].text[0] = "Test"
-	expect = append(expect, para{sn: 2, pn: 2, text: []string{"_", ""}})
+	expect = append(expect, para{3, []string{"_", ""}})
 	assert.Equal(t, expect, buffer)
 
 	drawWindow()
 	assert.Equal(t, expect, buffer)
 
-	doc.CreateParagraph(2, 3)
-	indexPara(2)
-	doc.CreateParagraph(2, 4)
-	indexPara(2)
-	cursor[Para] = 4
+	buffer = nil
+	cursor[Para] = 2
 	drawWindow()
-	assert.Equal(t, []para{{2, 4, []string{"_", ""}}}, buffer)
-
-	cursor[Para] = 3
-	drawWindow()
-	assert.Equal(t, []para{{2, 3, []string{"_", ""}}, {2, 4, []string{"", ""}}}, buffer)
+	assert.Equal(t, []para{{2, []string{"_Test", ""}}}, buffer)
 
 	cursor[Para] = 1
 	drawWindow()
-	cursor = counts{0, 0, 0, 1, 1}
-	drawWindow()
-	expect = []para{{1, 1, []string{"_", "─────────"}}, {2, 1, []string{"Test", ""}}}
+	expect = []para{{1, []string{"_", ""}}, {2, []string{"Test", ""}}}
 	assert.Equal(t, expect, buffer)
 
 	drawWindow()
@@ -236,53 +205,43 @@ func TestDrawWindow(t *testing.T) {
 
 	ResizeScreen(margin+4, 12)
 	drawWindow()
-	for pn := 2; pn <= 4; pn++ {
-		expect = append(expect, para{2, pn, []string{"", ""}})
-	}
+	expect = append(expect, para{3, []string{"", ""}})
 	assert.Equal(t, expect, buffer)
 
-	// TODO Test that inserting a new paragraph or section still draws the text below
-
-	doc.DeleteSection(2)
+	// TODO Test that inserting a new paragraph still draws the text below
 }
 
 func TestScreen(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 5)
-	doc.SetText(1, 1, "")
+	doc.SetText(1, "")
 	assert.Equal(t, "_\n\n\n\n@0/0", Screen())
 
-	doc.CreateSection(2)
-	indexSectn()
-	cursor[Sectn] = 2
-	assert.Equal(t, "\n─────────\n_\n\n@0/0", Screen())
-
-	doc.CreateParagraph(2, 2)
-	indexPara(2)
+	doc.CreateParagraph(2)
+	defer doc.DeleteParagraph(2)
+	indexPara()
 	cursor[Para] = 2
-	assert.Equal(t, "─────────\n\n\n_\n@0/0", Screen())
+	assert.Equal(t, "\n\n_\n\n@0/0", Screen())
 
-	cursor = counts{0, 0, 0, 1, 1}
-	assert.Equal(t, "_\n─────────\n\n\n@0/0", Screen())
+	cursor[Para] = 1
+	assert.Equal(t, "_\n\n\n\n@0/0", Screen())
 
-	cursor[Sectn] = 2
-	assert.Equal(t, "\n─────────\n_\n\n@0/0", Screen())
-
-	doc.CreateSection(3)
-	indexSectn()
-	cursor[Sectn] = 3
+	doc.CreateParagraph(3)
+	defer doc.DeleteParagraph(3)
+	indexPara()
+	cursor[Para] = 3
 	assert.Equal(t, "\n\n\n_\n@0/0", Screen())
 
-	cursor[Sectn] = 2
+	cursor[Para] = 2
 	assert.Equal(t, "_\n\n\n\n@0/0", Screen())
 
-	doc.SetText(2, 1, "One two 3 4 5 6")
+	doc.SetText(2, "One two 3 4 5 6")
 	cursor[Para] = 1
-	drawWindow()
+	assert.Equal(t, "_\n\nOne \ntwo \n@0/15", Screen())
 
 	cursor[Para] = 2
-	assert.Equal(t, "3 4 \n5 6\n\n_\n@15/15", Screen())
+	assert.Equal(t, "\n\n_One \ntwo \n@0/15", Screen())
 
-	doc.DeleteSection(3)
-	doc.DeleteSection(2)
+	cursor[Para] = 3
+	assert.Equal(t, "3 4 \n5 6\n\n_\n@15/15", Screen())
 }
