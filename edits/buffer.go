@@ -64,7 +64,6 @@ type counts [MaxScope]int
 
 // Information about a single paragraph in the terminal window
 type para struct {
-	pn   int      // Paragraph number in the document
 	text []string // Rendered lines including cursor and marks
 }
 
@@ -282,50 +281,36 @@ func drawWindow() {
 
 	if len(cache) > 0 {
 		// Erase the old cursor position
-		buf := &cache[curs_para]
-		if cursor[Para] != buf.pn {
-			buf.text = drawPara(buf.pn)
+		if pn != curs_para {
+			cache[curs_para-1].text = drawPara(curs_para)
 		}
 
 		// Optimise for common cases:
-		lastbuf := cache[len(cache)-1]
-		if pn == lastbuf.pn+1 {
+		if pn == len(cache)+1 {
 			// The cursor is one paragraph below, draw it
-			cache = append(cache, para{pn, drawPara(pn)})
-			curs_para = len(cache) - 1
+			cache = append(cache, para{drawPara(pn)})
+			curs_para = pn
 			return
 		}
 
-		if pn+1 == cache[0].pn {
-			// The cursor is one paragraph above, draw it
-			cache = slices.Insert[[]para](cache, 0, para{pn, drawPara(pn)})
-			curs_para, first_para, first_line = 0, 0, curs_line
-			return
-		}
-
-		// TODO Draw a newly inserted paragraph
-
-		for i := range cache {
-			if cache[i].pn == pn {
-				// Redraw current paragraph
-				cache[i] = para{pn, drawPara(pn)}
-				curs_para = i
-				if curs_para < first_para || curs_line < first_line {
-					first_para, first_line = curs_para, curs_line // Scroll backwards
-				}
-				return
+		if pn <= len(cache) {
+			// Redraw current paragraph
+			cache[pn-1] = para{drawPara(pn)}
+			curs_para = pn
+			if curs_para < first_para || curs_line < first_line {
+				first_para, first_line = curs_para, curs_line // Scroll backwards
 			}
+			return
 		}
-
-		// The cursor is outside the screen: redraw everything
-		cache = nil
 	}
 
-	curs_para, first_para, first_line = 0, 0, 0
+	// The cursor is outside the screen: redraw everything
+	cache = make([]para, pn-1, pn)
+	curs_para, first_para, first_line = pn, pn, 0
 	var rows int // Number of rows drawn
 	for {
 		text := drawPara(pn)
-		cache = append(cache, para{pn, text})
+		cache = append(cache, para{text})
 		rows += len(text)
 		if rows >= ey || pn >= doc.Paragraphs() {
 			break
@@ -344,21 +329,20 @@ func ResizeScreen(x, y int) {
 // The entire screen including the edits window and status line
 func Screen() string {
 	drawWindow()
-	b, l := first_para, first_line
+	pn, l := first_para, first_line
 	var t []string
-	for i := 0; i < ey && b < len(cache); i++ {
-		t = append(t, cache[b].text[l])
+	for i := 0; i < ey && pn <= len(cache); i++ {
+		t = append(t, cache[pn-1].text[l])
 		l++
-		if l >= len(cache[b].text) {
-			b++
+		if l >= len(cache[pn-1].text) {
+			pn++
 			l = 0
 		}
 	}
 
 	// Scroll forwards until the cursor has been drawn
-	for b < len(cache) {
-		buf := cache[b]
-		if buf.pn > cursor[Para] || (buf.pn == cursor[Para] && l > curs_line) {
+	for pn <= len(cache) {
+		if pn > cursor[Para] || (pn == cursor[Para] && l > curs_line) {
 			break
 		}
 
@@ -370,10 +354,10 @@ func Screen() string {
 			first_line = 0
 		}
 
-		t = append(t, cache[b].text[l])
+		t = append(t, cache[pn-1].text[l])
 		l++
-		if l >= len(cache[b].text) {
-			b++
+		if l >= len(cache[pn-1].text) {
+			pn++
 			l = 0
 		}
 	}
