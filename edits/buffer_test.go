@@ -1,6 +1,7 @@
 package edits
 
 import (
+	"slices"
 	"testing"
 
 	doc "git.sericyb.com.au/jotty/document"
@@ -162,8 +163,8 @@ func TestDrawWindow(t *testing.T) {
 	ResizeScreen(margin+4, 3)
 	doc.SetText(1, "")
 	drawWindow()
-	assert.Equal(t, []para{{1, []string{"_", ""}}}, cache)
-	assert.Equal(t, 0, curs_para)
+	assert.Equal(t, []para{{[]string{"_", ""}}}, cache)
+	assert.Equal(t, 1, curs_para)
 
 	doc.CreateParagraph(2)
 	defer doc.DeleteParagraph(2)
@@ -171,7 +172,7 @@ func TestDrawWindow(t *testing.T) {
 	doc.SetText(2, "Test")
 	cursor[Para] = 2
 	drawWindow()
-	expect := []para{{1, []string{"", ""}}, {2, []string{"_Test", ""}}}
+	expect := []para{{[]string{"", ""}}, {[]string{"_Test", ""}}}
 	assert.Equal(t, expect, cache)
 
 	appendParaBreak()
@@ -180,7 +181,7 @@ func TestDrawWindow(t *testing.T) {
 	scope = Char
 	drawWindow()
 	expect[1].text[0] = "Test"
-	expect = append(expect, para{3, []string{"_", ""}})
+	expect = append(expect, para{[]string{"_", ""}})
 	assert.Equal(t, expect, cache)
 
 	drawWindow()
@@ -189,15 +190,15 @@ func TestDrawWindow(t *testing.T) {
 	cache = nil
 	cursor[Para] = 2
 	drawWindow()
-	assert.Equal(t, []para{{2, []string{"_Test", ""}}}, cache)
+	assert.Equal(t, []para{{}, {[]string{"_Test", ""}}}, cache)
 
 	cursor[Para] = 1
 	drawWindow()
-	expect = []para{{1, []string{"_", ""}}, {2, []string{"Test", ""}}}
+	expect = []para{{[]string{"_", ""}}, {[]string{"Test", ""}}}
 	assert.Equal(t, expect, cache)
 
 	drawWindow()
-	assert.Equal(t, 0, curs_para)
+	assert.Equal(t, 1, curs_para)
 
 	first_line = 1
 	drawWindow()
@@ -205,7 +206,16 @@ func TestDrawWindow(t *testing.T) {
 
 	ResizeScreen(margin+4, 12)
 	drawWindow()
-	expect = append(expect, para{3, []string{"", ""}})
+	expect = append(expect, para{[]string{"", ""}})
+	assert.Equal(t, expect, cache)
+
+	cache = slices.Delete(cache, 2, 3)
+	doc.CreateParagraph(4)
+	defer doc.DeleteParagraph(4)
+	indexPara()
+	cursor[Para] = 4
+	drawWindow()
+	expect = []para{{}, {}, {}, {[]string{"_", ""}}}
 	assert.Equal(t, expect, cache)
 
 	// TODO Test that inserting a new paragraph still draws the text below
@@ -235,13 +245,11 @@ func TestScreen(t *testing.T) {
 	cursor[Para] = 2
 	assert.Equal(t, "_\n\n\n\n@0/0", Screen())
 
-	doc.SetText(2, "One two 3 4 5 6")
+	doc.SetText(1, "A B C D")
+	doc.SetText(2, "1 2 3 4")
 	cursor[Para] = 1
-	assert.Equal(t, "_\n\nOne \ntwo \n@0/15", Screen())
-
-	cursor[Para] = 2
-	assert.Equal(t, "\n\n_One \ntwo \n@0/15", Screen())
+	assert.Equal(t, "_A B \nC D\n\n1 2 \n@0/14", Screen())
 
 	cursor[Para] = 3
-	assert.Equal(t, "3 4 \n5 6\n\n_\n@15/15", Screen())
+	assert.Equal(t, "1 2 \n3 4\n\n_\n@14/14", Screen())
 }
