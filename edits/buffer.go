@@ -42,9 +42,9 @@ import (
 var ID string // The program name and version
 var counterChar = [...]rune{'@', '#', '$', '¶'}
 var cursorChar = [...]rune{'_', '#', '$', '¶'}
-var curs_buff, curs_line int   // Buffer and line containing the cursor
+var curs_para, curs_line int   // Paragraph and line containing the cursor
 var ex, ey int                 // Edit window dimensions
-var first_buff, first_line int // Buffer and line at top of edit window
+var first_para, first_line int // Paragraph and line at top of edit window
 var output = termenv.NewOutput(os.Stdout)
 
 const cursorCharCap = '↑'
@@ -69,14 +69,14 @@ type para struct {
 }
 
 /*
-The "buffer" variable caches the paragraphs displayed in the terminal in order
-to speed up rendering by avoiding constantly redrawing the entire window.
+The "cache" variable caches the paragraphs displayed in the terminal in order
+to avoid constantly redrawing the entire window.
 
 The "cursor" variable contains the current cursor position for navigation
 purposes.
 */
 
-var buffer []para
+var cache []para
 var cursor = counts{Para: 1} // Current cursor position
 var initialCap = true        // Initial capital at the start of a sentence
 var scope Scope
@@ -280,52 +280,52 @@ indexes are updated during this process.
 func drawWindow() {
 	pn := cursor[Para]
 
-	if len(buffer) > 0 {
+	if len(cache) > 0 {
 		// Erase the old cursor position
-		buf := &buffer[curs_buff]
+		buf := &cache[curs_para]
 		if cursor[Para] != buf.pn {
 			buf.text = drawPara(buf.pn)
 		}
 
 		// Optimise for common cases:
-		lastbuf := buffer[len(buffer)-1]
+		lastbuf := cache[len(cache)-1]
 		if pn == lastbuf.pn+1 {
 			// The cursor is one paragraph below, draw it
-			buffer = append(buffer, para{pn, drawPara(pn)})
-			curs_buff = len(buffer) - 1
+			cache = append(cache, para{pn, drawPara(pn)})
+			curs_para = len(cache) - 1
 			return
 		}
 
-		if pn+1 == buffer[0].pn {
+		if pn+1 == cache[0].pn {
 			// The cursor is one paragraph above, draw it
-			buffer = slices.Insert[[]para](buffer, 0, para{pn, drawPara(pn)})
-			curs_buff, first_buff, first_line = 0, 0, curs_line
+			cache = slices.Insert[[]para](cache, 0, para{pn, drawPara(pn)})
+			curs_para, first_para, first_line = 0, 0, curs_line
 			return
 		}
 
 		// TODO Draw a newly inserted paragraph
 
-		for i := range buffer {
-			if buffer[i].pn == pn {
+		for i := range cache {
+			if cache[i].pn == pn {
 				// Redraw current paragraph
-				buffer[i] = para{pn, drawPara(pn)}
-				curs_buff = i
-				if curs_buff < first_buff || curs_line < first_line {
-					first_buff, first_line = curs_buff, curs_line // Scroll backwards
+				cache[i] = para{pn, drawPara(pn)}
+				curs_para = i
+				if curs_para < first_para || curs_line < first_line {
+					first_para, first_line = curs_para, curs_line // Scroll backwards
 				}
 				return
 			}
 		}
 
 		// The cursor is outside the screen: redraw everything
-		buffer = nil
+		cache = nil
 	}
 
-	curs_buff, first_buff, first_line = 0, 0, 0
+	curs_para, first_para, first_line = 0, 0, 0
 	var rows int // Number of rows drawn
 	for {
 		text := drawPara(pn)
-		buffer = append(buffer, para{pn, text})
+		cache = append(cache, para{pn, text})
 		rows += len(text)
 		if rows >= ey || pn >= doc.Paragraphs() {
 			break
@@ -336,28 +336,28 @@ func drawWindow() {
 }
 
 func ResizeScreen(x, y int) {
-	buffer = nil
+	cache = nil
 	ex, ey = x, y-1
-	first_buff, first_line = 0, 0
+	first_para, first_line = 0, 0
 }
 
 // The entire screen including the edits window and status line
 func Screen() string {
 	drawWindow()
-	b, l := first_buff, first_line
+	b, l := first_para, first_line
 	var t []string
-	for i := 0; i < ey && b < len(buffer); i++ {
-		t = append(t, buffer[b].text[l])
+	for i := 0; i < ey && b < len(cache); i++ {
+		t = append(t, cache[b].text[l])
 		l++
-		if l >= len(buffer[b].text) {
+		if l >= len(cache[b].text) {
 			b++
 			l = 0
 		}
 	}
 
 	// Scroll forwards until the cursor has been drawn
-	for b < len(buffer) {
-		buf := buffer[b]
+	for b < len(cache) {
+		buf := cache[b]
 		if buf.pn > cursor[Para] || (buf.pn == cursor[Para] && l > curs_line) {
 			break
 		}
@@ -365,14 +365,14 @@ func Screen() string {
 		// Scroll forwards
 		t = slices.Delete(t, 0, 1)
 		first_line++
-		if first_line >= len(buffer[first_buff].text) {
-			first_buff++
+		if first_line >= len(cache[first_para].text) {
+			first_para++
 			first_line = 0
 		}
 
-		t = append(t, buffer[b].text[l])
+		t = append(t, cache[b].text[l])
 		l++
-		if l >= len(buffer[b].text) {
+		if l >= len(cache[b].text) {
 			b++
 			l = 0
 		}
