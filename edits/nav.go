@@ -9,7 +9,7 @@ import (
 /*
 Implements navigation through the document.  The logical cursor position is a
 combination of the current paragraph 1..Paragraphs() and the current character
-0..paras[cursor[Para]-1].chars
+0..cache[cursor[Para]-1].chars
 
 The cursor screen x, y coordinates and current word and sentence are computed by
 drawWindow() when called from Screen()
@@ -21,67 +21,37 @@ sequentially, but for simplicity and performance we cache the character indexes
 of the words and sentences in the current paragraph.
 */
 
-// Paragraph index
-// TODO Move this to var cache
-type ipara struct {
-	csent []int // character index of each sentence in the paragraph
-	cword []int // character index of each word in the paragraph
-	chars int   // Total number of characters in the paragraph
-}
-
 var ocursor counts // Original cursor position
-var paras = []ipara{{}}
 var total = counts{0, 0, 0, 1}
 
-// Add a word to the index if not already present
-func indexWord(pn, c int) {
-	p := &paras[pn-1]
-	if len(p.cword) == 0 || c > p.cword[len(p.cword)-1] {
-		p.cword = append(p.cword, c)
-		total[Word]++
+// Last word in the paragraph
+func lastWord(pn int) (c int) {
+	cword := cache[pn-1].cword
+	if len(cword) > 0 {
+		c = cword[len(cword)-1]
 	}
-}
 
-// Add a sentence to the index if not already present
-func indexSent(pn, c int) {
-	p := &paras[pn-1]
-	if len(p.csent) == 0 || c > p.csent[len(p.csent)-1] {
-		p.csent = append(p.csent, c)
-		total[Sent]++
-	}
+	return c
 }
-
-// Add a paragraph to the index
-func indexPara() { paras = append(paras, ipara{}) }
 
 // Last sentence in the paragraph
-func lastSentence(pn int) int {
-	csent := paras[pn-1].csent
+func lastSentence(pn int) (c int) {
+	csent := cache[pn-1].csent
 	if len(csent) > 0 {
-		return csent[len(csent)-1]
+		c = csent[len(csent)-1]
 	}
 
-	return 0
-}
-
-// Last word in the paragraph
-func lastWord(pn int) int {
-	cword := paras[pn-1].cword
-	if len(cword) > 0 {
-		return cword[len(cword)-1]
-	}
-
-	return 0
+	return c
 }
 
 // Characters in the paragraph
-func paragraphChars(pn int) int { return paras[pn-1].chars }
+func paragraphChars(pn int) int { return cache[pn-1].chars }
 
 // Find the current word and sentence in the index
 func updateCursorPos() {
-	p := paras[cursor[Para]-1]
-	cursor[Sent], _ = slices.BinarySearch[[]int](p.csent, cursor[Char])
+	p := cache[cursor[Para]-1]
 	cursor[Word], _ = slices.BinarySearch[[]int](p.cword, cursor[Char])
+	cursor[Sent], _ = slices.BinarySearch[[]int](p.csent, cursor[Char])
 }
 
 func leftChar() {
@@ -105,7 +75,7 @@ func rightChar() {
 func leftWord() {
 	switch {
 	case cursor[Word] > 0:
-		cursor[Char] = paras[cursor[Para]-1].cword[cursor[Word]-1]
+		cursor[Char] = cache[cursor[Para]-1].cword[cursor[Word]-1]
 	case cursor[Para] > 1:
 		cursor[Para]--
 		cursor[Char] = lastWord(cursor[Para])
@@ -115,7 +85,7 @@ func leftWord() {
 }
 
 func rightWord() {
-	cword := paras[cursor[Para]-1].cword
+	cword := cache[cursor[Para]-1].cword
 	w := cursor[Word]
 	if w < len(cword) && cursor[Char] == cword[w] {
 		w++
@@ -131,7 +101,7 @@ func rightWord() {
 func leftSent() {
 	switch {
 	case cursor[Sent] > 0:
-		cursor[Char] = paras[cursor[Para]-1].csent[cursor[Sent]-1]
+		cursor[Char] = cache[cursor[Para]-1].csent[cursor[Sent]-1]
 	case cursor[Para] > 1:
 		cursor[Para]--
 		cursor[Char] = lastSentence(cursor[Para])
@@ -141,7 +111,7 @@ func leftSent() {
 }
 
 func rightSent() {
-	csent := paras[cursor[Para]-1].csent
+	csent := cache[cursor[Para]-1].csent
 	s := cursor[Sent]
 	if s < len(csent) && cursor[Char] == csent[s] {
 		s++
