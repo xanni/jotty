@@ -259,8 +259,6 @@ func drawPara(pn int) (text []string) {
 		}
 	}
 
-	text = append(text, "")
-
 	// Update character counts
 	p.chars = c
 	total[Char] += c
@@ -311,7 +309,7 @@ func drawWindow() {
 	for {
 		text := drawPara(pn)
 		cache = append(cache, para{text})
-		rows += len(text)
+		rows += len(text) + 1
 		if rows >= ey || pn >= doc.Paragraphs() {
 			break
 		}
@@ -331,12 +329,15 @@ func Screen() string {
 	drawWindow()
 	pn, l := first_para, first_line
 	var t []string
+
 	for i := 0; i < ey && pn <= len(cache); i++ {
-		t = append(t, cache[pn-1].text[l])
-		l++
-		if l >= len(cache[pn-1].text) {
-			pn++
+		if l < len(cache[pn-1].text) {
+			t = append(t, cache[pn-1].text[l])
+			l++
+		} else {
+			t = append(t, "")
 			l = 0
+			pn++
 		}
 	}
 
@@ -354,11 +355,13 @@ func Screen() string {
 			first_line = 0
 		}
 
-		t = append(t, cache[pn-1].text[l])
-		l++
-		if l >= len(cache[pn-1].text) {
-			pn++
+		if l < len(cache[pn-1].text) {
+			t = append(t, cache[pn-1].text[l])
+			l++
+		} else {
+			t = append(t, "")
 			l = 0
+			pn++
 		}
 	}
 

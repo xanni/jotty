@@ -23,6 +23,7 @@ func appendParaBreak() {
 	pn++
 	cursor = counts{0, 0, 0, pn}
 	doc.CreateParagraph(pn)
+	cache = slices.Insert[[]para](cache, pn-1, para{})
 	initialCap = true
 	ocursor = counts{}
 	scope = Para
