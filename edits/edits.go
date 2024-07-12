@@ -1,8 +1,8 @@
 package edits
 
 /*
-Implements the buffer that represents the visible user interface elements of the
-edits window and status line.
+Implements the visible user interface elements of the edits window and status
+line.
 
 In the olden days of ASCII, this would all be simple, but in the modern Unicode
 world we try to represent things that are a lot more complicated. Therefore this
