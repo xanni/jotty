@@ -22,6 +22,7 @@ of the words and sentences in the current paragraph.
 */
 
 // Paragraph index
+// TODO Move this to var cache
 type ipara struct {
 	csent []int // character index of each sentence in the paragraph
 	cword []int // character index of each word in the paragraph

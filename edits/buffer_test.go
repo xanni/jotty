@@ -123,37 +123,37 @@ func TestDrawLineCursor(t *testing.T) {
 func TestDrawPara(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 2)
-	assert.Equal(t, []string{"_", ""}, drawPara(1))
+	assert.Equal(t, []string{"_"}, drawPara(1))
 
 	doc.SetText(1, "Test")
-	assert.Equal(t, []string{"_Test", ""}, drawPara(1))
+	assert.Equal(t, []string{"_Test"}, drawPara(1))
 	assert.Equal(t, 0, lastSentence(1))
 	assert.Equal(t, 0, lastWord(1))
 	assert.Equal(t, counts{4, 1, 1, 1}, total)
 
 	cursor[Char] = 4
-	assert.Equal(t, []string{"Test_", ""}, drawPara(1))
+	assert.Equal(t, []string{"Test_"}, drawPara(1))
 	assert.Equal(t, 0, curs_line)
 	assert.Equal(t, 0, lastSentence(1))
 	assert.Equal(t, 0, lastWord(1))
 	assert.Equal(t, counts{4, 1, 1, 1}, total)
 
 	doc.SetText(1, "One two")
-	assert.Equal(t, []string{"One ", "_two", ""}, drawPara(1))
+	assert.Equal(t, []string{"One ", "_two"}, drawPara(1))
 	assert.Equal(t, 1, curs_line)
 	assert.Equal(t, 0, lastSentence(1))
 	assert.Equal(t, 3, lastWord(1))
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	cursor[Char] = 0
-	assert.Equal(t, []string{"_One ", "two", ""}, drawPara(1))
+	assert.Equal(t, []string{"_One ", "two"}, drawPara(1))
 	assert.Equal(t, 0, lastSentence(1))
 	assert.Equal(t, 3, lastWord(1))
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	doc.CreateParagraph(2)
 	indexPara()
-	assert.Equal(t, []string{"", ""}, drawPara(2))
+	assert.Equal(t, []string{""}, drawPara(2))
 
 	doc.DeleteParagraph(2)
 }
@@ -163,7 +163,7 @@ func TestDrawWindow(t *testing.T) {
 	ResizeScreen(margin+4, 3)
 	doc.SetText(1, "")
 	drawWindow()
-	assert.Equal(t, []para{{[]string{"_", ""}}}, cache)
+	assert.Equal(t, []para{{[]string{"_"}}}, cache)
 	assert.Equal(t, 1, curs_para)
 
 	doc.CreateParagraph(2)
@@ -172,7 +172,7 @@ func TestDrawWindow(t *testing.T) {
 	doc.SetText(2, "Test")
 	cursor[Para] = 2
 	drawWindow()
-	expect := []para{{[]string{"", ""}}, {[]string{"_Test", ""}}}
+	expect := []para{{[]string{""}}, {[]string{"_Test"}}}
 	assert.Equal(t, expect, cache)
 
 	appendParaBreak()
@@ -181,7 +181,7 @@ func TestDrawWindow(t *testing.T) {
 	scope = Char
 	drawWindow()
 	expect[1].text[0] = "Test"
-	expect = append(expect, para{[]string{"_", ""}})
+	expect = append(expect, para{[]string{"_"}})
 	assert.Equal(t, expect, cache)
 
 	drawWindow()
@@ -190,11 +190,11 @@ func TestDrawWindow(t *testing.T) {
 	cache = nil
 	cursor[Para] = 2
 	drawWindow()
-	assert.Equal(t, []para{{}, {[]string{"_Test", ""}}}, cache)
+	assert.Equal(t, []para{{}, {[]string{"_Test"}}}, cache)
 
 	cursor[Para] = 1
 	drawWindow()
-	expect = []para{{[]string{"_", ""}}, {[]string{"Test", ""}}}
+	expect = []para{{[]string{"_"}}, {[]string{"Test"}}}
 	assert.Equal(t, expect, cache)
 
 	drawWindow()
@@ -206,7 +206,7 @@ func TestDrawWindow(t *testing.T) {
 
 	ResizeScreen(margin+4, 12)
 	drawWindow()
-	expect = append(expect, para{[]string{"", ""}})
+	expect = append(expect, para{[]string{""}})
 	assert.Equal(t, expect, cache)
 
 	cache = slices.Delete(cache, 2, 3)
@@ -215,10 +215,8 @@ func TestDrawWindow(t *testing.T) {
 	indexPara()
 	cursor[Para] = 4
 	drawWindow()
-	expect = []para{{}, {}, {}, {[]string{"_", ""}}}
+	expect = []para{{}, {}, {}, {[]string{"_"}}}
 	assert.Equal(t, expect, cache)
-
-	// TODO Test that inserting a new paragraph still draws the text below
 }
 
 func TestScreen(t *testing.T) {
