@@ -8,6 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func resetCache() {
+	cache = []para{{}}
+	total = counts{0, 0, 0, 1}
+}
+
 func setupTest() {
 	ID = "J"
 	cursor = counts{Para: 1}
@@ -15,15 +20,34 @@ func setupTest() {
 	initialCap = false
 	scope = Char
 	doc.SetText(1, "")
-	resetIndex()
+	resetCache()
+}
+
+func TestIndexWord(t *testing.T) {
+	resetCache()
+
+	indexWord(1, 0)
+	assert.Equal(t, []int{0}, cache[0].cword)
+
+	indexWord(1, 1)
+	assert.Equal(t, []int{0, 1}, cache[0].cword)
+}
+
+func TestIndexSent(t *testing.T) {
+	resetCache()
+
+	indexSent(1, 0)
+	assert.Equal(t, []int{0}, cache[0].csent)
+
+	indexSent(1, 1)
+	assert.Equal(t, []int{0, 1}, cache[0].csent)
 }
 
 func TestCursorPos(t *testing.T) {
-	resetIndex()
+	resetCache()
 	cursor = counts{Para: 1}
 	assert.Equal(t, counts{0, 0, 0, 1}, cursorPos())
 
-	indexPara()
 	indexSent(1, 0)
 	indexWord(1, 0)
 	cursor[Para] = 2
@@ -41,7 +65,6 @@ func TestCursorString(t *testing.T) {
 
 func TestStatusLine(t *testing.T) {
 	setupTest()
-	resetIndex()
 	ID = "Jotty v0"
 	initialCap = false
 	ResizeScreen(6, 3)
@@ -61,8 +84,8 @@ func TestNextSegWidth(t *testing.T) {
 }
 
 func TestDrawLine(t *testing.T) {
-	setupTest()
 	ResizeScreen(margin+3, 2)
+	setupTest()
 
 	c := 0
 	source := []byte{}
@@ -109,8 +132,8 @@ func TestDrawLine(t *testing.T) {
 }
 
 func TestDrawLineCursor(t *testing.T) {
-	setupTest()
 	ResizeScreen(margin+1, 3)
+	setupTest()
 
 	for scope = Char; scope < MaxScope; scope++ {
 		c := 0
@@ -121,41 +144,37 @@ func TestDrawLineCursor(t *testing.T) {
 }
 
 func TestDrawPara(t *testing.T) {
-	setupTest()
 	ResizeScreen(margin+4, 2)
-	assert.Equal(t, []string{"_"}, drawPara(1))
+	setupTest()
+	drawPara(1)
+	assert.Equal(t, para{text: []string{"_"}}, cache[0])
 
 	doc.SetText(1, "Test")
-	assert.Equal(t, []string{"_Test"}, drawPara(1))
-	assert.Equal(t, 0, lastSentence(1))
-	assert.Equal(t, 0, lastWord(1))
+	drawPara(1)
+	assert.Equal(t, para{4, []int{0}, []int{0}, []string{"_Test"}}, cache[0])
 	assert.Equal(t, counts{4, 1, 1, 1}, total)
 
 	cursor[Char] = 4
-	assert.Equal(t, []string{"Test_"}, drawPara(1))
+	drawPara(1)
+	assert.Equal(t, para{4, []int{0}, []int{0}, []string{"Test_"}}, cache[0])
 	assert.Equal(t, 0, curs_line)
-	assert.Equal(t, 0, lastSentence(1))
-	assert.Equal(t, 0, lastWord(1))
 	assert.Equal(t, counts{4, 1, 1, 1}, total)
 
 	doc.SetText(1, "One two")
-	assert.Equal(t, []string{"One ", "_two"}, drawPara(1))
+	drawPara(1)
+	assert.Equal(t, para{7, []int{0, 3}, []int{0}, []string{"One ", "_two"}}, cache[0])
 	assert.Equal(t, 1, curs_line)
-	assert.Equal(t, 0, lastSentence(1))
-	assert.Equal(t, 3, lastWord(1))
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	cursor[Char] = 0
-	assert.Equal(t, []string{"_One ", "two"}, drawPara(1))
-	assert.Equal(t, 0, lastSentence(1))
-	assert.Equal(t, 3, lastWord(1))
+	drawPara(1)
+	assert.Equal(t, para{7, []int{0, 3}, []int{0}, []string{"_One ", "two"}}, cache[0])
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	doc.CreateParagraph(2)
-	indexPara()
-	assert.Equal(t, []string{""}, drawPara(2))
-
-	doc.DeleteParagraph(2)
+	defer doc.DeleteParagraph(2)
+	drawPara(2)
+	assert.Equal(t, para{text: []string{""}}, cache[1])
 }
 
 func TestDrawWindow(t *testing.T) {
@@ -163,16 +182,15 @@ func TestDrawWindow(t *testing.T) {
 	ResizeScreen(margin+4, 3)
 	doc.SetText(1, "")
 	drawWindow()
-	assert.Equal(t, []para{{[]string{"_"}}}, cache)
+	assert.Equal(t, []para{{text: []string{"_"}}}, cache)
 	assert.Equal(t, 1, curs_para)
 
 	doc.CreateParagraph(2)
 	defer doc.DeleteParagraph(2)
-	indexPara()
 	doc.SetText(2, "Test")
 	cursor[Para] = 2
 	drawWindow()
-	expect := []para{{[]string{""}}, {[]string{"_Test"}}}
+	expect := []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"_Test"}}}
 	assert.Equal(t, expect, cache)
 
 	appendParaBreak()
@@ -181,7 +199,7 @@ func TestDrawWindow(t *testing.T) {
 	scope = Char
 	drawWindow()
 	expect[1].text[0] = "Test"
-	expect = append(expect, para{[]string{"_"}})
+	expect = append(expect, para{text: []string{"_"}})
 	assert.Equal(t, expect, cache)
 
 	drawWindow()
@@ -190,11 +208,12 @@ func TestDrawWindow(t *testing.T) {
 	cache = nil
 	cursor[Para] = 2
 	drawWindow()
-	assert.Equal(t, []para{{}, {[]string{"_Test"}}}, cache)
+	expect = []para{{}, {4, []int{0}, []int{0}, []string{"_Test"}}}
+	assert.Equal(t, expect, cache)
 
 	cursor[Para] = 1
 	drawWindow()
-	expect = []para{{[]string{"_"}}, {[]string{"Test"}}}
+	expect = []para{{text: []string{"_"}}, {4, []int{0}, []int{0}, []string{"Test"}}}
 	assert.Equal(t, expect, cache)
 
 	drawWindow()
@@ -206,16 +225,15 @@ func TestDrawWindow(t *testing.T) {
 
 	ResizeScreen(margin+4, 12)
 	drawWindow()
-	expect = append(expect, para{[]string{""}})
+	expect = append(expect, para{text: []string{""}})
 	assert.Equal(t, expect, cache)
 
 	cache = slices.Delete(cache, 2, 3)
 	doc.CreateParagraph(4)
 	defer doc.DeleteParagraph(4)
-	indexPara()
 	cursor[Para] = 4
 	drawWindow()
-	expect = []para{{}, {}, {}, {[]string{"_"}}}
+	expect = []para{{}, {}, {}, {text: []string{"_"}}}
 	assert.Equal(t, expect, cache)
 }
 
@@ -227,7 +245,6 @@ func TestScreen(t *testing.T) {
 
 	doc.CreateParagraph(2)
 	defer doc.DeleteParagraph(2)
-	indexPara()
 	cursor[Para] = 2
 	assert.Equal(t, "\n\n_\n\n@0/0", Screen())
 
@@ -236,7 +253,6 @@ func TestScreen(t *testing.T) {
 
 	doc.CreateParagraph(3)
 	defer doc.DeleteParagraph(3)
-	indexPara()
 	cursor[Para] = 3
 	assert.Equal(t, "\n\n\n_\n@0/0", Screen())
 

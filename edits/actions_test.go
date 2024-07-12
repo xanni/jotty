@@ -23,7 +23,6 @@ func TestAppendParaBreak(t *testing.T) {
 
 	doc.DeleteParagraph(2)
 	cache = slices.Delete(cache, 1, 2)
-	paras = slices.Delete(paras, 1, 2)
 	curs_para = 1
 	doc.SetText(1, "Test ")
 	cursor = counts{5, 0, 0, 1}
@@ -33,14 +32,14 @@ func TestAppendParaBreak(t *testing.T) {
 	assert.Equal(t, 2, cursor[Para])
 	assert.Equal(t, 2, doc.Paragraphs())
 	assert.Equal(t, "Test", doc.GetText(1))
-	assert.Equal(t, []para{{[]string{"Test"}}, {[]string{string(cursorCharCap)}}}, cache)
+	assert.Equal(t, []para{{4, []int{0}, []int{0}, []string{"Test"}}, {text: []string{string(cursorCharCap)}}}, cache)
 
 	appendParaBreak()
 	defer doc.DeleteParagraph(3)
 	drawWindow()
 	assert.Equal(t, 3, cursor[Para])
 	assert.Equal(t, 3, doc.Paragraphs())
-	expect := []para{{[]string{"Test"}}, {[]string{""}}, {[]string{string(cursorCharCap)}}}
+	expect := []para{{4, []int{0}, []int{0}, []string{"Test"}}, {text: []string{""}}, {text: []string{string(cursorCharCap)}}}
 	assert.Equal(t, expect, cache)
 
 	cursor = counts{5, 0, 0, 1}

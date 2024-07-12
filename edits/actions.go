@@ -27,7 +27,6 @@ func appendParaBreak() {
 	initialCap = true
 	ocursor = counts{}
 	scope = Para
-	indexPara()
 }
 
 // Append runes to the document.

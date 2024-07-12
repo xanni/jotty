@@ -64,7 +64,10 @@ type counts [MaxScope]int
 
 // Information about a single paragraph in the terminal window
 type para struct {
-	text []string // Rendered lines including cursor and marks
+	chars int      // Total number of characters in the paragraph
+	cword []int    // character index of each word in the paragraph
+	csent []int    // character index of each sentence in the paragraph
+	text  []string // Rendered lines including cursor and marks
 }
 
 /*
@@ -80,11 +83,29 @@ var cursor = counts{Para: 1} // Current cursor position
 var initialCap = true        // Initial capital at the start of a sentence
 var scope Scope
 
+// Add a word to the index if not already present
+func indexWord(pn, c int) {
+	p := &cache[pn-1]
+	if len(p.cword) == 0 || c > p.cword[len(p.cword)-1] {
+		p.cword = append(p.cword, c)
+		total[Word]++
+	}
+}
+
+// Add a sentence to the index if not already present
+func indexSent(pn, c int) {
+	p := &cache[pn-1]
+	if len(p.csent) == 0 || c > p.csent[len(p.csent)-1] {
+		p.csent = append(p.csent, c)
+		total[Sent]++
+	}
+}
+
 // The current cursor position within the whole document, not just the paragraph
 func cursorPos() (c counts) {
 	c = cursor
 	for i := 0; i < c[Para]-1; i++ {
-		p := paras[i]
+		p := cache[i]
 		c[Sent] += len(p.csent)
 		c[Word] += len(p.cword)
 		c[Char] += p.chars
@@ -109,7 +130,7 @@ func statusLine() string {
 	var w int              // Total width of counters in character cells
 
 	current := cursorPos()
-	total[Para] = len(paras)
+	total[Para] = doc.Paragraphs()
 	for sc := Char; sc <= Para; sc++ {
 		c[sc] = string(counterChar[sc]) + strconv.Itoa(current[sc]) + "/" + strconv.Itoa(total[sc])
 		w += uniseg.StringWidth(c[sc])
@@ -227,13 +248,16 @@ func drawLine(pn int, c *int, source *[]byte, state *int) string {
 }
 
 // Draw one paragraph in the edit window
-func drawPara(pn int) (text []string) {
+func drawPara(pn int) {
 	// Reset sentence, word and character indexes for this paragraph
-	p := &paras[pn-1]
+	if pn > len(cache) {
+		cache = append(cache, para{})
+	}
+	p := &cache[pn-1]
 	total[Char] -= p.chars
 	total[Word] -= len(p.cword)
 	total[Sent] -= len(p.csent)
-	*p = ipara{}
+	*p = para{}
 
 	if pn == cursor[Para] {
 		curs_line = -1
@@ -250,9 +274,9 @@ func drawPara(pn int) (text []string) {
 	var c int
 	state := -1
 	for {
-		text = append(text, drawLine(pn, &c, &source, &state))
+		p.text = append(p.text, drawLine(pn, &c, &source, &state))
 		if curs_line == -1 && (c > cursor[Char] || len(source) == 0) {
-			curs_line = len(text) - 1
+			curs_line = len(p.text) - 1
 		}
 		if len(source) == 0 {
 			break
@@ -262,8 +286,6 @@ func drawPara(pn int) (text []string) {
 	// Update character counts
 	p.chars = c
 	total[Char] += c
-
-	return text
 }
 
 /*
@@ -278,22 +300,13 @@ func drawWindow() {
 	pn := cursor[Para]
 
 	if len(cache) > 0 {
-		// Erase the old cursor position
 		if pn != curs_para {
-			cache[curs_para-1].text = drawPara(curs_para)
+			drawPara(curs_para) // Erase the old cursor position
 		}
 
 		// Optimise for common cases:
-		if pn == len(cache)+1 {
-			// The cursor is one paragraph below, draw it
-			cache = append(cache, para{drawPara(pn)})
-			curs_para = pn
-			return
-		}
-
-		if pn <= len(cache) {
-			// Redraw current paragraph
-			cache[pn-1] = para{drawPara(pn)}
+		if pn <= len(cache)+1 {
+			drawPara(pn) // Redraw current paragraph
 			curs_para = pn
 			if curs_para < first_para || curs_line < first_line {
 				first_para, first_line = curs_para, curs_line // Scroll backwards
@@ -305,16 +318,9 @@ func drawWindow() {
 	// The cursor is outside the screen: redraw everything
 	cache = make([]para, pn-1, pn)
 	curs_para, first_para, first_line = pn, pn, 0
-	var rows int // Number of rows drawn
-	for {
-		text := drawPara(pn)
-		cache = append(cache, para{text})
-		rows += len(text) + 1
-		if rows >= ey || pn >= doc.Paragraphs() {
-			break
-		}
-
-		pn++
+	for rows := 0; rows < ey && pn <= doc.Paragraphs(); pn++ {
+		drawPara(pn)
+		rows += len(cache[pn-1].text) + 1
 	}
 }
 

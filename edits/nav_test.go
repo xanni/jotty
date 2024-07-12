@@ -12,44 +12,11 @@ func setNewParagraph(pn int, t string) {
 	doc.SetText(pn, t)
 }
 
-func resetIndex() {
-	paras = nil
-	total = counts{0, 0, 0, 1}
-	indexPara()
-}
-
-func TestIndexWord(t *testing.T) {
-	resetIndex()
-
-	indexWord(1, 0)
-	assert.Equal(t, []int{0}, paras[0].cword)
-
-	indexWord(1, 1)
-	assert.Equal(t, []int{0, 1}, paras[0].cword)
-}
-
-func TestIndexSent(t *testing.T) {
-	resetIndex()
-
-	indexSent(1, 0)
-	assert.Equal(t, []int{0}, paras[0].csent)
-
-	indexSent(1, 1)
-	assert.Equal(t, []int{0, 1}, paras[0].csent)
-}
-
-func TestIndexPara(t *testing.T) {
-	resetIndex()
-
-	indexPara()
-	assert.Equal(t, 2, len(paras))
-}
-
 func TestLeftChar(t *testing.T) {
 	doc.SetText(1, "One")
 	setNewParagraph(2, "Two")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 3}, {chars: 3}}
+	cache = []para{{chars: 3}, {chars: 3}}
 	cursor = counts{1, 0, 0, 2}
 
 	leftChar()
@@ -67,7 +34,7 @@ func TestRightChar(t *testing.T) {
 	doc.SetText(1, "One")
 	setNewParagraph(2, "Two")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 3}, {chars: 3}}
+	cache = []para{{chars: 3}, {chars: 3}}
 	cursor = counts{2, 0, 0, 1}
 
 	rightChar()
@@ -87,7 +54,7 @@ func TestLeftWord(t *testing.T) {
 	defer doc.DeleteParagraph(2)
 	setNewParagraph(3, "4")
 	defer doc.DeleteParagraph(3)
-	paras = []ipara{{chars: 4, cword: []int{0, 2}}, {}, {chars: 1, cword: []int{0}}}
+	cache = []para{{chars: 4, cword: []int{0, 2}}, {}, {chars: 1, cword: []int{0}}}
 	cursor = counts{1, 1, 1, 3}
 
 	leftWord()
@@ -127,7 +94,7 @@ func TestRightWord(t *testing.T) {
 	doc.SetText(1, "1")
 	setNewParagraph(2, "23 4")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 1, cword: []int{0}}, {chars: 4, cword: []int{0, 3}}}
+	cache = []para{{chars: 1, cword: []int{0}}, {chars: 4, cword: []int{0, 3}}}
 	cursor = counts{0, 0, 0, 1}
 
 	rightWord()
@@ -168,7 +135,7 @@ func TestLeftSent(t *testing.T) {
 	defer doc.DeleteParagraph(2)
 	setNewParagraph(3, "4")
 	defer doc.DeleteParagraph(3)
-	paras = []ipara{{chars: 5, csent: []int{0, 3}}, {}, {chars: 1, csent: []int{0}}}
+	cache = []para{{chars: 5, csent: []int{0, 3}}, {}, {chars: 1, csent: []int{0}}}
 	cursor = counts{1, 1, 1, 3}
 
 	leftSent()
@@ -203,7 +170,7 @@ func TestRightSent(t *testing.T) {
 	doc.SetText(1, "1")
 	setNewParagraph(2, "23. 4")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 1, csent: []int{0}}, {chars: 5, csent: []int{0, 4}}}
+	cache = []para{{chars: 1, csent: []int{0}}, {chars: 5, csent: []int{0, 4}}}
 	cursor = counts{0, 0, 0, 1}
 
 	rightSent()
@@ -242,7 +209,7 @@ func TestLeftPara(t *testing.T) {
 	doc.SetText(1, "1")
 	setNewParagraph(2, "23")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 1}, {chars: 2}}
+	cache = []para{{chars: 1}, {chars: 2}}
 	cursor = counts{1, 0, 0, 2}
 
 	leftPara()
@@ -263,7 +230,7 @@ func TestRightPara(t *testing.T) {
 	doc.SetText(1, "1")
 	setNewParagraph(2, "23")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 1}, {chars: 2}}
+	cache = []para{{chars: 1}, {chars: 2}}
 	cursor = counts{0, 0, 0, 1}
 
 	rightPara()
@@ -281,12 +248,12 @@ func TestRightPara(t *testing.T) {
 }
 
 func TestLeft(t *testing.T) {
+	ResizeScreen(margin+7, 4)
 	doc.SetText(1, "1")
 	setNewParagraph(2, "2. 3 45")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{[]int{0}, []int{0}, 1}, {[]int{0, 3}, []int{0, 3, 5}, 1}}
+	cache = []para{{1, []int{0}, []int{0}, nil}, {1, []int{0, 3, 5}, []int{0, 3}, nil}}
 	cursor = counts{7, 3, 2, 2}
-	ResizeScreen(margin+7, 4)
 
 	scope = Char
 	Left()
@@ -314,12 +281,12 @@ func TestLeft(t *testing.T) {
 }
 
 func TestRight(t *testing.T) {
+	ResizeScreen(margin+9, 5)
 	doc.SetText(1, "12 3. 4")
 	setNewParagraph(2, "5")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{[]int{0, 6}, []int{0, 3, 6}, 7}, {[]int{0}, []int{0}, 1}}
+	cache = []para{{7, []int{0, 3, 6}, []int{0, 6}, nil}, {1, []int{0}, []int{0}, nil}}
 	cursor = counts{0, 0, 0, 1}
-	ResizeScreen(margin+9, 5)
 
 	scope = Char
 	Right()
@@ -346,7 +313,6 @@ func TestHome(t *testing.T) {
 	doc.SetText(1, "1")
 	setNewParagraph(2, "2")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 1}, {chars: 1}}
 
 	ocursor = counts{}
 	cursor = counts{1, 0, 0, 2}
@@ -381,14 +347,14 @@ func TestHome(t *testing.T) {
 }
 
 func TestEnd(t *testing.T) {
+	ResizeScreen(margin+3, 4)
 	doc.SetText(1, "12")
 	setNewParagraph(2, "3")
 	defer doc.DeleteParagraph(2)
-	paras = []ipara{{chars: 2}, {chars: 1}}
+	cache = []para{{chars: 2}, {chars: 1}}
 
 	ocursor = counts{}
 	cursor = counts{0, 0, 0, 1}
-	ResizeScreen(margin+3, 4)
 
 	scope = Char
 	End()
