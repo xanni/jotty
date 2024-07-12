@@ -324,26 +324,33 @@ func ResizeScreen(x, y int) {
 	first_para, first_line = 0, 0
 }
 
+// Render one line to the screen
+func screenLine(pn, ln *int) (line string) {
+	if *ln < len(cache[*pn-1].text) {
+		line = cache[*pn-1].text[*ln]
+		*ln++
+	} else {
+		*ln = 0
+		*pn++
+		line = ""
+	}
+
+	return line
+}
+
 // The entire screen including the edits window and status line
 func Screen() string {
 	drawWindow()
-	pn, l := first_para, first_line
+	pn, ln := first_para, first_line
 	var t []string
 
 	for i := 0; i < ey && pn <= len(cache); i++ {
-		if l < len(cache[pn-1].text) {
-			t = append(t, cache[pn-1].text[l])
-			l++
-		} else {
-			t = append(t, "")
-			l = 0
-			pn++
-		}
+		t = append(t, screenLine(&pn, &ln))
 	}
 
 	// Scroll forwards until the cursor has been drawn
 	for pn <= len(cache) {
-		if pn > cursor[Para] || (pn == cursor[Para] && l > curs_line) {
+		if pn > cursor[Para] || (pn == cursor[Para] && ln > curs_line) {
 			break
 		}
 
@@ -355,14 +362,7 @@ func Screen() string {
 			first_line = 0
 		}
 
-		if l < len(cache[pn-1].text) {
-			t = append(t, cache[pn-1].text[l])
-			l++
-		} else {
-			t = append(t, "")
-			l = 0
-			pn++
-		}
+		t = append(t, screenLine(&pn, &ln))
 	}
 
 	for len(t) < ey {
