@@ -188,12 +188,12 @@ func TestDrawWindow(t *testing.T) {
 	doc.CreateParagraph(2)
 	defer doc.DeleteParagraph(2)
 	doc.SetText(2, "Test")
-	cursor[Para] = 2
+	cursor = counts{4, 0, 0, 2}
 	drawWindow()
-	expect := []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"_Test"}}}
+	expect := []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"Test_"}}}
 	assert.Equal(t, expect, cache)
 
-	appendParaBreak()
+	insertParaBreak()
 	defer doc.DeleteParagraph(3)
 	initialCap = false
 	scope = Char

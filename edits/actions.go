@@ -11,18 +11,20 @@ import (
 
 // Implements miscellaneous actions
 
-func appendParaBreak() {
-	// TODO Split an existing paragraph
+func insertParaBreak() {
 	pn := cursor[Para]
-	t := doc.GetText(pn)
+	t := before.String()
 	i := len(t) - 1
 	if i >= 0 && t[i] == ' ' {
 		doc.SetText(pn, t[:i])
+	} else {
+		doc.SetText(pn, t)
 	}
 
 	pn++
 	cursor = counts{0, 0, 0, pn}
 	doc.CreateParagraph(pn)
+	doc.SetText(pn, after.String())
 	cache = slices.Insert[[]para](cache, pn-1, para{})
 	initialCap = true
 	ocursor = counts{}
@@ -67,7 +69,7 @@ func IncScope() {
 
 func Space() {
 	if scope >= Sent {
-		appendParaBreak()
+		insertParaBreak()
 		return
 	}
 
@@ -113,5 +115,5 @@ func Space() {
 }
 
 func Enter() {
-	appendParaBreak()
+	insertParaBreak()
 }

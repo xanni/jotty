@@ -65,8 +65,8 @@ type counts [MaxScope]int
 // Information about a single paragraph in the terminal window
 type para struct {
 	chars int      // Total number of characters in the paragraph
-	cword []int    // character index of each word in the paragraph
-	csent []int    // character index of each sentence in the paragraph
+	cword []int    // Character index of each word in the paragraph
+	csent []int    // Character index of each sentence in the paragraph
 	text  []string // Rendered lines including cursor and marks
 }
 
@@ -78,6 +78,7 @@ The "cursor" variable contains the current cursor position for navigation
 purposes.
 */
 
+var after, before strings.Builder // Text of the current paragraph after and before the cursor position
 var cache []para
 var cursor = counts{Para: 1} // Current cursor position
 var initialCap = true        // Initial capital at the start of a sentence
@@ -223,6 +224,14 @@ func drawLine(pn int, c *int, source *[]byte, state *int) string {
 			continue
 		}
 
+		if pn == cursor[Para] {
+			if *c < cursor[Char] {
+				before.Write(g)
+			} else {
+				after.Write(g)
+			}
+		}
+
 		if f&uniseg.MaskWord != 0 && isAlphanumeric(*source) {
 			indexWord(pn, *c)
 		}
@@ -260,6 +269,8 @@ func drawPara(pn int) {
 	*p = para{}
 
 	if pn == cursor[Para] {
+		before.Reset()
+		after.Reset()
 		curs_line = -1
 	}
 

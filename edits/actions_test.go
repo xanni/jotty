@@ -8,14 +8,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAppendParaBreak(t *testing.T) {
+func TestInsertParaBreak(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 8)
 
 	doc.SetText(1, "Test")
 	cursor = counts{4, 0, 0, 1}
 	drawWindow()
-	appendParaBreak()
+	insertParaBreak()
 	drawWindow()
 	assert.Equal(t, 2, cursor[Para])
 	assert.Equal(t, 2, doc.Paragraphs())
@@ -26,7 +26,8 @@ func TestAppendParaBreak(t *testing.T) {
 	curs_para = 1
 	doc.SetText(1, "Test ")
 	cursor = counts{5, 0, 0, 1}
-	appendParaBreak()
+	drawWindow()
+	insertParaBreak()
 	defer doc.DeleteParagraph(2)
 	drawWindow()
 	assert.Equal(t, 2, cursor[Para])
@@ -34,7 +35,7 @@ func TestAppendParaBreak(t *testing.T) {
 	assert.Equal(t, "Test", doc.GetText(1))
 	assert.Equal(t, []para{{4, []int{0}, []int{0}, []string{"Test"}}, {text: []string{string(cursorCharCap)}}}, cache)
 
-	appendParaBreak()
+	insertParaBreak()
 	defer doc.DeleteParagraph(3)
 	drawWindow()
 	assert.Equal(t, 3, cursor[Para])
@@ -44,7 +45,7 @@ func TestAppendParaBreak(t *testing.T) {
 
 	cursor = counts{5, 0, 0, 1}
 	drawWindow()
-	appendParaBreak()
+	insertParaBreak()
 	defer doc.DeleteParagraph(4)
 	assert.Equal(t, 2, cursor[Para])
 	assert.Equal(t, 4, doc.Paragraphs())
@@ -138,6 +139,8 @@ func TestSpace(t *testing.T) {
 	assert.Equal(t, Sent, scope)
 	assert.False(t, initialCap)
 
+	ResizeScreen(margin+4, 3)
+	drawWindow()
 	Space()
 	assert.Equal(t, "Test", doc.GetText(1))
 	assert.Equal(t, 2, doc.Paragraphs())
