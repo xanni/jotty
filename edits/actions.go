@@ -31,15 +31,18 @@ func insertParaBreak() {
 	scope = Para
 }
 
-// Append runes to the document.
-// TODO Implement insertion instead
-func AppendRunes(runes []rune) {
+// Insert runes into the document
+func InsertRunes(runes []rune) {
 	if initialCap && unicode.IsLower(runes[0]) {
 		runes[0] = unicode.ToUpper(runes[0])
 	}
 
 	t := string(runes)
-	doc.AppendText(cursor[Para], t)
+	if cursor[Char] >= cache[cursor[Para]-1].chars {
+		doc.AppendText(cursor[Para], t)
+	} else {
+		doc.SetText(cursor[Para], before.String()+t+after.String())
+	}
 	cursor[Char] += uniseg.GraphemeClusterCount(t)
 	initialCap = false
 	ocursor = counts{}
@@ -73,22 +76,23 @@ func Space() {
 		return
 	}
 
-	t := []byte(doc.GetText(cursor[Para]))
+	t := []byte(before.String())
 	i := len(t) - 1
 	if i < 0 {
 		return
 	}
 
-	lb := t[i]
-	if scope == Char {
-		if lb != ' ' {
-			AppendRunes([]rune(" "))
-		}
+	oscope := scope // Original scope before InsertRunes, which sets it to Char
+	lb := t[i]      // Last byte before the cursor: space is always a single byte
+	if lb != ' ' {
+		InsertRunes([]rune(" "))
+	}
+	scope = Sent
 
+	if oscope == Char {
 		lr, _ := utf8.DecodeLastRune(t)
 		if unicode.Is(unicode.Sentence_Terminal, lr) {
 			initialCap = true
-			scope = Sent
 		} else {
 			initialCap = false
 			scope = Word
@@ -97,21 +101,17 @@ func Space() {
 		return
 	}
 
-	// scope == Word by elimination
-	if lb != ' ' {
-		AppendRunes([]rune(" "))
-	} else {
+	// oscope == Word by elimination
+	if lb == ' ' {
 		initialCap = true
-		lr, _ := utf8.DecodeLastRune(t[:i])
+		lr, _ := utf8.DecodeLastRune(t[:i])       // Last rune before the space
 		if unicode.In(lr, unicode.L, unicode.N) { // Alphanumeric
 			t = slices.Insert(t, i, '.')
-			doc.SetText(cursor[Para], string(t))
+			doc.SetText(cursor[Para], string(t)+after.String())
 			cursor[Char]++
 			ocursor = counts{}
 		}
 	}
-
-	scope = Sent
 }
 
 func Enter() {
