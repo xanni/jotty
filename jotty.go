@@ -51,7 +51,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if f, ok := dispatch[msg.Type]; ok {
 				f()
 			} else if msg.Type == tea.KeyRunes && !msg.Alt {
-				edits.AppendRunes(msg.Runes)
+				edits.InsertRunes(msg.Runes)
 			}
 		}
 	}

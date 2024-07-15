@@ -51,20 +51,28 @@ func TestInsertParaBreak(t *testing.T) {
 	assert.Equal(t, 4, doc.Paragraphs())
 }
 
-func TestAppendRunes(t *testing.T) {
+func TestInsertRunes(t *testing.T) {
 	setupTest()
+	ResizeScreen(margin+4, 3)
+	drawWindow()
 	initialCap = true
-	AppendRunes([]rune("A"))
+	InsertRunes([]rune("A"))
 	assert.Equal(t, "A", doc.GetText(1))
 	assert.Equal(t, 1, cursor[Char])
 
 	initialCap = true
-	AppendRunes([]rune("u"))
+	InsertRunes([]rune("u"))
 	assert.Equal(t, "AU", doc.GetText(1))
 	assert.Equal(t, 2, cursor[Char])
 
-	AppendRunes([]rune("🇦🇺"))
+	InsertRunes([]rune("🇦🇺"))
 	assert.Equal(t, "AU🇦🇺", doc.GetText(1))
+	assert.Equal(t, 3, cursor[Char])
+
+	cursor[Char] = 2
+	drawWindow()
+	InsertRunes([]rune("="))
+	assert.Equal(t, "AU=🇦🇺", doc.GetText(1))
 	assert.Equal(t, 3, cursor[Char])
 }
 
@@ -97,6 +105,8 @@ func TestIncScope(t *testing.T) {
 
 func TestSpace(t *testing.T) {
 	setupTest()
+	ResizeScreen(margin+4, 3)
+	drawWindow()
 
 	scope = Char
 	Space()
@@ -104,10 +114,13 @@ func TestSpace(t *testing.T) {
 	assert.Equal(t, Char, scope)
 
 	doc.SetText(1, "Test")
+	cursor[Char] = 4
+	drawWindow()
 	Space()
 	assert.Equal(t, "Test ", doc.GetText(1))
 	assert.Equal(t, Word, scope)
 
+	drawWindow()
 	Space()
 	assert.Equal(t, "Test. ", doc.GetText(1))
 	assert.Equal(t, Sent, scope)
@@ -120,12 +133,15 @@ func TestSpace(t *testing.T) {
 	assert.False(t, initialCap)
 
 	doc.SetText(1, "Test.")
+	cursor[Char] = 5
+	drawWindow()
 	scope = Char
 	Space()
 	assert.Equal(t, "Test. ", doc.GetText(1))
 	assert.Equal(t, Sent, scope)
 	assert.True(t, initialCap)
 
+	drawWindow()
 	scope = Word
 	Space()
 	assert.Equal(t, "Test. ", doc.GetText(1))
@@ -133,6 +149,8 @@ func TestSpace(t *testing.T) {
 	assert.True(t, initialCap)
 
 	doc.SetText(1, "Test")
+	cursor[Char] = 4
+	drawWindow()
 	scope = Word
 	Space()
 	assert.Equal(t, "Test ", doc.GetText(1))
