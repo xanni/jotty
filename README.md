@@ -174,17 +174,26 @@ cycle around when reaching the largest or smallest scope.
 @startuml
 hide empty description
 [*] -> Character
-Character --> Word : Space\nUp
-Character -> Paragraph : Enter
-Word -> Character : text\nDown
-Word --> Sentence : Space\nUp
-Word -> Paragraph : Enter
-Sentence -> Character : text
-Sentence -> Word : Down
-Sentence --> Paragraph : Space\nEnter\nUp
-Paragraph -> Character : text\nUp
-Paragraph -> Sentence : Down
-Paragraph --> Paragraph : Space\nEnter
+Character -d-> Paragraph : Down
+Character -u-> Word : Up
+Character -[dotted,#blue]-> Word : Space
+Character -[dotted,#blue]-> Sentence : Space
+Character -[dashed,#red]-> Paragraph : Enter
+Word -d-> Character : Down
+Word -u-> Sentence : Up
+Word -[bold,#green]-> Character : text
+Word -[dotted,#blue]-> Sentence : Space
+Word -[dashed,#red]-> Paragraph : Enter
+Sentence -d-> Word : Down
+Sentence -u-> Paragraph : Up
+Sentence -[bold,#green]-> Character : text
+Sentence -[dotted,#blue]-> Paragraph : Space
+Sentence -[dashed,#red]-> Paragraph : Enter
+Paragraph -d-> Sentence : Down
+Paragraph -u-> Character : Up
+Paragraph -[bold,#green]-> Character : text
+Paragraph -[dotted,#blue]-> Paragraph : Space
+Paragraph -[dashed,#red]-> Paragraph : Enter
 @enduml
 ```
 
