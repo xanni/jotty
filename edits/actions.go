@@ -2,6 +2,7 @@ package edits
 
 import (
 	"slices"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -116,4 +117,80 @@ func Space() {
 
 func Enter() {
 	insertParaBreak()
+}
+
+func mergePrevPara() {
+	pn := cursor[Para]
+	if pn == 1 {
+		return
+	}
+
+	doc.DeleteParagraph(pn)
+	clearCache(pn)
+	cache = slices.Delete(cache, pn-1, pn)
+	pn--
+	curs_para, cursor[Para] = pn, pn
+	cursor[Char] = cache[pn-1].chars
+
+	if after.Len() > 0 {
+		if len(doc.GetText(pn)) > 0 {
+			doc.AppendText(pn, " ")
+		}
+		doc.AppendText(pn, after.String())
+	}
+}
+
+func Backspace() {
+	if cursor[Char] == 0 {
+		mergePrevPara()
+		return
+	}
+
+	if scope == Para {
+		doc.SetText(cursor[Para], after.String())
+		clearCache(cursor[Para])
+		cursor[Char] = 0
+		initialCap = true
+		return
+	}
+
+	b := before.String()
+	n := cursor[scope] - 1 // Number of scope units to keep
+	if scope > Char && cursor[Char] < cache[cursor[Para]-1].chars && b[len(b)-1] == ' ' {
+		n-- // Delete spaces between words and sentences with the preceding word or sentence
+	}
+
+	var t string
+	var new strings.Builder
+	state := -1
+	switch scope {
+	case Char:
+		for i := 0; i < n; i++ {
+			t, b, _, state = uniseg.FirstGraphemeClusterInString(b, state)
+			new.WriteString(t)
+		}
+
+	case Word:
+		for i := 0; i < n; i++ {
+			t, b, state = uniseg.FirstWordInString(b, state)
+			for b[0] == ' ' {
+				new.WriteString(t)
+				t, b, state = uniseg.FirstWordInString(b, state)
+			}
+			new.WriteString(t)
+		}
+
+	default: // scope == Sent by exclusion
+		for i := 0; i < n; i++ {
+			t, b, state = uniseg.FirstSentenceInString(b, state)
+			new.WriteString(t)
+		}
+
+		initialCap = true
+	}
+
+	t = new.String()
+	doc.SetText(cursor[Para], t+after.String())
+	clearCache(cursor[Para])
+	cursor[Char] = uniseg.GraphemeClusterCount(t)
 }

@@ -11,16 +11,18 @@ import (
 const version = "0"
 
 var dispatch = map[tea.KeyType]func(){
-	tea.KeyUp:    edits.IncScope,
-	tea.KeyDown:  edits.DecScope,
-	tea.KeyEnter: edits.Enter,
-	tea.KeySpace: edits.Space,
-	tea.KeyLeft:  edits.Left,
-	tea.KeyRight: edits.Right,
-	tea.KeyHome:  edits.Home,
-	tea.KeyCtrlU: edits.Home,
-	tea.KeyEnd:   edits.End,
-	tea.KeyCtrlD: edits.End,
+	tea.KeyUp:        edits.IncScope,
+	tea.KeyDown:      edits.DecScope,
+	tea.KeyEnter:     edits.Enter,
+	tea.KeySpace:     edits.Space,
+	tea.KeyLeft:      edits.Left,
+	tea.KeyRight:     edits.Right,
+	tea.KeyHome:      edits.Home,
+	tea.KeyCtrlU:     edits.Home,
+	tea.KeyEnd:       edits.End,
+	tea.KeyCtrlD:     edits.End,
+	tea.KeyBackspace: edits.Backspace,
+	tea.KeyCtrlH:     edits.Backspace,
 }
 
 var sx, sy int // screen dimensions
