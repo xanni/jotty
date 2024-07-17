@@ -256,17 +256,23 @@ func drawLine(pn int, c *int, source *[]byte, state *int) string {
 	return t.String()
 }
 
-// Draw one paragraph in the edit window
-func drawPara(pn int) {
-	// Reset sentence, word and character indexes for this paragraph
-	if pn > len(cache) {
-		cache = append(cache, para{})
-	}
+// Reset character, word and sentence indexes for a paragraph
+func clearCache(pn int) {
 	p := &cache[pn-1]
 	total[Char] -= p.chars
 	total[Word] -= len(p.cword)
 	total[Sent] -= len(p.csent)
 	*p = para{}
+
+}
+
+// Draw one paragraph in the edit window
+func drawPara(pn int) {
+	if pn <= len(cache) {
+		clearCache(pn)
+	} else {
+		cache = append(cache, para{})
+	}
 
 	if pn == cursor[Para] {
 		before.Reset()
@@ -284,6 +290,7 @@ func drawPara(pn int) {
 
 	var c int
 	state := -1
+	p := &cache[pn-1]
 	for {
 		p.text = append(p.text, drawLine(pn, &c, &source, &state))
 		if curs_line == -1 && (c > cursor[Char] || len(source) == 0) {

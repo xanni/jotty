@@ -181,3 +181,99 @@ func TestEnter(t *testing.T) {
 
 	doc.DeleteParagraph(2)
 }
+
+func TestBackspace(t *testing.T) {
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	Backspace()
+	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+
+	doc.CreateParagraph(2)
+	doc.SetText(2, "A")
+	cursor[Para] = 2
+	drawWindow()
+	Backspace()
+	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(t, "A", doc.GetText(1))
+
+	doc.CreateParagraph(2)
+	doc.SetText(2, "B")
+	cursor[Para] = 2
+	drawWindow()
+	Backspace()
+	assert.Equal(t, counts{1, 0, 0, 1}, cursor)
+	assert.Equal(t, "A B", doc.GetText(1))
+
+	doc.CreateParagraph(2)
+	cursor = counts{0, 0, 0, 2}
+	drawWindow()
+	Backspace()
+	assert.Equal(t, counts{3, 0, 0, 1}, cursor)
+	assert.Equal(t, "A B", doc.GetText(1))
+
+	doc.CreateParagraph(2)
+	defer doc.DeleteParagraph(2)
+	doc.SetText(2, "C D")
+	cursor = counts{1, 0, 0, 2}
+	scope = Para
+	drawWindow()
+	Backspace()
+	assert.Equal(t, counts{0, 1, 1, 2}, cursor)
+	assert.Equal(t, " D", doc.GetText(2))
+
+	cursor = counts{2, 0, 0, 1}
+	scope = Char
+	drawWindow()
+	Backspace()
+	assert.Equal(t, 1, cursor[Char])
+	assert.Equal(t, "AB", doc.GetText(1))
+
+	doc.SetText(1, "A B C D")
+	cursor[Char] = 5
+	scope = Word
+	drawWindow()
+	Backspace()
+	assert.Equal(t, 4, cursor[Char])
+	assert.Equal(t, "A B  D", doc.GetText(1))
+
+	doc.SetText(1, "A B C D")
+	cursor[Char] = 6
+	scope = Word
+	drawWindow()
+	Backspace()
+	assert.Equal(t, 4, cursor[Char])
+	assert.Equal(t, "A B D", doc.GetText(1))
+
+	doc.SetText(1, "A B C ")
+	cursor[Char] = 6
+	scope = Word
+	drawWindow()
+	Backspace()
+	assert.Equal(t, 4, cursor[Char])
+	assert.Equal(t, "A B ", doc.GetText(1))
+
+	doc.SetText(1, "A. B? C! D")
+	cursor[Char] = 8
+	scope = Sent
+	drawWindow()
+	Backspace()
+	assert.Equal(t, 6, cursor[Char])
+	assert.Equal(t, "A. B?  D", doc.GetText(1))
+
+	doc.SetText(1, "A. B? C! D")
+	cursor[Char] = 9
+	scope = Sent
+	drawWindow()
+	Backspace()
+	assert.Equal(t, 6, cursor[Char])
+	assert.Equal(t, "A. B? D", doc.GetText(1))
+
+	doc.SetText(1, "A. B? C! ")
+	cursor[Char] = 9
+	scope = Sent
+	drawWindow()
+	Backspace()
+	assert.Equal(t, 6, cursor[Char])
+	assert.Equal(t, "A. B? ", doc.GetText(1))
+}
