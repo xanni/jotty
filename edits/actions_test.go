@@ -106,60 +106,48 @@ func TestIncScope(t *testing.T) {
 func TestSpace(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
-	drawWindow()
 
-	scope = Char
-	Space()
-	assert.Equal(t, "", doc.GetText(1))
-	assert.Equal(t, Char, scope)
+	tests := map[string]struct {
+		text       string
+		cursor     int
+		scope      Scope
+		expect     string
+		newScope   Scope
+		initialCap bool
+	}{
+		"Char new paragraph":  {"", 0, Char, "", Char, false},
+		"Char end of word":    {"Test", 4, Char, "Test ", Word, false},
+		"Char after period":   {"Test.", 5, Char, "Test. ", Sent, true},
+		"Char after sentence": {"Test. ", 6, Char, "Test. ", Word, false},
+		"Word end of word":    {"Test", 4, Word, "Test ", Sent, false},
+		"Word after space":    {"Test ", 5, Word, "Test. ", Sent, true},
+		"Word after sentence": {"Test. ", 6, Word, "Test. ", Sent, true},
+	}
 
-	doc.SetText(1, "Test")
-	cursor[Char] = 4
-	drawWindow()
-	Space()
-	assert.Equal(t, "Test ", doc.GetText(1))
-	assert.Equal(t, Word, scope)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			doc.SetText(1, test.text)
+			cursor[Char] = test.cursor
+			initialCap = false
+			scope = test.scope
 
-	drawWindow()
-	Space()
-	assert.Equal(t, "Test. ", doc.GetText(1))
-	assert.Equal(t, Sent, scope)
-	assert.True(t, initialCap)
+			drawWindow()
+			Space()
 
-	scope = Char
-	Space()
-	assert.Equal(t, "Test. ", doc.GetText(1))
-	assert.Equal(t, Word, scope)
-	assert.False(t, initialCap)
-
-	doc.SetText(1, "Test.")
-	cursor[Char] = 5
-	drawWindow()
-	scope = Char
-	Space()
-	assert.Equal(t, "Test. ", doc.GetText(1))
-	assert.Equal(t, Sent, scope)
-	assert.True(t, initialCap)
-
-	drawWindow()
-	scope = Word
-	Space()
-	assert.Equal(t, "Test. ", doc.GetText(1))
-	assert.Equal(t, Sent, scope)
-	assert.True(t, initialCap)
+			assert.Equal(t, test.expect, doc.GetText(1), "text")
+			assert.Equal(t, test.newScope, scope, "scope")
+			assert.Equal(t, test.initialCap, initialCap, "initialCap")
+		})
+	}
 
 	doc.SetText(1, "Test")
 	cursor[Char] = 4
-	drawWindow()
-	scope = Word
-	Space()
-	assert.Equal(t, "Test ", doc.GetText(1))
-	assert.Equal(t, Sent, scope)
-	assert.False(t, initialCap)
-
+	scope = Sent
 	ResizeScreen(margin+4, 3)
+
 	drawWindow()
 	Space()
+
 	assert.Equal(t, "Test", doc.GetText(1))
 	assert.Equal(t, 2, doc.Paragraphs())
 	assert.Equal(t, Para, scope)
@@ -182,35 +170,42 @@ func TestEnter(t *testing.T) {
 	doc.DeleteParagraph(2)
 }
 
-func TestBackspace(t *testing.T) {
+func TestBackspaceMerge(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
 	Backspace()
 	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
 
-	doc.CreateParagraph(2)
-	doc.SetText(2, "A")
-	cursor[Para] = 2
-	drawWindow()
-	Backspace()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
-	assert.Equal(t, "A", doc.GetText(1))
+	tests := map[string]struct {
+		p1, p2    string
+		expect    string
+		newCursor int
+	}{
+		"Empty previous": {"", "A", "A", 0},
+		"Text in both":   {"A", "B", "A B", 1},
+		"Empty current":  {"A B", "", "A B", 3},
+	}
 
-	doc.CreateParagraph(2)
-	doc.SetText(2, "B")
-	cursor[Para] = 2
-	drawWindow()
-	Backspace()
-	assert.Equal(t, counts{1, 0, 0, 1}, cursor)
-	assert.Equal(t, "A B", doc.GetText(1))
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			doc.CreateParagraph(2)
+			doc.SetText(1, test.p1)
+			doc.SetText(2, test.p2)
+			cursor = counts{0, 0, 0, 2}
 
-	doc.CreateParagraph(2)
-	cursor = counts{0, 0, 0, 2}
-	drawWindow()
-	Backspace()
-	assert.Equal(t, counts{3, 0, 0, 1}, cursor)
-	assert.Equal(t, "A B", doc.GetText(1))
+			drawWindow()
+			Backspace()
+
+			assert.Equal(t, test.expect, doc.GetText(1), "text")
+			assert.Equal(t, test.newCursor, cursor[Char], "cursor")
+		})
+	}
+}
+
+func TestBackspace(t *testing.T) {
+	setupTest()
+	ResizeScreen(margin+4, 3)
 
 	doc.CreateParagraph(2)
 	defer doc.DeleteParagraph(2)
@@ -222,58 +217,34 @@ func TestBackspace(t *testing.T) {
 	assert.Equal(t, counts{0, 1, 1, 2}, cursor)
 	assert.Equal(t, " D", doc.GetText(2))
 
-	cursor = counts{2, 0, 0, 1}
-	scope = Char
-	drawWindow()
-	Backspace()
-	assert.Equal(t, 1, cursor[Char])
-	assert.Equal(t, "AB", doc.GetText(1))
+	tests := map[string]struct {
+		text      string
+		cursor    int
+		scope     Scope
+		expect    string
+		newCursor int
+	}{
+		"Char":                  {"A B", 2, Char, "AB", 1},
+		"Word without space":    {"A B C", 3, Word, "A  C", 2},
+		"Word":                  {"A B C", 4, Word, "A C", 2},
+		"Word at paragraph end": {"A B C ", 6, Word, "A B ", 4},
+		"Sent without space":    {"A. B? C!", 5, Sent, "A.  C!", 3},
+		"Sent":                  {"A. B? C!", 6, Sent, "A. C!", 3},
+		"Sent at paragraph end": {"A. B? C! ", 9, Sent, "A. B? ", 6},
+	}
 
-	doc.SetText(1, "A B C D")
-	cursor[Char] = 5
-	scope = Word
-	drawWindow()
-	Backspace()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, "A B  D", doc.GetText(1))
+	cursor[Para] = 1
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			doc.SetText(1, test.text)
+			cursor[Char] = test.cursor
+			scope = test.scope
 
-	doc.SetText(1, "A B C D")
-	cursor[Char] = 6
-	scope = Word
-	drawWindow()
-	Backspace()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, "A B D", doc.GetText(1))
+			drawWindow()
+			Backspace()
 
-	doc.SetText(1, "A B C ")
-	cursor[Char] = 6
-	scope = Word
-	drawWindow()
-	Backspace()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, "A B ", doc.GetText(1))
-
-	doc.SetText(1, "A. B? C! D")
-	cursor[Char] = 8
-	scope = Sent
-	drawWindow()
-	Backspace()
-	assert.Equal(t, 6, cursor[Char])
-	assert.Equal(t, "A. B?  D", doc.GetText(1))
-
-	doc.SetText(1, "A. B? C! D")
-	cursor[Char] = 9
-	scope = Sent
-	drawWindow()
-	Backspace()
-	assert.Equal(t, 6, cursor[Char])
-	assert.Equal(t, "A. B? D", doc.GetText(1))
-
-	doc.SetText(1, "A. B? C! ")
-	cursor[Char] = 9
-	scope = Sent
-	drawWindow()
-	Backspace()
-	assert.Equal(t, 6, cursor[Char])
-	assert.Equal(t, "A. B? ", doc.GetText(1))
+			assert.Equal(t, test.expect, doc.GetText(1), "text")
+			assert.Equal(t, test.newCursor, cursor[Char], "cursor")
+		})
+	}
 }
