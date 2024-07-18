@@ -32,7 +32,7 @@ func insertParaBreak() {
 	scope = Para
 }
 
-// Insert runes into the document
+// Insert runes into the document.
 func InsertRunes(runes []rune) {
 	if initialCap && unicode.IsLower(runes[0]) {
 		runes[0] = unicode.ToUpper(runes[0])
@@ -74,6 +74,7 @@ func IncScope() {
 func Space() {
 	if scope >= Sent {
 		insertParaBreak()
+
 		return
 	}
 
@@ -129,7 +130,7 @@ func mergePrevPara() {
 	clearCache(pn)
 	cache = slices.Delete(cache, pn-1, pn)
 	pn--
-	curs_para, cursor[Para] = pn, pn
+	cursPara, cursor[Para] = pn, pn
 	cursor[Char] = cache[pn-1].chars
 
 	if after.Len() > 0 {
@@ -143,6 +144,7 @@ func mergePrevPara() {
 func Backspace() {
 	if cursor[Char] == 0 {
 		mergePrevPara()
+
 		return
 	}
 
@@ -151,6 +153,7 @@ func Backspace() {
 		clearCache(cursor[Para])
 		cursor[Char] = 0
 		initialCap = true
+
 		return
 	}
 
@@ -161,35 +164,35 @@ func Backspace() {
 	}
 
 	var t string
-	var new strings.Builder
+	var s strings.Builder
 	state := -1
 	switch scope {
 	case Char:
-		for i := 0; i < n; i++ {
+		for range n {
 			t, b, _, state = uniseg.FirstGraphemeClusterInString(b, state)
-			new.WriteString(t)
+			s.WriteString(t)
 		}
 
 	case Word:
-		for i := 0; i < n; i++ {
+		for range n {
 			t, b, state = uniseg.FirstWordInString(b, state)
 			for b[0] == ' ' {
-				new.WriteString(t)
+				s.WriteString(t)
 				t, b, state = uniseg.FirstWordInString(b, state)
 			}
-			new.WriteString(t)
+			s.WriteString(t)
 		}
 
 	default: // scope == Sent by exclusion
-		for i := 0; i < n; i++ {
+		for range n {
 			t, b, state = uniseg.FirstSentenceInString(b, state)
-			new.WriteString(t)
+			s.WriteString(t)
 		}
 
 		initialCap = true
 	}
 
-	t = new.String()
+	t = s.String()
 	doc.SetText(cursor[Para], t+after.String())
 	clearCache(cursor[Para])
 	cursor[Char] = uniseg.GraphemeClusterCount(t)

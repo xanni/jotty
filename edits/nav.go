@@ -21,10 +21,12 @@ sequentially, but for simplicity and performance we cache the character indexes
 of the words and sentences in the current paragraph.
 */
 
-var ocursor counts // Original cursor position
-var total = counts{0, 0, 0, 1}
+var (
+	ocursor counts // Original cursor position
+	total   = counts{0, 0, 0, 1}
+)
 
-// Last word in the paragraph
+// Last word in the paragraph.
 func lastWord(pn int) (c int) {
 	cword := cache[pn-1].cword
 	if len(cword) > 0 {
@@ -34,7 +36,7 @@ func lastWord(pn int) (c int) {
 	return c
 }
 
-// Last sentence in the paragraph
+// Last sentence in the paragraph.
 func lastSentence(pn int) (c int) {
 	csent := cache[pn-1].csent
 	if len(csent) > 0 {
@@ -44,10 +46,10 @@ func lastSentence(pn int) (c int) {
 	return c
 }
 
-// Characters in the paragraph
+// Characters in the paragraph.
 func paragraphChars(pn int) int { return cache[pn-1].chars }
 
-// Find the current word and sentence in the index
+// Find the current word and sentence in the index.
 func updateCursorPos() {
 	p := cache[cursor[Para]-1]
 	cursor[Word], _ = slices.BinarySearch[[]int](p.cword, cursor[Char])

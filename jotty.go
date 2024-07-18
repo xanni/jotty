@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"git.sericyb.com.au/jotty/edits"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,19 +28,19 @@ var sx, sy int // screen dimensions
 
 type model struct{}
 
-// True if the window is sufficiently large
+// True if the window is sufficiently large.
 func isSizeOK() bool {
 	return sx > 5 && sy > 2
 }
 
 func (m model) Init() tea.Cmd {
 	edits.ID = "Jotty v" + version
+
 	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
 	case tea.WindowSizeMsg:
 		sx, sy = msg.Width, msg.Height
 		edits.ResizeScreen(msg.Width, msg.Height)
@@ -65,6 +64,7 @@ func (m model) View() (s string) {
 	if isSizeOK() {
 		s = edits.Screen()
 	}
+
 	return s
 }
 
@@ -73,6 +73,5 @@ func main() {
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("%+v", err)
-		os.Exit(1)
 	}
 }
