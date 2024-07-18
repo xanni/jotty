@@ -16,7 +16,7 @@ func resetCache() {
 func setupTest() {
 	ID = "J"
 	cursor = counts{Para: 1}
-	first_para, first_line = 0, 0
+	firstPara, firstLine = 0, 0
 	initialCap = false
 	scope = Char
 	doc.SetText(1, "")
@@ -157,13 +157,13 @@ func TestDrawPara(t *testing.T) {
 	cursor[Char] = 4
 	drawPara(1)
 	assert.Equal(t, para{4, []int{0}, []int{0}, []string{"Test_"}}, cache[0])
-	assert.Equal(t, 0, curs_line)
+	assert.Equal(t, 0, cursLine)
 	assert.Equal(t, counts{4, 1, 1, 1}, total)
 
 	doc.SetText(1, "One two")
 	drawPara(1)
 	assert.Equal(t, para{7, []int{0, 3}, []int{0}, []string{"One ", "_two"}}, cache[0])
-	assert.Equal(t, 1, curs_line)
+	assert.Equal(t, 1, cursLine)
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	cursor[Char] = 0
@@ -183,7 +183,7 @@ func TestDrawWindow(t *testing.T) {
 	doc.SetText(1, "")
 	drawWindow()
 	assert.Equal(t, []para{{text: []string{"_"}}}, cache)
-	assert.Equal(t, 1, curs_para)
+	assert.Equal(t, 1, cursPara)
 
 	doc.CreateParagraph(2)
 	defer doc.DeleteParagraph(2)
@@ -217,11 +217,11 @@ func TestDrawWindow(t *testing.T) {
 	assert.Equal(t, expect, cache)
 
 	drawWindow()
-	assert.Equal(t, 1, curs_para)
+	assert.Equal(t, 1, cursPara)
 
-	first_line = 1
+	firstLine = 1
 	drawWindow()
-	assert.Equal(t, 0, first_line)
+	assert.Equal(t, 0, firstLine)
 
 	ResizeScreen(margin+4, 12)
 	drawWindow()
