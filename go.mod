@@ -6,7 +6,7 @@ require (
 	github.com/charmbracelet/bubbletea v0.26.6
 	github.com/muesli/termenv v0.15.2
 	github.com/rivo/uniseg v0.4.7
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 )
 
 require (
