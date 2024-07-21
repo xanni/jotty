@@ -131,14 +131,33 @@ func mergePrevPara() {
 	cache = slices.Delete(cache, pn-1, pn)
 	pn--
 	cursPara, cursor[Para] = pn, pn
-	cursor[Char] = cache[pn-1].chars
+	cursor[Char] = len(doc.GetText(pn))
 
 	if after.Len() > 0 {
-		if len(doc.GetText(pn)) > 0 {
+		if cursor[Char] > 0 {
 			doc.AppendText(pn, " ")
 		}
 		doc.AppendText(pn, after.String())
 	}
+}
+
+func mergeNextPara() {
+	pn := cursor[Para]
+	if pn >= doc.Paragraphs() {
+		return
+	}
+
+	t := doc.GetText(pn + 1)
+	if len(t) > 0 {
+		if before.Len() > 0 {
+			doc.AppendText(pn, " ")
+		}
+		doc.AppendText(pn, t)
+	}
+
+	doc.DeleteParagraph(pn + 1)
+	clearCache(pn + 1)
+	cache = slices.Delete(cache, pn, pn+1)
 }
 
 func Backspace() {
@@ -150,7 +169,6 @@ func Backspace() {
 
 	if scope == Para {
 		doc.SetText(cursor[Para], after.String())
-		clearCache(cursor[Para])
 		cursor[Char] = 0
 		initialCap = true
 
@@ -159,9 +177,6 @@ func Backspace() {
 
 	b := before.String()
 	n := cursor[scope] - 1 // Number of scope units to keep
-	if scope > Char && cursor[Char] < cache[cursor[Para]-1].chars && b[len(b)-1] == ' ' {
-		n-- // Delete spaces between words and sentences with the preceding word or sentence
-	}
 
 	var t string
 	var s strings.Builder
@@ -176,7 +191,7 @@ func Backspace() {
 	case Word:
 		for range n {
 			t, b, state = uniseg.FirstWordInString(b, state)
-			for b[0] == ' ' {
+			for len(b) > 0 && !isAlphanumeric([]byte(b)) {
 				s.WriteString(t)
 				t, b, state = uniseg.FirstWordInString(b, state)
 			}
@@ -194,6 +209,29 @@ func Backspace() {
 
 	t = s.String()
 	doc.SetText(cursor[Para], t+after.String())
-	clearCache(cursor[Para])
 	cursor[Char] = uniseg.GraphemeClusterCount(t)
+}
+
+func Delete() {
+	if cursor[Char] == cache[cursor[Para]-1].chars {
+		mergeNextPara()
+
+		return
+	}
+
+	var t string
+
+	switch scope {
+	case Char:
+		_, t, _, _ = uniseg.FirstGraphemeClusterInString(after.String(), -1)
+	case Word:
+		t = strings.TrimLeft(after.String(), " ")
+		_, t, _ = uniseg.FirstWordInString(t, -1)
+		t = strings.TrimLeft(t, " ")
+	case Sent:
+		_, t, _ = uniseg.FirstSentenceInString(after.String(), -1)
+	default: // scope == Para by exclusion; keep t as empty string
+	}
+
+	doc.SetText(cursor[Para], before.String()+t)
 }

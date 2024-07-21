@@ -208,6 +208,12 @@ func TestBackspace(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
+	before.Reset()
+	cursor = counts{1, 2, 1, 1}
+	scope = Word
+	Backspace()
+	assert.Equal(t, 0, cursor[Char])
+
 	doc.CreateParagraph(2)
 	defer doc.DeleteParagraph(2)
 	doc.SetText(2, "C D")
@@ -246,6 +252,72 @@ func TestBackspace(t *testing.T) {
 
 			assert.Equal(t, test.expect, doc.GetText(1), "text")
 			assert.Equal(t, test.newCursor, cursor[Char], "cursor")
+		})
+	}
+}
+
+func TestDeleteMerge(t *testing.T) {
+	setupTest()
+	ResizeScreen(margin+4, 3)
+	drawWindow()
+
+	Delete()
+	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+
+	tests := map[string]struct {
+		p1, p2    string
+		expect    string
+		newCursor int
+	}{
+		"Empty next":    {"A", "", "A", 1},
+		"Text in both":  {"A", "B", "A B", 1},
+		"Empty current": {"", "A B", "A B", 0},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			doc.CreateParagraph(2)
+			doc.SetText(1, test.p1)
+			doc.SetText(2, test.p2)
+			cursor = counts{0, 0, 0, 2}
+			drawWindow()
+			cursor = counts{len(test.p1), 0, 0, 1}
+
+			drawWindow()
+			Delete()
+
+			assert.Equal(t, test.expect, doc.GetText(1), "text")
+			assert.Equal(t, test.newCursor, cursor[Char], "cursor")
+		})
+	}
+}
+
+func TestDelete(t *testing.T) {
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	tests := map[string]struct {
+		text   string
+		cursor int
+		scope  Scope
+		expect string
+	}{
+		"Char": {"A B", 1, Char, "AB"},
+		"Word": {"A  B  C", 1, Word, "AC"},
+		"Sent": {"A.  B?  C!", 2, Sent, "A.C!"},
+		"Para": {"A B", 1, Para, "A"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			doc.SetText(1, test.text)
+			cursor[Char] = test.cursor
+			scope = test.scope
+
+			drawWindow()
+			Delete()
+
+			assert.Equal(t, test.expect, doc.GetText(1), "text")
 		})
 	}
 }

@@ -113,7 +113,7 @@ func TestDrawLine(t *testing.T) {
 	source = []byte(". Test")
 	state = -1
 	assert.Equal(t, ". ", drawLine(1, &c, &source, &state))
-	assert.Equal(t, 1, lastSentence(1))
+	assert.Equal(t, 2, lastSentence(1))
 
 	c = 0
 	source = []byte("1\n2")
@@ -162,13 +162,13 @@ func TestDrawPara(t *testing.T) {
 
 	doc.SetText(1, "One two")
 	drawPara(1)
-	assert.Equal(t, para{7, []int{0, 3}, []int{0}, []string{"One ", "_two"}}, cache[0])
+	assert.Equal(t, para{7, []int{0, 4}, []int{0}, []string{"One ", "_two"}}, cache[0])
 	assert.Equal(t, 1, cursLine)
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	cursor[Char] = 0
 	drawPara(1)
-	assert.Equal(t, para{7, []int{0, 3}, []int{0}, []string{"_One ", "two"}}, cache[0])
+	assert.Equal(t, para{7, []int{0, 4}, []int{0}, []string{"_One ", "two"}}, cache[0])
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
 	doc.CreateParagraph(2)

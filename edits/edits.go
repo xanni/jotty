@@ -240,19 +240,19 @@ func drawLine(pn int, c *int, source *[]byte, state *int) string {
 			}
 		}
 
+		w = f >> uniseg.ShiftWidth
+		if w > 0 {
+			*c++
+			t.Write(g)
+			x += w
+		}
+
 		if f&uniseg.MaskWord != 0 && isAlphanumeric(*source) {
 			indexWord(pn, *c)
 		}
 
 		if f&uniseg.MaskSentence != 0 && len(*source) > 0 {
 			indexSent(pn, *c)
-		}
-
-		w = f >> uniseg.ShiftWidth
-		if w > 0 {
-			*c++
-			t.Write(g)
-			x += w
 		}
 	}
 
