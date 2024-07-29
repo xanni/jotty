@@ -190,9 +190,8 @@ func TestBackspaceMerge(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			doc.CreateParagraph(2)
+			doc.CreateParagraph(2, test.p2)
 			doc.SetText(1, test.p1)
-			doc.SetText(2, test.p2)
 			cursor = counts{0, 0, 0, 2}
 
 			drawWindow()
@@ -214,9 +213,8 @@ func TestBackspace(t *testing.T) {
 	Backspace()
 	assert.Equal(t, 0, cursor[Char])
 
-	doc.CreateParagraph(2)
+	doc.CreateParagraph(2, "C D")
 	defer doc.DeleteParagraph(2)
-	doc.SetText(2, "C D")
 	cursor = counts{1, 0, 0, 2}
 	scope = Para
 	drawWindow()
@@ -276,9 +274,8 @@ func TestDeleteMerge(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			doc.CreateParagraph(2)
+			doc.CreateParagraph(2, test.p2)
 			doc.SetText(1, test.p1)
-			doc.SetText(2, test.p2)
 			cursor = counts{0, 0, 0, 2}
 			drawWindow()
 			cursor = counts{len(test.p1), 0, 0, 1}

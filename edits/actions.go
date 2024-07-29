@@ -15,17 +15,15 @@ import (
 func insertParaBreak() {
 	pn := cursor[Para]
 	t := before.String()
-	i := len(t) - 1
-	if i >= 0 && t[i] == ' ' {
-		doc.SetText(pn, t[:i])
-	} else {
-		doc.SetText(pn, t)
+	i := len(t)
+	for i > 0 && t[i-1] == ' ' {
+		i-- // Trim spaces before cursor
 	}
+	doc.DeleteText(pn, i, before.Len()+after.Len())
 
 	pn++
 	cursor = counts{0, 0, 0, pn}
-	doc.CreateParagraph(pn)
-	doc.SetText(pn, after.String())
+	doc.CreateParagraph(pn, after.String())
 	cache = slices.Insert[[]para](cache, pn-1, para{})
 	initialCap = true
 	ocursor = counts{}
@@ -42,7 +40,7 @@ func InsertRunes(runes []rune) {
 	if cursor[Char] >= cache[cursor[Para]-1].chars {
 		doc.AppendText(cursor[Para], t)
 	} else {
-		doc.SetText(cursor[Para], before.String()+t+after.String())
+		doc.InsertText(cursor[Para], before.Len(), t)
 	}
 	cursor[Char] += uniseg.GraphemeClusterCount(t)
 	initialCap = false
@@ -108,8 +106,7 @@ func Space() {
 		initialCap = true
 		lr, _ := utf8.DecodeLastRune(t[:i])       // Last rune before the space
 		if unicode.In(lr, unicode.L, unicode.N) { // Alphanumeric
-			t = slices.Insert(t, i, '.')
-			doc.SetText(cursor[Para], string(t)+after.String())
+			doc.InsertText(cursor[Para], i, ".")
 			cursor[Char]++
 			ocursor = counts{}
 		}
@@ -168,7 +165,7 @@ func Backspace() {
 	}
 
 	if scope == Para {
-		doc.SetText(cursor[Para], after.String())
+		doc.DeleteText(cursor[Para], 0, before.Len())
 		cursor[Char] = 0
 		initialCap = true
 
@@ -207,9 +204,8 @@ func Backspace() {
 		initialCap = true
 	}
 
-	t = s.String()
-	doc.SetText(cursor[Para], t+after.String())
-	cursor[Char] = uniseg.GraphemeClusterCount(t)
+	doc.DeleteText(cursor[Para], s.Len(), before.Len())
+	cursor[Char] = uniseg.GraphemeClusterCount(s.String())
 }
 
 func Delete() {
@@ -233,5 +229,5 @@ func Delete() {
 	default: // scope == Para by exclusion; keep t as empty string
 	}
 
-	doc.SetText(cursor[Para], before.String()+t)
+	doc.DeleteText(cursor[Para], before.Len(), before.Len()+after.Len()-len(t))
 }

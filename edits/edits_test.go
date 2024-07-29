@@ -95,8 +95,8 @@ func TestDrawLine(t *testing.T) {
 
 	source = []byte("1\xff2")
 	state = -1
-	assert.Equal(t, "_12", drawLine(1, &c, &source, &state))
-	assert.Equal(t, 2, c)
+	assert.Equal(t, "_1\xff2", drawLine(1, &c, &source, &state))
+	assert.Equal(t, 3, c)
 
 	source = []byte("Test")
 	state = -1
@@ -171,7 +171,7 @@ func TestDrawPara(t *testing.T) {
 	assert.Equal(t, para{7, []int{0, 4}, []int{0}, []string{"_One ", "two"}}, cache[0])
 	assert.Equal(t, counts{7, 2, 1, 1}, total)
 
-	doc.CreateParagraph(2)
+	doc.CreateParagraph(2, "")
 	defer doc.DeleteParagraph(2)
 	drawPara(2)
 	assert.Equal(t, para{text: []string{""}}, cache[1])
@@ -185,9 +185,8 @@ func TestDrawWindow(t *testing.T) {
 	assert.Equal(t, []para{{text: []string{"_"}}}, cache)
 	assert.Equal(t, 1, cursPara)
 
-	doc.CreateParagraph(2)
+	doc.CreateParagraph(2, "Test")
 	defer doc.DeleteParagraph(2)
-	doc.SetText(2, "Test")
 	cursor = counts{4, 0, 0, 2}
 	drawWindow()
 	expect := []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"Test_"}}}
@@ -229,7 +228,7 @@ func TestDrawWindow(t *testing.T) {
 	assert.Equal(t, expect, cache)
 
 	cache = slices.Delete(cache, 2, 3)
-	doc.CreateParagraph(4)
+	doc.CreateParagraph(4, "")
 	defer doc.DeleteParagraph(4)
 	cursor[Para] = 4
 	drawWindow()
@@ -243,7 +242,7 @@ func TestScreen(t *testing.T) {
 	doc.SetText(1, "")
 	assert.Equal(t, "_\n\n\n\n@0/0", Screen())
 
-	doc.CreateParagraph(2)
+	doc.CreateParagraph(2, "")
 	defer doc.DeleteParagraph(2)
 	cursor[Para] = 2
 	assert.Equal(t, "\n\n_\n\n@0/0", Screen())
@@ -251,7 +250,7 @@ func TestScreen(t *testing.T) {
 	cursor[Para] = 1
 	assert.Equal(t, "_\n\n\n\n@0/0", Screen())
 
-	doc.CreateParagraph(3)
+	doc.CreateParagraph(3, "")
 	defer doc.DeleteParagraph(3)
 	cursor[Para] = 3
 	assert.Equal(t, "\n\n\n_\n@0/0", Screen())

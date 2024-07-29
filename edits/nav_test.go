@@ -7,14 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setNewParagraph(pn int, t string) {
-	doc.CreateParagraph(pn)
-	doc.SetText(pn, t)
-}
-
 func TestLeftChar(t *testing.T) {
 	doc.SetText(1, "One")
-	setNewParagraph(2, "Two")
+	doc.CreateParagraph(2, "Two")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{chars: 3}, {chars: 3}}
 	cursor = counts{1, 0, 0, 2}
@@ -32,7 +27,7 @@ func TestLeftChar(t *testing.T) {
 
 func TestRightChar(t *testing.T) {
 	doc.SetText(1, "One")
-	setNewParagraph(2, "Two")
+	doc.CreateParagraph(2, "Two")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{chars: 3}, {chars: 3}}
 	cursor = counts{2, 0, 0, 1}
@@ -50,9 +45,9 @@ func TestRightChar(t *testing.T) {
 
 func TestLeftWord(t *testing.T) {
 	doc.SetText(1, "1 23")
-	doc.CreateParagraph(2)
+	doc.CreateParagraph(2, "")
 	defer doc.DeleteParagraph(2)
-	setNewParagraph(3, "4")
+	doc.CreateParagraph(3, "4")
 	defer doc.DeleteParagraph(3)
 	cache = []para{{chars: 4, cword: []int{0, 2}}, {}, {chars: 1, cword: []int{0}}}
 	cursor = counts{1, 1, 1, 3}
@@ -92,7 +87,7 @@ func TestLeftWord(t *testing.T) {
 
 func TestRightWord(t *testing.T) {
 	doc.SetText(1, "1")
-	setNewParagraph(2, "23 4")
+	doc.CreateParagraph(2, "23 4")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{chars: 1, cword: []int{0}}, {chars: 4, cword: []int{0, 3}}}
 	cursor = counts{0, 0, 0, 1}
@@ -131,9 +126,9 @@ func TestRightWord(t *testing.T) {
 
 func TestLeftSent(t *testing.T) {
 	doc.SetText(1, "1. 23")
-	doc.CreateParagraph(2)
+	doc.CreateParagraph(2, "")
 	defer doc.DeleteParagraph(2)
-	setNewParagraph(3, "4")
+	doc.CreateParagraph(3, "4")
 	defer doc.DeleteParagraph(3)
 	cache = []para{{chars: 5, csent: []int{0, 3}}, {}, {chars: 1, csent: []int{0}}}
 	cursor = counts{1, 1, 1, 3}
@@ -168,7 +163,7 @@ func TestLeftSent(t *testing.T) {
 
 func TestRightSent(t *testing.T) {
 	doc.SetText(1, "1")
-	setNewParagraph(2, "23. 4")
+	doc.CreateParagraph(2, "23. 4")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{chars: 1, csent: []int{0}}, {chars: 5, csent: []int{0, 4}}}
 	cursor = counts{0, 0, 0, 1}
@@ -207,7 +202,7 @@ func TestRightSent(t *testing.T) {
 
 func TestLeftPara(t *testing.T) {
 	doc.SetText(1, "1")
-	setNewParagraph(2, "23")
+	doc.CreateParagraph(2, "23")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{chars: 1}, {chars: 2}}
 	cursor = counts{1, 0, 0, 2}
@@ -228,7 +223,7 @@ func TestLeftPara(t *testing.T) {
 
 func TestRightPara(t *testing.T) {
 	doc.SetText(1, "1")
-	setNewParagraph(2, "23")
+	doc.CreateParagraph(2, "23")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{chars: 1}, {chars: 2}}
 	cursor = counts{0, 0, 0, 1}
@@ -250,7 +245,7 @@ func TestRightPara(t *testing.T) {
 func TestLeft(t *testing.T) {
 	ResizeScreen(margin+7, 4)
 	doc.SetText(1, "1")
-	setNewParagraph(2, "2. 3 45")
+	doc.CreateParagraph(2, "2. 3 45")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{1, []int{0}, []int{0}, nil}, {1, []int{0, 3, 5}, []int{0, 3}, nil}}
 	cursor = counts{7, 3, 2, 2}
@@ -283,7 +278,7 @@ func TestLeft(t *testing.T) {
 func TestRight(t *testing.T) {
 	ResizeScreen(margin+9, 5)
 	doc.SetText(1, "12 3. 4")
-	setNewParagraph(2, "5")
+	doc.CreateParagraph(2, "5")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{7, []int{0, 3, 6}, []int{0, 6}, nil}, {1, []int{0}, []int{0}, nil}}
 	cursor = counts{0, 0, 0, 1}
@@ -311,7 +306,7 @@ func TestRight(t *testing.T) {
 
 func TestHome(t *testing.T) {
 	doc.SetText(1, "1")
-	setNewParagraph(2, "2")
+	doc.CreateParagraph(2, "2")
 	defer doc.DeleteParagraph(2)
 
 	ocursor = counts{}
@@ -349,7 +344,7 @@ func TestHome(t *testing.T) {
 func TestEnd(t *testing.T) {
 	ResizeScreen(margin+3, 4)
 	doc.SetText(1, "12")
-	setNewParagraph(2, "3")
+	doc.CreateParagraph(2, "3")
 	defer doc.DeleteParagraph(2)
 	cache = []para{{chars: 2}, {chars: 1}}
 

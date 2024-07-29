@@ -228,9 +228,6 @@ func drawLine(pn int, c *int, source *[]byte, state *int) string {
 		var g []byte // Grapheme cluster
 		g, *source, f, *state = uniseg.Step(*source, *state)
 		r, _ = utf8.DecodeRune(g)
-		if r == utf8.RuneError {
-			continue
-		}
 
 		if pn == cursor[Para] {
 			if *c < cursor[Char] {
