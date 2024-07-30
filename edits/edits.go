@@ -192,6 +192,15 @@ func nextSegWidth(source []byte) (width int) {
 	return width
 }
 
+// Helper function.
+func updateBeforeAndAfter(c int, g []byte) {
+	if c < cursor[Char] {
+		before.Write(g)
+	} else {
+		after.Write(g)
+	}
+}
+
 /*
 Draw one line in the edit window.  Word wraps at the end of the line.
 
@@ -230,11 +239,7 @@ func drawLine(pn int, c *int, source *[]byte, state *int) string {
 		r, _ = utf8.DecodeRune(g)
 
 		if pn == cursor[Para] {
-			if *c < cursor[Char] {
-				before.Write(g)
-			} else {
-				after.Write(g)
-			}
+			updateBeforeAndAfter(*c, g)
 		}
 
 		w = f >> uniseg.ShiftWidth

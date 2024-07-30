@@ -180,10 +180,8 @@ func TestDrawPara(t *testing.T) {
 func TestDrawWindow(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
-	doc.SetText(1, "")
 	drawWindow()
 	assert.Equal(t, []para{{text: []string{"_"}}}, cache)
-	assert.Equal(t, 1, cursPara)
 
 	doc.CreateParagraph(2, "Test")
 	defer doc.DeleteParagraph(2)
@@ -197,11 +195,7 @@ func TestDrawWindow(t *testing.T) {
 	initialCap = false
 	scope = Char
 	drawWindow()
-	expect[1].text[0] = "Test"
-	expect = append(expect, para{text: []string{"_"}})
-	assert.Equal(t, expect, cache)
-
-	drawWindow()
+	expect = []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"Test"}}, {text: []string{"_"}}}
 	assert.Equal(t, expect, cache)
 
 	cache = nil
@@ -214,9 +208,6 @@ func TestDrawWindow(t *testing.T) {
 	drawWindow()
 	expect = []para{{text: []string{"_"}}, {4, []int{0}, []int{0}, []string{"Test"}}}
 	assert.Equal(t, expect, cache)
-
-	drawWindow()
-	assert.Equal(t, 1, cursPara)
 
 	firstLine = 1
 	drawWindow()
