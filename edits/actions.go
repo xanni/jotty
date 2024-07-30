@@ -157,6 +157,52 @@ func mergeNextPara() {
 	cache = slices.Delete(cache, pn, pn+1)
 }
 
+// Extract the first n characters in s.
+func getChars(n int, s string) string {
+	var r strings.Builder // Result
+	state := -1
+
+	for range n {
+		var t string
+		t, s, _, state = uniseg.FirstGraphemeClusterInString(s, state)
+		r.WriteString(t)
+	}
+
+	return r.String()
+}
+
+// Extract the first n words in s.
+func getWords(n int, s string) string {
+	var r strings.Builder // Result
+	state := -1
+
+	for range n {
+		var t string
+		t, s, state = uniseg.FirstWordInString(s, state)
+		for len(s) > 0 && !isAlphanumeric([]byte(s)) {
+			r.WriteString(t)
+			t, s, state = uniseg.FirstWordInString(s, state)
+		}
+		r.WriteString(t)
+	}
+
+	return r.String()
+}
+
+// Extract the first n sentences in s.
+func getSents(n int, s string) string {
+	var r strings.Builder // Result
+	state := -1
+
+	for range n {
+		var t string
+		t, s, state = uniseg.FirstSentenceInString(s, state)
+		r.WriteString(t)
+	}
+
+	return r.String()
+}
+
 func Backspace() {
 	if cursor[Char] == 0 {
 		mergePrevPara()
@@ -175,37 +221,21 @@ func Backspace() {
 	b := before.String()
 	n := cursor[scope] - 1 // Number of scope units to keep
 
-	var t string
-	var s strings.Builder
-	state := -1
+	var s string
 	switch scope {
 	case Char:
-		for range n {
-			t, b, _, state = uniseg.FirstGraphemeClusterInString(b, state)
-			s.WriteString(t)
-		}
+		s = getChars(n, b)
 
 	case Word:
-		for range n {
-			t, b, state = uniseg.FirstWordInString(b, state)
-			for len(b) > 0 && !isAlphanumeric([]byte(b)) {
-				s.WriteString(t)
-				t, b, state = uniseg.FirstWordInString(b, state)
-			}
-			s.WriteString(t)
-		}
+		s = getWords(n, b)
 
 	default: // scope == Sent by exclusion
-		for range n {
-			t, b, state = uniseg.FirstSentenceInString(b, state)
-			s.WriteString(t)
-		}
-
+		s = getSents(n, b)
 		initialCap = true
 	}
 
-	doc.DeleteText(cursor[Para], s.Len(), before.Len())
-	cursor[Char] = uniseg.GraphemeClusterCount(s.String())
+	doc.DeleteText(cursor[Para], len(s), before.Len())
+	cursor[Char] = uniseg.GraphemeClusterCount(s)
 }
 
 func Delete() {
