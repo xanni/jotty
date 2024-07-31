@@ -8,6 +8,7 @@ import (
 )
 
 func TestLeftChar(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "One")
 	doc.CreateParagraph(2, "Two")
 	defer doc.DeleteParagraph(2)
@@ -15,17 +16,18 @@ func TestLeftChar(t *testing.T) {
 	cursor = counts{1, 0, 0, 2}
 
 	leftChar()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	leftChar()
-	assert.Equal(t, counts{3, 0, 0, 1}, cursor)
+	assert.Equal(counts{3, 0, 0, 1}, cursor)
 
 	cursor[Char] = 0
 	leftChar()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 }
 
 func TestRightChar(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "One")
 	doc.CreateParagraph(2, "Two")
 	defer doc.DeleteParagraph(2)
@@ -33,17 +35,18 @@ func TestRightChar(t *testing.T) {
 	cursor = counts{2, 0, 0, 1}
 
 	rightChar()
-	assert.Equal(t, counts{3, 0, 0, 1}, cursor)
+	assert.Equal(counts{3, 0, 0, 1}, cursor)
 
 	rightChar()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	cursor[Char] = 3
 	rightChar()
-	assert.Equal(t, counts{3, 0, 0, 2}, cursor)
+	assert.Equal(counts{3, 0, 0, 2}, cursor)
 }
 
 func TestLeftWord(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "1 23")
 	doc.CreateParagraph(2, "")
 	defer doc.DeleteParagraph(2)
@@ -54,38 +57,39 @@ func TestLeftWord(t *testing.T) {
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 3}, cursor)
+	assert.Equal(counts{0, 0, 0, 3}, cursor)
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{2, 1, 0, 1}, cursor)
+	assert.Equal(counts{2, 1, 0, 1}, cursor)
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	cursor = counts{4, 2, 1, 1}
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, 2, cursor[Char])
-	assert.Equal(t, 1, cursor[Word])
+	assert.Equal(2, cursor[Char])
+	assert.Equal(1, cursor[Word])
 
 	cursor = counts{3, 2, 1, 1}
 	leftWord()
 	updateCursorPos()
-	assert.Equal(t, 2, cursor[Char])
-	assert.Equal(t, 1, cursor[Word])
+	assert.Equal(2, cursor[Char])
+	assert.Equal(1, cursor[Word])
 }
 
 func TestRightWord(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "1")
 	doc.CreateParagraph(2, "23 4")
 	defer doc.DeleteParagraph(2)
@@ -98,33 +102,34 @@ func TestRightWord(t *testing.T) {
 
 	rightWord()
 	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Word])
+	assert.Equal(3, cursor[Char])
+	assert.Equal(1, cursor[Word])
 
 	rightWord()
 	updateCursorPos()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, 2, cursor[Word])
+	assert.Equal(4, cursor[Char])
+	assert.Equal(2, cursor[Word])
 
 	rightWord()
 	updateCursorPos()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, 2, cursor[Word])
+	assert.Equal(4, cursor[Char])
+	assert.Equal(2, cursor[Word])
 
 	cursor = counts{1, 1, 1, 2}
 	rightWord()
 	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Word])
+	assert.Equal(3, cursor[Char])
+	assert.Equal(1, cursor[Word])
 
 	cursor = counts{2, 1, 1, 2}
 	rightWord()
 	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Word])
+	assert.Equal(3, cursor[Char])
+	assert.Equal(1, cursor[Word])
 }
 
 func TestLeftSent(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "1. 23")
 	doc.CreateParagraph(2, "")
 	defer doc.DeleteParagraph(2)
@@ -135,33 +140,34 @@ func TestLeftSent(t *testing.T) {
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 3}, cursor)
+	assert.Equal(counts{0, 0, 0, 3}, cursor)
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Sent])
+	assert.Equal(3, cursor[Char])
+	assert.Equal(1, cursor[Sent])
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	cursor = counts{4, 2, 2, 1}
 	leftSent()
 	updateCursorPos()
-	assert.Equal(t, 3, cursor[Char])
-	assert.Equal(t, 1, cursor[Sent])
+	assert.Equal(3, cursor[Char])
+	assert.Equal(1, cursor[Sent])
 }
 
 func TestRightSent(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "1")
 	doc.CreateParagraph(2, "23. 4")
 	defer doc.DeleteParagraph(2)
@@ -170,37 +176,38 @@ func TestRightSent(t *testing.T) {
 
 	rightSent()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	rightSent()
 	updateCursorPos()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, 1, cursor[Sent])
+	assert.Equal(4, cursor[Char])
+	assert.Equal(1, cursor[Sent])
 
 	rightSent()
 	updateCursorPos()
-	assert.Equal(t, 5, cursor[Char])
-	assert.Equal(t, 2, cursor[Sent])
+	assert.Equal(5, cursor[Char])
+	assert.Equal(2, cursor[Sent])
 
 	rightSent()
 	updateCursorPos()
-	assert.Equal(t, 5, cursor[Char])
-	assert.Equal(t, 2, cursor[Sent])
+	assert.Equal(5, cursor[Char])
+	assert.Equal(2, cursor[Sent])
 
 	cursor = counts{1, 1, 1, 2}
 	rightSent()
 	updateCursorPos()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, 1, cursor[Sent])
+	assert.Equal(4, cursor[Char])
+	assert.Equal(1, cursor[Sent])
 
 	cursor = counts{2, 1, 1, 2}
 	rightSent()
 	updateCursorPos()
-	assert.Equal(t, 4, cursor[Char])
-	assert.Equal(t, 1, cursor[Sent])
+	assert.Equal(4, cursor[Char])
+	assert.Equal(1, cursor[Sent])
 }
 
 func TestLeftPara(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "1")
 	doc.CreateParagraph(2, "23")
 	defer doc.DeleteParagraph(2)
@@ -208,20 +215,21 @@ func TestLeftPara(t *testing.T) {
 	cursor = counts{1, 0, 0, 2}
 
 	leftPara()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	leftPara()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	leftPara()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	cursor = counts{2, 0, 0, 2}
 	leftPara()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 }
 
 func TestRightPara(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "1")
 	doc.CreateParagraph(2, "23")
 	defer doc.DeleteParagraph(2)
@@ -229,20 +237,21 @@ func TestRightPara(t *testing.T) {
 	cursor = counts{0, 0, 0, 1}
 
 	rightPara()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	rightPara()
-	assert.Equal(t, counts{2, 0, 0, 2}, cursor)
+	assert.Equal(counts{2, 0, 0, 2}, cursor)
 
 	rightPara()
-	assert.Equal(t, counts{2, 0, 0, 2}, cursor)
+	assert.Equal(counts{2, 0, 0, 2}, cursor)
 
 	cursor = counts{1, 0, 0, 1}
 	rightPara()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 }
 
 func TestLeft(t *testing.T) {
+	assert := assert.New(t)
 	ResizeScreen(margin+7, 4)
 	doc.SetText(1, "1")
 	doc.CreateParagraph(2, "2. 3 45")
@@ -253,29 +262,30 @@ func TestLeft(t *testing.T) {
 	scope = Char
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{6, 3, 2, 2}, cursor)
+	assert.Equal(counts{6, 3, 2, 2}, cursor)
 
 	scope = Word
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{5, 2, 2, 2}, cursor)
+	assert.Equal(counts{5, 2, 2, 2}, cursor)
 
 	scope = Sent
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{3, 1, 1, 2}, cursor)
+	assert.Equal(counts{3, 1, 1, 2}, cursor)
 
 	scope = Para
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 
 	Left()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 }
 
 func TestRight(t *testing.T) {
+	assert := assert.New(t)
 	ResizeScreen(margin+9, 5)
 	doc.SetText(1, "12 3. 4")
 	doc.CreateParagraph(2, "5")
@@ -286,25 +296,26 @@ func TestRight(t *testing.T) {
 	scope = Char
 	Right()
 	updateCursorPos()
-	assert.Equal(t, counts{1, 1, 1, 1}, cursor)
+	assert.Equal(counts{1, 1, 1, 1}, cursor)
 
 	scope = Word
 	Right()
 	updateCursorPos()
-	assert.Equal(t, counts{3, 1, 1, 1}, cursor)
+	assert.Equal(counts{3, 1, 1, 1}, cursor)
 
 	scope = Sent
 	Right()
 	updateCursorPos()
-	assert.Equal(t, counts{6, 2, 1, 1}, cursor)
+	assert.Equal(counts{6, 2, 1, 1}, cursor)
 
 	scope = Para
 	Right()
 	updateCursorPos()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
 }
 
 func TestHome(t *testing.T) {
+	assert := assert.New(t)
 	doc.SetText(1, "1")
 	doc.CreateParagraph(2, "2")
 	defer doc.DeleteParagraph(2)
@@ -315,33 +326,34 @@ func TestHome(t *testing.T) {
 
 	scope = Char
 	Home()
-	assert.Equal(t, counts{0, 0, 0, 2}, cursor)
-	assert.Equal(t, Sent, scope)
+	assert.Equal(counts{0, 0, 0, 2}, cursor)
+	assert.Equal(Sent, scope)
 
 	Home()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
-	assert.Equal(t, Para, scope)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
+	assert.Equal(Para, scope)
 
 	Home()
-	assert.Equal(t, counts{1, 0, 0, 2}, cursor)
-	assert.Equal(t, Char, scope)
+	assert.Equal(counts{1, 0, 0, 2}, cursor)
+	assert.Equal(Char, scope)
 
 	cursor = counts{0, 0, 0, 1}
 	Home()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
-	assert.Equal(t, Sent, scope)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
+	assert.Equal(Sent, scope)
 
 	Home()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
-	assert.Equal(t, Para, scope)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
+	assert.Equal(Para, scope)
 
 	cursor = counts{0, 0, 0, 1}
 	ocursor = cursor
 	Home()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 }
 
 func TestEnd(t *testing.T) {
+	assert := assert.New(t)
 	ResizeScreen(margin+3, 4)
 	doc.SetText(1, "12")
 	doc.CreateParagraph(2, "3")
@@ -353,27 +365,27 @@ func TestEnd(t *testing.T) {
 
 	scope = Char
 	End()
-	assert.Equal(t, counts{2, 0, 0, 1}, cursor)
-	assert.Equal(t, Sent, scope)
+	assert.Equal(counts{2, 0, 0, 1}, cursor)
+	assert.Equal(Sent, scope)
 
 	End()
-	assert.Equal(t, counts{1, 0, 0, 2}, cursor)
-	assert.Equal(t, Para, scope)
+	assert.Equal(counts{1, 0, 0, 2}, cursor)
+	assert.Equal(Para, scope)
 
 	scope = Sent
 	End()
-	assert.Equal(t, counts{1, 0, 0, 2}, cursor)
-	assert.Equal(t, Para, scope)
+	assert.Equal(counts{1, 0, 0, 2}, cursor)
+	assert.Equal(Para, scope)
 
 	End()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
-	assert.Equal(t, Char, scope)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
+	assert.Equal(Char, scope)
 
 	cursor = counts{1, 1, 1, 1}
 	End()
-	assert.Equal(t, counts{2, 1, 1, 1}, cursor)
+	assert.Equal(counts{2, 1, 1, 1}, cursor)
 
 	scope = Char
 	End()
-	assert.Equal(t, counts{2, 1, 1, 1}, cursor)
+	assert.Equal(counts{2, 1, 1, 1}, cursor)
 }

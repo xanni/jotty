@@ -9,6 +9,7 @@ import (
 )
 
 func TestInsertParaBreak(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 8)
 
@@ -17,9 +18,9 @@ func TestInsertParaBreak(t *testing.T) {
 	drawWindow()
 	insertParaBreak()
 	drawWindow()
-	assert.Equal(t, 2, cursor[Para])
-	assert.Equal(t, 2, doc.Paragraphs())
-	assert.Equal(t, "Test", doc.GetText(1))
+	assert.Equal(2, cursor[Para])
+	assert.Equal(2, doc.Paragraphs())
+	assert.Equal("Test", doc.GetText(1))
 
 	doc.DeleteParagraph(2)
 	cache = slices.Delete(cache, 1, 2)
@@ -30,81 +31,85 @@ func TestInsertParaBreak(t *testing.T) {
 	insertParaBreak()
 	defer doc.DeleteParagraph(2)
 	drawWindow()
-	assert.Equal(t, 2, cursor[Para])
-	assert.Equal(t, 2, doc.Paragraphs())
-	assert.Equal(t, "Test", doc.GetText(1))
+	assert.Equal(2, cursor[Para])
+	assert.Equal(2, doc.Paragraphs())
+	assert.Equal("Test", doc.GetText(1))
 	expect := []para{{4, []int{0}, []int{0}, []string{"Test"}}, {text: []string{string(cursorCharCap)}}}
-	assert.Equal(t, expect, cache)
+	assert.Equal(expect, cache)
 
 	insertParaBreak()
 	defer doc.DeleteParagraph(3)
 	drawWindow()
-	assert.Equal(t, 3, cursor[Para])
-	assert.Equal(t, 3, doc.Paragraphs())
+	assert.Equal(3, cursor[Para])
+	assert.Equal(3, doc.Paragraphs())
 	expect = slices.Insert(expect, 1, para{text: []string{""}})
-	assert.Equal(t, expect, cache)
+	assert.Equal(expect, cache)
 
 	cursor = counts{5, 0, 0, 1}
 	drawWindow()
 	insertParaBreak()
 	defer doc.DeleteParagraph(4)
-	assert.Equal(t, 2, cursor[Para])
-	assert.Equal(t, 4, doc.Paragraphs())
+	assert.Equal(2, cursor[Para])
+	assert.Equal(4, doc.Paragraphs())
 }
 
 func TestInsertRunes(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
 	drawWindow()
 	initialCap = true
 	InsertRunes([]rune("A"))
-	assert.Equal(t, "A", doc.GetText(1))
-	assert.Equal(t, 1, cursor[Char])
+	assert.Equal("A", doc.GetText(1))
+	assert.Equal(1, cursor[Char])
 
 	initialCap = true
 	InsertRunes([]rune("u"))
-	assert.Equal(t, "AU", doc.GetText(1))
-	assert.Equal(t, 2, cursor[Char])
+	assert.Equal("AU", doc.GetText(1))
+	assert.Equal(2, cursor[Char])
 
 	InsertRunes([]rune("🇦🇺"))
-	assert.Equal(t, "AU🇦🇺", doc.GetText(1))
-	assert.Equal(t, 3, cursor[Char])
+	assert.Equal("AU🇦🇺", doc.GetText(1))
+	assert.Equal(3, cursor[Char])
 
 	cursor[Char] = 2
 	drawWindow()
 	InsertRunes([]rune("="))
-	assert.Equal(t, "AU=🇦🇺", doc.GetText(1))
-	assert.Equal(t, 3, cursor[Char])
+	assert.Equal("AU=🇦🇺", doc.GetText(1))
+	assert.Equal(3, cursor[Char])
 }
 
 func TestDecScope(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 
 	DecScope()
-	assert.Equal(t, Para, scope)
+	assert.Equal(Para, scope)
 
 	initialCap = true
 	DecScope()
-	assert.Equal(t, Sent, scope)
-	assert.True(t, initialCap)
+	assert.Equal(Sent, scope)
+	assert.True(initialCap)
 
 	DecScope()
-	assert.Equal(t, Word, scope)
-	assert.False(t, initialCap)
+	assert.Equal(Word, scope)
+	assert.False(initialCap)
 }
 
 func TestIncScope(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 
 	scope = Para
 	IncScope()
-	assert.Equal(t, Char, scope)
+	assert.Equal(Char, scope)
 
 	IncScope()
-	assert.Equal(t, Word, scope)
+	assert.Equal(Word, scope)
 }
 
 func TestSpace(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
@@ -126,7 +131,7 @@ func TestSpace(t *testing.T) {
 	}
 
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			doc.SetText(1, test.text)
 			cursor[Char] = test.cursor
 			initialCap = false
@@ -135,9 +140,9 @@ func TestSpace(t *testing.T) {
 			drawWindow()
 			Space()
 
-			assert.Equal(t, test.expect, doc.GetText(1), "text")
-			assert.Equal(t, test.newScope, scope, "scope")
-			assert.Equal(t, test.initialCap, initialCap, "initialCap")
+			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.newScope, scope, "scope")
+			assert.Equal(test.initialCap, initialCap, "initialCap")
 		})
 	}
 
@@ -149,15 +154,16 @@ func TestSpace(t *testing.T) {
 	drawWindow()
 	Space()
 
-	assert.Equal(t, "Test", doc.GetText(1))
-	assert.Equal(t, 2, doc.Paragraphs())
-	assert.Equal(t, Para, scope)
-	assert.True(t, initialCap)
+	assert.Equal("Test", doc.GetText(1))
+	assert.Equal(2, doc.Paragraphs())
+	assert.Equal(Para, scope)
+	assert.True(initialCap)
 
 	doc.DeleteParagraph(2)
 }
 
 func TestEnter(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
@@ -165,18 +171,19 @@ func TestEnter(t *testing.T) {
 	drawWindow()
 	scope = Sent
 	Enter()
-	assert.Equal(t, 2, doc.Paragraphs())
-	assert.Equal(t, Para, scope)
+	assert.Equal(2, doc.Paragraphs())
+	assert.Equal(Para, scope)
 
 	doc.DeleteParagraph(2)
 }
 
 func TestBackspaceMerge(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
 	Backspace()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	tests := map[string]struct {
 		p1, p2    string
@@ -189,7 +196,7 @@ func TestBackspaceMerge(t *testing.T) {
 	}
 
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			doc.CreateParagraph(2, test.p2)
 			doc.SetText(1, test.p1)
 			cursor = counts{0, 0, 0, 2}
@@ -197,13 +204,14 @@ func TestBackspaceMerge(t *testing.T) {
 			drawWindow()
 			Backspace()
 
-			assert.Equal(t, test.expect, doc.GetText(1), "text")
-			assert.Equal(t, test.newCursor, cursor[Char], "cursor")
+			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.newCursor, cursor[Char], "cursor")
 		})
 	}
 }
 
 func TestBackspace(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
@@ -211,7 +219,7 @@ func TestBackspace(t *testing.T) {
 	cursor = counts{1, 2, 1, 1}
 	scope = Word
 	Backspace()
-	assert.Equal(t, 0, cursor[Char])
+	assert.Equal(0, cursor[Char])
 
 	doc.CreateParagraph(2, "C D")
 	defer doc.DeleteParagraph(2)
@@ -219,8 +227,8 @@ func TestBackspace(t *testing.T) {
 	scope = Para
 	drawWindow()
 	Backspace()
-	assert.Equal(t, counts{0, 1, 1, 2}, cursor)
-	assert.Equal(t, " D", doc.GetText(2))
+	assert.Equal(counts{0, 1, 1, 2}, cursor)
+	assert.Equal(" D", doc.GetText(2))
 
 	tests := map[string]struct {
 		text      string
@@ -240,7 +248,7 @@ func TestBackspace(t *testing.T) {
 
 	cursor[Para] = 1
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			doc.SetText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
@@ -248,19 +256,20 @@ func TestBackspace(t *testing.T) {
 			drawWindow()
 			Backspace()
 
-			assert.Equal(t, test.expect, doc.GetText(1), "text")
-			assert.Equal(t, test.newCursor, cursor[Char], "cursor")
+			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.newCursor, cursor[Char], "cursor")
 		})
 	}
 }
 
 func TestDeleteMerge(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
 	drawWindow()
 
 	Delete()
-	assert.Equal(t, counts{0, 0, 0, 1}, cursor)
+	assert.Equal(counts{0, 0, 0, 1}, cursor)
 
 	tests := map[string]struct {
 		p1, p2    string
@@ -273,7 +282,7 @@ func TestDeleteMerge(t *testing.T) {
 	}
 
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			doc.CreateParagraph(2, test.p2)
 			doc.SetText(1, test.p1)
 			cursor = counts{0, 0, 0, 2}
@@ -283,13 +292,14 @@ func TestDeleteMerge(t *testing.T) {
 			drawWindow()
 			Delete()
 
-			assert.Equal(t, test.expect, doc.GetText(1), "text")
-			assert.Equal(t, test.newCursor, cursor[Char], "cursor")
+			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.newCursor, cursor[Char], "cursor")
 		})
 	}
 }
 
 func TestDelete(t *testing.T) {
+	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
@@ -306,7 +316,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			doc.SetText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
@@ -314,7 +324,7 @@ func TestDelete(t *testing.T) {
 			drawWindow()
 			Delete()
 
-			assert.Equal(t, test.expect, doc.GetText(1), "text")
+			assert.Equal(test.expect, doc.GetText(1), "text")
 		})
 	}
 }
