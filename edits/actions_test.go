@@ -13,7 +13,8 @@ func TestInsertParaBreak(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 8)
 
-	doc.SetText(1, "Test")
+	doc.Init()
+	doc.AppendText(1, "Test")
 	cursor = counts{4, 0, 0, 1}
 	drawWindow()
 	insertParaBreak()
@@ -22,14 +23,13 @@ func TestInsertParaBreak(t *testing.T) {
 	assert.Equal(2, doc.Paragraphs())
 	assert.Equal("Test", doc.GetText(1))
 
-	doc.DeleteParagraph(2)
-	cache = slices.Delete(cache, 1, 2)
+	doc.Init()
+	doc.AppendText(1, "Test ")
+	cache = nil
 	cursPara = 1
-	doc.SetText(1, "Test ")
 	cursor = counts{5, 0, 0, 1}
 	drawWindow()
 	insertParaBreak()
-	defer doc.DeleteParagraph(2)
 	drawWindow()
 	assert.Equal(2, cursor[Para])
 	assert.Equal(2, doc.Paragraphs())
@@ -38,7 +38,6 @@ func TestInsertParaBreak(t *testing.T) {
 	assert.Equal(expect, cache)
 
 	insertParaBreak()
-	defer doc.DeleteParagraph(3)
 	drawWindow()
 	assert.Equal(3, cursor[Para])
 	assert.Equal(3, doc.Paragraphs())
@@ -48,7 +47,6 @@ func TestInsertParaBreak(t *testing.T) {
 	cursor = counts{5, 0, 0, 1}
 	drawWindow()
 	insertParaBreak()
-	defer doc.DeleteParagraph(4)
 	assert.Equal(2, cursor[Para])
 	assert.Equal(4, doc.Paragraphs())
 }
@@ -132,7 +130,8 @@ func TestSpace(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.SetText(1, test.text)
+			doc.Init()
+			doc.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			initialCap = false
 			scope = test.scope
@@ -146,7 +145,7 @@ func TestSpace(t *testing.T) {
 		})
 	}
 
-	doc.SetText(1, "Test")
+	doc.AppendText(1, "Test")
 	cursor[Char] = 4
 	scope = Sent
 	ResizeScreen(margin+4, 3)
@@ -158,8 +157,6 @@ func TestSpace(t *testing.T) {
 	assert.Equal(2, doc.Paragraphs())
 	assert.Equal(Para, scope)
 	assert.True(initialCap)
-
-	doc.DeleteParagraph(2)
 }
 
 func TestEnter(t *testing.T) {
@@ -167,14 +164,12 @@ func TestEnter(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
-	doc.SetText(1, "Test")
+	doc.AppendText(1, "Test")
 	drawWindow()
 	scope = Sent
 	Enter()
 	assert.Equal(2, doc.Paragraphs())
 	assert.Equal(Para, scope)
-
-	doc.DeleteParagraph(2)
 }
 
 func TestBackspaceMerge(t *testing.T) {
@@ -192,13 +187,16 @@ func TestBackspaceMerge(t *testing.T) {
 	}{
 		"Empty previous": {"", "A", "A", 0},
 		"Text in both":   {"A", "B", "A B", 1},
+		"Trailing space": {"A ", "B", "A B", 2},
 		"Empty current":  {"A B", "", "A B", 3},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.CreateParagraph(2, test.p2)
-			doc.SetText(1, test.p1)
+			doc.Init()
+			doc.SplitParagraph(1, 0)
+			doc.AppendText(1, test.p1)
+			doc.AppendText(2, test.p2)
 			cursor = counts{0, 0, 0, 2}
 
 			drawWindow()
@@ -221,8 +219,8 @@ func TestBackspace(t *testing.T) {
 	Backspace()
 	assert.Equal(0, cursor[Char])
 
-	doc.CreateParagraph(2, "C D")
-	defer doc.DeleteParagraph(2)
+	doc.SplitParagraph(1, 0)
+	doc.AppendText(2, "C D")
 	cursor = counts{1, 0, 0, 2}
 	scope = Para
 	drawWindow()
@@ -249,10 +247,12 @@ func TestBackspace(t *testing.T) {
 	cursor[Para] = 1
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.SetText(1, test.text)
+			doc.Init()
+			doc.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
 
+			cache = nil
 			drawWindow()
 			Backspace()
 
@@ -276,15 +276,18 @@ func TestDeleteMerge(t *testing.T) {
 		expect    string
 		newCursor int
 	}{
-		"Empty next":    {"A", "", "A", 1},
-		"Text in both":  {"A", "B", "A B", 1},
-		"Empty current": {"", "A B", "A B", 0},
+		"Empty next":     {"A", "", "A", 1},
+		"Text in both":   {"A", "B", "A B", 1},
+		"Trailing space": {"A ", "B", "A B", 2},
+		"Empty current":  {"", "A B", "A B", 0},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.CreateParagraph(2, test.p2)
-			doc.SetText(1, test.p1)
+			doc.Init()
+			doc.SplitParagraph(1, 0)
+			doc.AppendText(1, test.p1)
+			doc.AppendText(2, test.p2)
 			cursor = counts{0, 0, 0, 2}
 			drawWindow()
 			cursor = counts{len(test.p1), 0, 0, 1}
@@ -317,7 +320,8 @@ func TestDelete(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.SetText(1, test.text)
+			doc.Init()
+			doc.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
 

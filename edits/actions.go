@@ -19,11 +19,11 @@ func insertParaBreak() {
 	for i > 0 && t[i-1] == ' ' {
 		i-- // Trim spaces before cursor
 	}
-	doc.DeleteText(pn, i, before.Len()+after.Len())
+	doc.DeleteText(pn, i, before.Len())
+	doc.SplitParagraph(pn, i)
 
 	pn++
 	cursor = counts{0, 0, 0, pn}
-	doc.CreateParagraph(pn, after.String())
 	cache = slices.Insert[[]para](cache, pn-1, para{})
 	initialCap = true
 	ocursor = counts{}
@@ -123,18 +123,16 @@ func mergePrevPara() {
 		return
 	}
 
-	doc.DeleteParagraph(pn)
 	clearCache(pn)
 	cache = slices.Delete(cache, pn-1, pn)
 	pn--
 	cursPara, cursor[Para] = pn, pn
-	cursor[Char] = len(doc.GetText(pn))
+	t := doc.GetText(pn)
+	cursor[Char] = uniseg.GraphemeClusterCount(t)
+	doc.MergeParagraph(pn)
 
-	if after.Len() > 0 {
-		if cursor[Char] > 0 {
-			doc.AppendText(pn, " ")
-		}
-		doc.AppendText(pn, after.String())
+	if after.Len() > 0 && len(t) > 0 && t[len(t)-1] != ' ' {
+		doc.InsertText(pn, len(t), " ")
 	}
 }
 
@@ -144,17 +142,14 @@ func mergeNextPara() {
 		return
 	}
 
-	t := doc.GetText(pn + 1)
-	if len(t) > 0 {
-		if before.Len() > 0 {
-			doc.AppendText(pn, " ")
-		}
-		doc.AppendText(pn, t)
-	}
-
-	doc.DeleteParagraph(pn + 1)
 	clearCache(pn + 1)
 	cache = slices.Delete(cache, pn, pn+1)
+	t, s := doc.GetText(pn), doc.GetSize(pn+1)
+	doc.MergeParagraph(pn)
+
+	if s > 0 && len(t) > 0 && t[len(t)-1] != ' ' {
+		doc.InsertText(pn, len(t), " ")
+	}
 }
 
 // Extract the first n characters in s.

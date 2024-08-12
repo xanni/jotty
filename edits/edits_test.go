@@ -19,7 +19,8 @@ func setupTest() {
 	firstPara, firstLine = 0, 0
 	initialCap = false
 	scope = Char
-	doc.SetText(1, "")
+	doc.Init()
+	doc.AppendText(1, "")
 	resetCache()
 }
 
@@ -161,7 +162,7 @@ func TestDrawPara(t *testing.T) {
 	drawPara(1)
 	assert.Equal(para{text: []string{"_"}}, cache[0])
 
-	doc.SetText(1, "Test")
+	doc.AppendText(1, "Test")
 	drawPara(1)
 	assert.Equal(para{4, []int{0}, []int{0}, []string{"_Test"}}, cache[0])
 	assert.Equal(counts{4, 1, 1, 1}, total)
@@ -172,7 +173,8 @@ func TestDrawPara(t *testing.T) {
 	assert.Equal(0, cursLine)
 	assert.Equal(counts{4, 1, 1, 1}, total)
 
-	doc.SetText(1, "One two")
+	doc.Init()
+	doc.AppendText(1, "One two")
 	drawPara(1)
 	assert.Equal(para{7, []int{0, 4}, []int{0}, []string{"One ", "_two"}}, cache[0])
 	assert.Equal(1, cursLine)
@@ -183,8 +185,7 @@ func TestDrawPara(t *testing.T) {
 	assert.Equal(para{7, []int{0, 4}, []int{0}, []string{"_One ", "two"}}, cache[0])
 	assert.Equal(counts{7, 2, 1, 1}, total)
 
-	doc.CreateParagraph(2, "")
-	defer doc.DeleteParagraph(2)
+	doc.SplitParagraph(1, 7)
 	drawPara(2)
 	assert.Equal(para{text: []string{""}}, cache[1])
 }
@@ -197,15 +198,14 @@ func TestDrawWindow(t *testing.T) {
 	drawWindow()
 	assert.Equal([]para{{text: []string{"_"}}}, cache)
 
-	doc.CreateParagraph(2, "Test")
-	defer doc.DeleteParagraph(2)
+	doc.SplitParagraph(1, 0)
+	doc.AppendText(2, "Test")
 	cursor = counts{4, 0, 0, 2}
 	drawWindow()
 	expect := []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"Test_"}}}
 	assert.Equal(expect, cache)
 
 	insertParaBreak()
-	defer doc.DeleteParagraph(3)
 	initialCap = false
 	scope = Char
 	drawWindow()
@@ -233,8 +233,7 @@ func TestDrawWindow(t *testing.T) {
 	assert.Equal(expect, cache)
 
 	cache = slices.Delete(cache, 2, 3)
-	doc.CreateParagraph(4, "")
-	defer doc.DeleteParagraph(4)
+	doc.SplitParagraph(3, 0)
 	cursor[Para] = 4
 	drawWindow()
 	expect = []para{{}, {}, {}, {text: []string{"_"}}}
@@ -246,27 +245,24 @@ func TestScreen(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 5)
 
-	doc.SetText(1, "")
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
-	doc.CreateParagraph(2, "")
-	defer doc.DeleteParagraph(2)
+	doc.SplitParagraph(1, 0)
 	cursor[Para] = 2
 	assert.Equal("\n\n_\n\n@0/0", Screen())
 
 	cursor[Para] = 1
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
-	doc.CreateParagraph(3, "")
-	defer doc.DeleteParagraph(3)
+	doc.SplitParagraph(2, 0)
 	cursor[Para] = 3
 	assert.Equal("\n\n\n_\n@0/0", Screen())
 
 	cursor[Para] = 2
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
-	doc.SetText(1, "A B C D")
-	doc.SetText(2, "1 2 3 4")
+	doc.AppendText(1, "A B C D")
+	doc.AppendText(2, "1 2 3 4")
 	cursor[Para] = 1
 	assert.Equal("_A B \nC D\n\n1 2 \n@0/14", Screen())
 
