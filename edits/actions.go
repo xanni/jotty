@@ -6,7 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	doc "git.sericyb.com.au/jotty/document"
+	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/rivo/uniseg"
 )
 
@@ -19,8 +19,11 @@ func insertParaBreak() {
 	for i > 0 && t[i-1] == ' ' {
 		i-- // Trim spaces before cursor
 	}
-	doc.DeleteText(pn, i, before.Len())
-	doc.SplitParagraph(pn, i)
+
+	if i < len(t) {
+		ps.DeleteText(pn, i, len(t))
+	}
+	ps.SplitParagraph(pn, i)
 
 	pn++
 	cursor = counts{0, 0, 0, pn}
@@ -38,9 +41,9 @@ func InsertRunes(runes []rune) {
 
 	t := string(runes)
 	if cursor[Char] >= cache[cursor[Para]-1].chars {
-		doc.AppendText(cursor[Para], t)
+		ps.AppendText(cursor[Para], t)
 	} else {
-		doc.InsertText(cursor[Para], before.Len(), t)
+		ps.InsertText(cursor[Para], before.Len(), t)
 	}
 	cursor[Char] += uniseg.GraphemeClusterCount(t)
 	initialCap = false
@@ -106,7 +109,7 @@ func Space() {
 		initialCap = true
 		lr, _ := utf8.DecodeLastRune(t[:i])       // Last rune before the space
 		if unicode.In(lr, unicode.L, unicode.N) { // Alphanumeric
-			doc.InsertText(cursor[Para], i, ".")
+			ps.InsertText(cursor[Para], i, ".")
 			cursor[Char]++
 			ocursor = counts{}
 		}
@@ -127,28 +130,28 @@ func mergePrevPara() {
 	cache = slices.Delete(cache, pn-1, pn)
 	pn--
 	cursPara, cursor[Para] = pn, pn
-	t := doc.GetText(pn)
+	t := ps.GetText(pn)
 	cursor[Char] = uniseg.GraphemeClusterCount(t)
-	doc.MergeParagraph(pn)
+	ps.MergeParagraph(pn)
 
 	if after.Len() > 0 && len(t) > 0 && t[len(t)-1] != ' ' {
-		doc.InsertText(pn, len(t), " ")
+		ps.InsertText(pn, len(t), " ")
 	}
 }
 
 func mergeNextPara() {
 	pn := cursor[Para]
-	if pn >= doc.Paragraphs() {
+	if pn >= ps.Paragraphs() {
 		return
 	}
 
 	clearCache(pn + 1)
 	cache = slices.Delete(cache, pn, pn+1)
-	t, s := doc.GetText(pn), doc.GetSize(pn+1)
-	doc.MergeParagraph(pn)
+	t, s := ps.GetText(pn), ps.GetSize(pn+1)
+	ps.MergeParagraph(pn)
 
 	if s > 0 && len(t) > 0 && t[len(t)-1] != ' ' {
-		doc.InsertText(pn, len(t), " ")
+		ps.InsertText(pn, len(t), " ")
 	}
 }
 
@@ -206,7 +209,7 @@ func Backspace() {
 	}
 
 	if scope == Para {
-		doc.DeleteText(cursor[Para], 0, before.Len())
+		ps.DeleteText(cursor[Para], 0, before.Len())
 		cursor[Char] = 0
 		initialCap = true
 
@@ -229,7 +232,7 @@ func Backspace() {
 		initialCap = true
 	}
 
-	doc.DeleteText(cursor[Para], len(s), before.Len())
+	ps.DeleteText(cursor[Para], len(s), before.Len())
 	cursor[Char] = uniseg.GraphemeClusterCount(s)
 }
 
@@ -254,5 +257,5 @@ func Delete() {
 	default: // scope == Para by exclusion; keep t as empty string
 	}
 
-	doc.DeleteText(cursor[Para], before.Len(), before.Len()+after.Len()-len(t))
+	ps.DeleteText(cursor[Para], before.Len(), before.Len()+after.Len()-len(t))
 }

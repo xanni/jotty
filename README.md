@@ -421,6 +421,40 @@ operation list which is displayed only when the last action was "undo" or
 "redo", or alternatively constantly visible or sharing space with the cut
 window.
 
+## Permascroll format
+
+This implementation differs from the earlier Xanadu designs in three ways:
+
+1. Since this is designed for the paragraph-structured Jotty editor, the
+   permascroll maintains the two-level addressing scheme which allows the use of
+   suboptimal but simpler data structures such as Go slices rather than
+   augmented partial sum trees.
+
+2. Rather than storing the primedia (the actual textual contents of the
+   document) separately from the list of operations, here they are combined and
+   the primedia source addresses point into the body of the "insert" operations
+   in the permascroll.
+
+3. Text deletions are recorded in the permascroll rather than using a
+   rearrangement to a negative address.
+
+Operations are recorded in the permascroll as follows:
+
+```abnf
+address     = 1*DIGIT "," 1*DIGIT ; Paragraph number and byte offset
+range       = address "-" address ; Half-open range within the document
+separator   = "," / ":"           ; Colon indicates a paragraph break
+
+delete      = "D" address ":" 1*(VCHAR / SP) LF   ; Delete text
+insert      = "I" address ":" 1*(VCHAR / SP) LF   ; Insert text
+merge       = "M" address LF                      ; Merge paragraphs
+rearrange   = "R" range "/" (address / range) LF  ; Rearrange text
+split       = "S" address LF                      ; Split paragraph
+
+magic       = "JottyV0" LF        ; Permascroll format descriptor
+permascroll = magic *(delete / insert / merge / rearrange / split)
+```
+
 ## Feature sets
 
 The minimum viable product supports entering text (without the special behaviour

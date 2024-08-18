@@ -3,7 +3,7 @@ package edits
 import (
 	"slices"
 
-	doc "git.sericyb.com.au/jotty/document"
+	ps "git.sericyb.com.au/jotty/permascroll"
 )
 
 /*
@@ -68,7 +68,7 @@ func leftChar() {
 func rightChar() {
 	if cursor[Char] < paragraphChars(cursor[Para]) {
 		cursor[Char]++
-	} else if cursor[Para] < doc.Paragraphs() {
+	} else if cursor[Para] < ps.Paragraphs() {
 		cursor[Para]++
 		cursor[Char] = 0
 	}
@@ -134,7 +134,7 @@ func leftPara() {
 }
 
 func rightPara() {
-	if cursor[Para] < doc.Paragraphs() {
+	if cursor[Para] < ps.Paragraphs() {
 		cursor[Para]++
 		cursor[Char] = 0
 	} else {
@@ -193,7 +193,7 @@ func End() {
 		ocursor = cursor
 	}
 
-	lastPara := doc.Paragraphs()
+	lastPara := ps.Paragraphs()
 	paraEnd := paragraphChars(cursor[Para])
 	switch {
 	case cursor[Char] < paraEnd || scope < Sent:

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	doc "git.sericyb.com.au/jotty/document"
+	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,8 +19,8 @@ func setupTest() {
 	firstPara, firstLine = 0, 0
 	initialCap = false
 	scope = Char
-	doc.Init()
-	doc.AppendText(1, "")
+	ps.Init()
+	ps.AppendText(1, "")
 	resetCache()
 }
 
@@ -162,7 +162,7 @@ func TestDrawPara(t *testing.T) {
 	drawPara(1)
 	assert.Equal(para{text: []string{"_"}}, cache[0])
 
-	doc.AppendText(1, "Test")
+	ps.AppendText(1, "Test")
 	drawPara(1)
 	assert.Equal(para{4, []int{0}, []int{0}, []string{"_Test"}}, cache[0])
 	assert.Equal(counts{4, 1, 1, 1}, total)
@@ -173,8 +173,8 @@ func TestDrawPara(t *testing.T) {
 	assert.Equal(0, cursLine)
 	assert.Equal(counts{4, 1, 1, 1}, total)
 
-	doc.Init()
-	doc.AppendText(1, "One two")
+	ps.Init()
+	ps.AppendText(1, "One two")
 	drawPara(1)
 	assert.Equal(para{7, []int{0, 4}, []int{0}, []string{"One ", "_two"}}, cache[0])
 	assert.Equal(1, cursLine)
@@ -185,7 +185,7 @@ func TestDrawPara(t *testing.T) {
 	assert.Equal(para{7, []int{0, 4}, []int{0}, []string{"_One ", "two"}}, cache[0])
 	assert.Equal(counts{7, 2, 1, 1}, total)
 
-	doc.SplitParagraph(1, 7)
+	ps.SplitParagraph(1, 7)
 	drawPara(2)
 	assert.Equal(para{text: []string{""}}, cache[1])
 }
@@ -198,8 +198,8 @@ func TestDrawWindow(t *testing.T) {
 	drawWindow()
 	assert.Equal([]para{{text: []string{"_"}}}, cache)
 
-	doc.SplitParagraph(1, 0)
-	doc.AppendText(2, "Test")
+	ps.SplitParagraph(1, 0)
+	ps.AppendText(2, "Test")
 	cursor = counts{4, 0, 0, 2}
 	drawWindow()
 	expect := []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"Test_"}}}
@@ -233,7 +233,7 @@ func TestDrawWindow(t *testing.T) {
 	assert.Equal(expect, cache)
 
 	cache = slices.Delete(cache, 2, 3)
-	doc.SplitParagraph(3, 0)
+	ps.SplitParagraph(3, 0)
 	cursor[Para] = 4
 	drawWindow()
 	expect = []para{{}, {}, {}, {text: []string{"_"}}}
@@ -247,22 +247,22 @@ func TestScreen(t *testing.T) {
 
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
-	doc.SplitParagraph(1, 0)
+	ps.SplitParagraph(1, 0)
 	cursor[Para] = 2
 	assert.Equal("\n\n_\n\n@0/0", Screen())
 
 	cursor[Para] = 1
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
-	doc.SplitParagraph(2, 0)
+	ps.SplitParagraph(2, 0)
 	cursor[Para] = 3
 	assert.Equal("\n\n\n_\n@0/0", Screen())
 
 	cursor[Para] = 2
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
-	doc.AppendText(1, "A B C D")
-	doc.AppendText(2, "1 2 3 4")
+	ps.AppendText(1, "A B C D")
+	ps.AppendText(2, "1 2 3 4")
 	cursor[Para] = 1
 	assert.Equal("_A B \nC D\n\n1 2 \n@0/14", Screen())
 

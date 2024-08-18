@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	doc "git.sericyb.com.au/jotty/document"
+	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,18 +13,18 @@ func TestInsertParaBreak(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 8)
 
-	doc.Init()
-	doc.AppendText(1, "Test")
+	ps.Init()
+	ps.AppendText(1, "Test")
 	cursor = counts{4, 0, 0, 1}
 	drawWindow()
 	insertParaBreak()
 	drawWindow()
 	assert.Equal(2, cursor[Para])
-	assert.Equal(2, doc.Paragraphs())
-	assert.Equal("Test", doc.GetText(1))
+	assert.Equal(2, ps.Paragraphs())
+	assert.Equal("Test", ps.GetText(1))
 
-	doc.Init()
-	doc.AppendText(1, "Test ")
+	ps.Init()
+	ps.AppendText(1, "Test ")
 	cache = nil
 	cursPara = 1
 	cursor = counts{5, 0, 0, 1}
@@ -32,15 +32,15 @@ func TestInsertParaBreak(t *testing.T) {
 	insertParaBreak()
 	drawWindow()
 	assert.Equal(2, cursor[Para])
-	assert.Equal(2, doc.Paragraphs())
-	assert.Equal("Test", doc.GetText(1))
+	assert.Equal(2, ps.Paragraphs())
+	assert.Equal("Test", ps.GetText(1))
 	expect := []para{{4, []int{0}, []int{0}, []string{"Test"}}, {text: []string{string(cursorCharCap)}}}
 	assert.Equal(expect, cache)
 
 	insertParaBreak()
 	drawWindow()
 	assert.Equal(3, cursor[Para])
-	assert.Equal(3, doc.Paragraphs())
+	assert.Equal(3, ps.Paragraphs())
 	expect = slices.Insert(expect, 1, para{text: []string{""}})
 	assert.Equal(expect, cache)
 
@@ -48,7 +48,7 @@ func TestInsertParaBreak(t *testing.T) {
 	drawWindow()
 	insertParaBreak()
 	assert.Equal(2, cursor[Para])
-	assert.Equal(4, doc.Paragraphs())
+	assert.Equal(4, ps.Paragraphs())
 }
 
 func TestInsertRunes(t *testing.T) {
@@ -58,22 +58,22 @@ func TestInsertRunes(t *testing.T) {
 	drawWindow()
 	initialCap = true
 	InsertRunes([]rune("A"))
-	assert.Equal("A", doc.GetText(1))
+	assert.Equal("A", ps.GetText(1))
 	assert.Equal(1, cursor[Char])
 
 	initialCap = true
 	InsertRunes([]rune("u"))
-	assert.Equal("AU", doc.GetText(1))
+	assert.Equal("AU", ps.GetText(1))
 	assert.Equal(2, cursor[Char])
 
 	InsertRunes([]rune("🇦🇺"))
-	assert.Equal("AU🇦🇺", doc.GetText(1))
+	assert.Equal("AU🇦🇺", ps.GetText(1))
 	assert.Equal(3, cursor[Char])
 
 	cursor[Char] = 2
 	drawWindow()
 	InsertRunes([]rune("="))
-	assert.Equal("AU=🇦🇺", doc.GetText(1))
+	assert.Equal("AU=🇦🇺", ps.GetText(1))
 	assert.Equal(3, cursor[Char])
 }
 
@@ -130,8 +130,8 @@ func TestSpace(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.Init()
-			doc.AppendText(1, test.text)
+			ps.Init()
+			ps.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			initialCap = false
 			scope = test.scope
@@ -139,13 +139,14 @@ func TestSpace(t *testing.T) {
 			drawWindow()
 			Space()
 
-			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.expect, ps.GetText(1), "text")
 			assert.Equal(test.newScope, scope, "scope")
 			assert.Equal(test.initialCap, initialCap, "initialCap")
 		})
 	}
 
-	doc.AppendText(1, "Test")
+	ps.Init()
+	ps.AppendText(1, "Test")
 	cursor[Char] = 4
 	scope = Sent
 	ResizeScreen(margin+4, 3)
@@ -153,8 +154,8 @@ func TestSpace(t *testing.T) {
 	drawWindow()
 	Space()
 
-	assert.Equal("Test", doc.GetText(1))
-	assert.Equal(2, doc.Paragraphs())
+	assert.Equal("Test", ps.GetText(1))
+	assert.Equal(2, ps.Paragraphs())
 	assert.Equal(Para, scope)
 	assert.True(initialCap)
 }
@@ -164,11 +165,11 @@ func TestEnter(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
-	doc.AppendText(1, "Test")
+	ps.AppendText(1, "Test")
 	drawWindow()
 	scope = Sent
 	Enter()
-	assert.Equal(2, doc.Paragraphs())
+	assert.Equal(2, ps.Paragraphs())
 	assert.Equal(Para, scope)
 }
 
@@ -193,16 +194,16 @@ func TestBackspaceMerge(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.Init()
-			doc.SplitParagraph(1, 0)
-			doc.AppendText(1, test.p1)
-			doc.AppendText(2, test.p2)
+			ps.Init()
+			ps.SplitParagraph(1, 0)
+			ps.AppendText(1, test.p1)
+			ps.AppendText(2, test.p2)
 			cursor = counts{0, 0, 0, 2}
 
 			drawWindow()
 			Backspace()
 
-			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.expect, ps.GetText(1), "text")
 			assert.Equal(test.newCursor, cursor[Char], "cursor")
 		})
 	}
@@ -219,14 +220,14 @@ func TestBackspace(t *testing.T) {
 	Backspace()
 	assert.Equal(0, cursor[Char])
 
-	doc.SplitParagraph(1, 0)
-	doc.AppendText(2, "C D")
+	ps.SplitParagraph(1, 0)
+	ps.AppendText(2, "C D")
 	cursor = counts{1, 0, 0, 2}
 	scope = Para
 	drawWindow()
 	Backspace()
 	assert.Equal(counts{0, 1, 1, 2}, cursor)
-	assert.Equal(" D", doc.GetText(2))
+	assert.Equal(" D", ps.GetText(2))
 
 	tests := map[string]struct {
 		text      string
@@ -247,8 +248,8 @@ func TestBackspace(t *testing.T) {
 	cursor[Para] = 1
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.Init()
-			doc.AppendText(1, test.text)
+			ps.Init()
+			ps.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
 
@@ -256,7 +257,7 @@ func TestBackspace(t *testing.T) {
 			drawWindow()
 			Backspace()
 
-			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.expect, ps.GetText(1), "text")
 			assert.Equal(test.newCursor, cursor[Char], "cursor")
 		})
 	}
@@ -284,10 +285,10 @@ func TestDeleteMerge(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.Init()
-			doc.SplitParagraph(1, 0)
-			doc.AppendText(1, test.p1)
-			doc.AppendText(2, test.p2)
+			ps.Init()
+			ps.SplitParagraph(1, 0)
+			ps.AppendText(1, test.p1)
+			ps.AppendText(2, test.p2)
 			cursor = counts{0, 0, 0, 2}
 			drawWindow()
 			cursor = counts{len(test.p1), 0, 0, 1}
@@ -295,7 +296,7 @@ func TestDeleteMerge(t *testing.T) {
 			drawWindow()
 			Delete()
 
-			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.expect, ps.GetText(1), "text")
 			assert.Equal(test.newCursor, cursor[Char], "cursor")
 		})
 	}
@@ -320,15 +321,15 @@ func TestDelete(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			doc.Init()
-			doc.AppendText(1, test.text)
+			ps.Init()
+			ps.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
 
 			drawWindow()
 			Delete()
 
-			assert.Equal(test.expect, doc.GetText(1), "text")
+			assert.Equal(test.expect, ps.GetText(1), "text")
 		})
 	}
 }

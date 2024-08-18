@@ -1,5 +1,18 @@
 package edits
 
+import (
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	ps "git.sericyb.com.au/jotty/permascroll"
+	"github.com/muesli/termenv"
+	"github.com/rivo/uniseg"
+)
+
 /*
 Implements the visible user interface elements of the edits window and status
 line.
@@ -25,19 +38,6 @@ paragraph.  Within paragraphs, word wrapping and line breaking is performed
 according to Unicode Standard Annex #14: Line Breaking Algorithm, also
 implemented in the "uniseg" module.
 */
-
-import (
-	"os"
-	"slices"
-	"strconv"
-	"strings"
-	"unicode"
-	"unicode/utf8"
-
-	doc "git.sericyb.com.au/jotty/document"
-	"github.com/muesli/termenv"
-	"github.com/rivo/uniseg"
-)
 
 var (
 	ID                   string // The program name and version
@@ -138,7 +138,7 @@ func statusLine() string {
 	var w int              // Total width of counters in character cells
 
 	current := cursorPos()
-	total[Para] = doc.Paragraphs()
+	total[Para] = ps.Paragraphs()
 	for sc := Char; sc <= Para; sc++ {
 		c[sc] = string(counterChar[sc]) + strconv.Itoa(current[sc]) + "/" + strconv.Itoa(total[sc])
 		w += uniseg.StringWidth(c[sc])
@@ -289,7 +289,7 @@ func drawPara(pn int) {
 		cursLine = -1
 	}
 
-	source := []byte(doc.GetText(pn))
+	source := []byte(ps.GetText(pn))
 	if len(source) > 0 {
 		indexSent(pn, 0)
 	}
@@ -346,7 +346,7 @@ func drawWindow() {
 	// The cursor is outside the screen: redraw everything
 	cache = make([]para, pn-1, pn)
 	cursPara, firstPara, firstLine = pn, pn, 0
-	for rows := 0; rows < ey && pn <= doc.Paragraphs(); pn++ {
+	for rows := 0; rows < ey && pn <= ps.Paragraphs(); pn++ {
 		drawPara(pn)
 		rows += len(cache[pn-1].text) + 1
 	}
