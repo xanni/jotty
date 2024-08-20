@@ -354,8 +354,13 @@ func drawWindow() {
 
 func ResizeScreen(x, y int) {
 	cache = nil
+	total = counts{0, 0, 0, 1}
+
+	if x != ex {
+		firstLine = 0
+	}
+
 	ex, ey = x, y-1
-	firstPara, firstLine = 0, 0
 }
 
 // Render one line to the screen.

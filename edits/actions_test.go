@@ -209,16 +209,15 @@ func TestBackspaceMerge(t *testing.T) {
 	}
 }
 
+func TestGetWords(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("Test", getWords(2, "Test"))
+}
+
 func TestBackspace(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
-
-	before.Reset()
-	cursor = counts{1, 2, 1, 1}
-	scope = Word
-	Backspace()
-	assert.Equal(0, cursor[Char])
 
 	ps.SplitParagraph(1, 0)
 	ps.AppendText(2, "C D")
@@ -332,4 +331,24 @@ func TestDelete(t *testing.T) {
 			assert.Equal(test.expect, ps.GetText(1), "text")
 		})
 	}
+}
+
+func TestUndoRedo(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+
+	Undo()
+	assert.Equal(0, cursor[Char])
+
+	Redo()
+	assert.Equal(0, cursor[Char])
+
+	ps.InsertText(1, 0, "Test")
+	ps.Flush()
+	ps.DeleteText(1, 1, 2)
+	Undo()
+	assert.Equal(2, cursor[Char])
+
+	Redo()
+	assert.Equal(1, cursor[Char])
 }

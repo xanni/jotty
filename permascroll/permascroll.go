@@ -3,7 +3,9 @@ package permascroll
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
+	"strconv"
 )
 
 /*
@@ -22,23 +24,50 @@ This package coalesces adjacent and overlapping text insertions and deletions.
 
 const magic = "JottyV0\n"
 
+// Regular expressions for parsing permascroll entries.
 var (
-	deleting    int      // Number of bytes to delete starting from offset
-	document    []string // Text of each paragraph
-	offset      int      // Current offset in the paragraph
-	paragraph   int      // Current paragraph number
-	pending     string   // Text not yet written to the permascroll
-	permascroll []byte   // Serialised history of all document versions
+	diRx = regexp.MustCompile(`(\d+),(\d+):(.+)\n`) // Delete and Insert arguments
+	msRx = regexp.MustCompile(`(\d+),(\d+)\n`)      // Merge and Split arguments
+	opRx = regexp.MustCompile(`(\d*)([DIMRS])`)     // Operation prefix
+)
+
+type version struct{ source, parent, lastChild int }
+
+var (
+	current     int       // Current version in the history
+	deleting    int       // Number of bytes to delete starting from offset
+	document    []string  // Text of each paragraph
+	history     []version // Document history
+	offset      int       // Current offset in the paragraph
+	paragraph   int       // Current paragraph number
+	pending     string    // Text not yet written to the permascroll
+	permascroll []byte    // Serialised history of all document versions
 )
 
 var errRange = errors.New("out of range")
 
 func init() { Init() }
 
+// Persist a new version to the history.
+func newVersion(s string) {
+	parent := current
+	current = len(history)
+	history = append(history, version{len(permascroll), parent, 0})
+	history[parent].lastChild = current
+
+	delta := (current - parent) - 1
+	if delta > 0 {
+		permascroll = append(permascroll, []byte(strconv.Itoa(delta))...)
+	}
+
+	permascroll = append(permascroll, []byte(s+"\n")...)
+}
+
 // Initialise permascroll.
 func Init() {
-	deleting, pending, paragraph, offset = 0, "", 1, 0
+	current, deleting, pending, paragraph, offset = 0, 0, "", 1, 0
 	document = []string{""} // Start with a single empty paragraph
+	history = []version{{}} // Start with a single empty version
 	permascroll = []byte(magic)
 }
 
@@ -73,22 +102,48 @@ func DeleteText(pn, pos, end int) {
 	}
 }
 
+func docDelete(size int) {
+	p := document[paragraph-1]
+	document[paragraph-1] = p[:offset] + p[offset+size:]
+}
+
+func docInsert(text string) {
+	p := document[paragraph-1]
+	document[paragraph-1] = p[:offset] + text + p[offset:]
+	offset += len(text)
+}
+
+func docMerge() {
+	offset = len(document[paragraph-1])
+	document[paragraph-1] += document[paragraph]
+	document = slices.Delete(document, paragraph, paragraph+1)
+}
+
+func docSplit() {
+	p := document[paragraph-1]
+	document = slices.Insert(document, paragraph, p[offset:])
+	document[paragraph-1] = p[:offset]
+	paragraph++
+	offset = 0
+}
+
 // Write pending insertion or deletion to permascroll.
 func Flush() {
 	if deleting > 0 {
 		p := document[paragraph-1]
 		t := p[offset : offset+deleting]
-		permascroll = append(permascroll, []byte(fmt.Sprintf("D%d,%d:%s\n", paragraph, offset, t))...)
-		document[paragraph-1] = p[:offset] + p[offset+deleting:]
+		newVersion(fmt.Sprintf("D%d,%d:%s", paragraph, offset, t))
+		docDelete(deleting)
 		deleting = 0
 	} else if len(pending) > 0 {
-		permascroll = append(permascroll, []byte(fmt.Sprintf("I%d,%d:%s\n", paragraph, offset, pending))...)
-		p := document[paragraph-1]
-		document[paragraph-1] = p[:offset] + pending + p[offset:]
-		offset += len(pending)
+		newVersion(fmt.Sprintf("I%d,%d:%s", paragraph, offset, pending))
+		docInsert(pending)
 		pending = ""
 	}
 }
+
+// Get the current position in the document.
+func GetPos() (int, int) { return paragraph, offset }
 
 // Get the size of a paragraph.
 func GetSize(pn int) (size int) {
@@ -138,10 +193,9 @@ func MergeParagraph(pn int) {
 
 	if pn < len(document) {
 		Flush()
-		paragraph, offset = pn, len(document[pn-1])
-		permascroll = append(permascroll, []byte(fmt.Sprintf("M%d,%d\n", pn, offset))...)
-		document[pn-1] += document[pn]
-		document = slices.Delete(document, pn, pn+1)
+		paragraph = pn
+		docMerge()
+		newVersion(fmt.Sprintf("M%d,%d", pn, offset))
 	}
 }
 
@@ -154,10 +208,79 @@ func SplitParagraph(pn, pos int) {
 
 	Flush()
 	paragraph, offset = pn, pos
-	permascroll = append(permascroll, []byte(fmt.Sprintf("S%d,%d\n", pn, offset))...)
-	p := document[pn-1]
-	document = slices.Insert(document, pn, p[pos:])
-	document[pn-1] = p[:pos]
+	newVersion(fmt.Sprintf("S%d,%d", pn, offset))
+	docSplit()
+}
+
+// Parse an operation from the permascroll.
+func parseOperation(source int) (delta int, op byte, text string) {
+	match := opRx.FindSubmatch(permascroll[source:])
+	source += len(match[0])
+
+	if len(match[1]) > 0 {
+		delta, _ = strconv.Atoi(string(match[1]))
+	}
+
+	op = match[2][0]
+	if op == 'D' || op == 'I' {
+		match = diRx.FindSubmatch(permascroll[source:])
+		text = string(match[3])
+	} else {
+		match = msRx.FindSubmatch(permascroll[source:])
+	}
+
+	paragraph, _ = strconv.Atoi(string(match[1]))
+	offset, _ = strconv.Atoi(string(match[2]))
+
+	return
+}
+
+// Redo the last undone operation, if any.
+func Redo() byte {
+	child := history[current].lastChild
+	if child == 0 || deleting > 0 || len(pending) > 0 {
+		return 0
+	}
+
+	current = child
+	_, op, text := parseOperation(history[current].source)
+
+	switch op {
+	case 'D':
+		docDelete(len(text))
+	case 'I':
+		docInsert(text)
+	case 'M':
+		docMerge()
+	default: // 'R' not implemented yet, must be 'S'
+		docSplit()
+	}
+
+	return op
+}
+
+// Undo the immediately preceding operation, if any.
+func Undo() byte {
+	if current == 0 {
+		return 0
+	}
+
+	Flush()
+	_, op, text := parseOperation(history[current].source)
+	current = history[current].parent
+
+	switch op {
+	case 'D':
+		docInsert(text)
+	case 'I':
+		docDelete(len(text))
+	case 'M':
+		docSplit()
+	default: // 'R' not implemented yet, must be 'S'
+		docMerge()
+	}
+
+	return op
 }
 
 /*

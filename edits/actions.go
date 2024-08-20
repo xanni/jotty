@@ -259,3 +259,24 @@ func Delete() {
 
 	ps.DeleteText(cursor[Para], before.Len(), before.Len()+after.Len()-len(t))
 }
+
+func refresh() {
+	cache = nil // TODO only zap changed paragraphs
+	total = counts{0, 0, 0, 1}
+	pn, pos := ps.GetPos()
+	cursor = counts{uniseg.GraphemeClusterCount(ps.GetText(pn)[:pos]), 0, 0, pn}
+}
+
+func Undo() {
+	op := ps.Undo()
+	if op > 0 {
+		refresh()
+	}
+}
+
+func Redo() {
+	op := ps.Redo()
+	if op > 0 {
+		refresh()
+	}
+}

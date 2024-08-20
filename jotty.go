@@ -24,6 +24,8 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyCtrlH:     edits.Backspace,
 	tea.KeyDelete:    edits.Delete,
 	tea.KeyCtrlX:     edits.Delete,
+	tea.KeyCtrlY:     edits.Redo,
+	tea.KeyCtrlZ:     edits.Undo,
 }
 
 var sx, sy int // screen dimensions

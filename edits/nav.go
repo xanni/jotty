@@ -23,7 +23,7 @@ of the words and sentences in the current paragraph.
 
 var (
 	ocursor counts // Original cursor position
-	total   = counts{0, 0, 0, 1}
+	total   counts // Total scope unit counts in the current paragraph
 )
 
 // Last word in the paragraph.

@@ -202,6 +202,31 @@ func TestMergeParagraph(t *testing.T) {
 	}
 }
 
+func TestParseOperation(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := map[string]struct {
+		i    int
+		op   byte
+		text string
+	}{"Insert": {1, 'I', "Test"}, "Split": {2, 'S', ""}, "Delete": {3, 'D', "t"}, "Merge": {4, 'M', ""}}
+
+	Init()
+	InsertText(1, 0, "Test")
+	SplitParagraph(1, 2)
+	DeleteText(2, 1, 2)
+	MergeParagraph(1)
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			delta, op, text := parseOperation(history[test.i].source)
+			assert.Equal(0, delta)
+			assert.Equal(test.op, op)
+			assert.Equal(test.text, text)
+		})
+	}
+}
+
 func TestSplitParagraph(t *testing.T) {
 	assert := assert.New(t)
 
@@ -224,6 +249,82 @@ func TestSplitParagraph(t *testing.T) {
 			assert.Equal(test.document, document)
 		})
 	}
+}
+
+func TestRedo(t *testing.T) {
+	assert := assert.New(t)
+
+	Init()
+	Redo()
+	assert.Equal(0, current)
+
+	SplitParagraph(1, 0)
+	InsertText(1, 0, "Test")
+	Undo()
+	Redo()
+	assert.Equal(2, current)
+	assert.Equal([]string{"Test", ""}, document)
+
+	Redo()
+	assert.Equal(2, current)
+
+	Undo()
+	deleting = 1
+	Redo()
+	assert.Equal(1, current)
+
+	deleting, pending = 0, "more"
+	Redo()
+	assert.Equal(1, current)
+
+	MergeParagraph(1)
+	DeleteText(1, 2, 3)
+	SplitParagraph(1, 2)
+	Undo()
+	Undo()
+	Undo()
+	Redo()
+	assert.Equal(4, current)
+	assert.Equal([]string{"more"}, document)
+
+	Redo()
+	assert.Equal(5, current)
+	assert.Equal([]string{"moe"}, document)
+
+	Redo()
+	assert.Equal(6, current)
+	assert.Equal([]string{"mo", "e"}, document)
+}
+
+func TestUndo(t *testing.T) {
+	assert := assert.New(t)
+
+	Init()
+	Undo()
+	assert.Equal(0, current)
+
+	SplitParagraph(1, 0)
+	MergeParagraph(1)
+	Undo()
+	assert.Equal(1, current)
+	assert.Equal([]string{"", ""}, document)
+
+	InsertText(1, 0, "Test")
+	Flush()
+	DeleteText(1, 1, 2)
+	Undo()
+	assert.Equal(3, current)
+	assert.Equal([]string{"Test", ""}, document)
+	assert.Equal([]version{{0, 0, 1}, {8, 0, 3}, {13, 1, 0}, {18, 1, 4}, {29, 3, 0}}, history)
+	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nD1,1:e\n", string(permascroll))
+
+	Undo()
+	SplitParagraph(1, 0)
+	Undo()
+	assert.Equal(1, current)
+	assert.Equal([]string{"", ""}, document)
+	assert.Equal([]version{{0, 0, 1}, {8, 0, 5}, {13, 1, 0}, {18, 1, 4}, {29, 3, 0}, {36, 1, 0}}, history)
+	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nD1,1:e\n3S1,0\n", string(permascroll))
 }
 
 func TestValidatePn(t *testing.T) {

@@ -205,8 +205,9 @@ previous one separated by a space and thus merge them into a single paragraph.
 the end of a paragraph, it will append the next paragraph to the current one
 separated by a space and thus merge them into a single paragraph.
 
-`^Z` is "undo", and undoing a sequence of spaces as above will remove the new
-item that has been commenced and go back to the previous scope.
+`^Z` is "undo", which reverts the state of the document to the immediately
+preceding version persisted to the permascroll.  Once the document is back to
+the initial empty state it has no further effect.
 
 `^Y` is "redo" and when the last operation was a deletion or an "undo" it will
 reverse that last operation and restore any text removed - and if the same state
@@ -423,7 +424,7 @@ window.
 
 ## Permascroll format
 
-This implementation differs from the earlier Xanadu designs in three ways:
+This implementation differs from the earlier Xanadu designs in the following ways:
 
 1. Since this is designed for the paragraph-structured Jotty editor, the
    permascroll maintains the two-level addressing scheme which allows the use of
@@ -437,6 +438,11 @@ This implementation differs from the earlier Xanadu designs in three ways:
 
 3. Text deletions are recorded in the permascroll rather than using a
    rearrangement to a negative address.
+
+4. Each operation can be optionally preceded by a number of operations that must
+   be skipped in order to reach the parent operation in a particular version of
+   the document.  This is normally omitted in the common case that the parent is
+   the immediately preceding operation and the delta is therefore zero.
 
 Operations are recorded in the permascroll as follows:
 
@@ -452,7 +458,8 @@ rearrange   = "R" range "/" (address / range) LF  ; Rearrange text
 split       = "S" address LF                      ; Split paragraph
 
 magic       = "JottyV0" LF        ; Permascroll format descriptor
-permascroll = magic *(delete / insert / merge / rearrange / split)
+operation   = [ 1*DIGIT ] (delete / insert / merge / rearrange / split)
+permascroll = magic *operation
 ```
 
 ## Feature sets

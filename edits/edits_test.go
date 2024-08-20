@@ -20,7 +20,6 @@ func setupTest() {
 	initialCap = false
 	scope = Char
 	ps.Init()
-	ps.AppendText(1, "")
 	resetCache()
 }
 
