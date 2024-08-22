@@ -1,11 +1,14 @@
 package permascroll
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
+	"sync"
 )
 
 /*
@@ -34,34 +37,24 @@ var (
 type version struct{ source, parent, lastChild int }
 
 var (
-	current     int       // Current version in the history
-	deleting    int       // Number of bytes to delete starting from offset
-	document    []string  // Text of each paragraph
-	history     []version // Document history
-	offset      int       // Current offset in the paragraph
-	paragraph   int       // Current paragraph number
-	pending     string    // Text not yet written to the permascroll
-	permascroll []byte    // Serialised history of all document versions
+	current     int        // Current version in the history
+	deleting    int        // Number of bytes to delete starting from offset
+	document    []string   // Text of each paragraph
+	file        *os.File   // Permascroll backing storage
+	history     []version  // Document history
+	mutex       sync.Mutex // Mutex to ensure safety of Flush()
+	offset      int        // Current offset in the paragraph
+	paragraph   int        // Current paragraph number
+	pending     string     // Text not yet written to the permascroll
+	permascroll []byte     // Serialised history of all document versions
 )
 
-var errRange = errors.New("out of range")
+var (
+	errParse = errors.New("parse failed")
+	errRange = errors.New("out of range")
+)
 
 func init() { Init() }
-
-// Persist a new version to the history.
-func newVersion(s string) {
-	parent := current
-	current = len(history)
-	history = append(history, version{len(permascroll), parent, 0})
-	history[parent].lastChild = current
-
-	delta := (current - parent) - 1
-	if delta > 0 {
-		permascroll = append(permascroll, []byte(strconv.Itoa(delta))...)
-	}
-
-	permascroll = append(permascroll, []byte(s+"\n")...)
-}
 
 // Initialise permascroll.
 func Init() {
@@ -73,6 +66,15 @@ func Init() {
 
 // Append text to a paragraph.
 func AppendText(pn int, text string) { InsertText(pn, GetSize(pn), text) }
+
+// Close the permascroll file.
+func ClosePermascroll() (err error) {
+	if err = file.Close(); err != nil {
+		err = fmt.Errorf("failed to close permascroll: %w", err)
+	}
+
+	return err
+}
 
 // Delete text from a paragraph between pos and end.
 func DeleteText(pn, pos, end int) {
@@ -127,16 +129,50 @@ func docSplit() {
 	offset = 0
 }
 
+func docRedo(op byte, text string) {
+	switch op {
+	case 'D':
+		docDelete(len(text))
+	case 'I':
+		docInsert(text)
+	case 'M':
+		docMerge()
+	default: // 'R' not implemented yet, must be 'S'
+		docSplit()
+	}
+}
+
+func docUndo() byte {
+	source := history[current].source
+	current = history[current].parent
+	_, op, text := parseOperation(&source)
+	switch op {
+	case 'D':
+		docInsert(text)
+	case 'I':
+		docDelete(len(text))
+	case 'M':
+		docSplit()
+	default: // 'R' not implemented yet, must be 'S'
+		docMerge()
+	}
+
+	return op
+}
+
 // Write pending insertion or deletion to permascroll.
+// Safe to use concurrently.
 func Flush() {
+	mutex.Lock()
+	defer mutex.Unlock()
 	if deleting > 0 {
 		p := document[paragraph-1]
 		t := p[offset : offset+deleting]
-		newVersion(fmt.Sprintf("D%d,%d:%s", paragraph, offset, t))
+		persist(fmt.Sprintf("D%d,%d:%s", paragraph, offset, t))
 		docDelete(deleting)
 		deleting = 0
 	} else if len(pending) > 0 {
-		newVersion(fmt.Sprintf("I%d,%d:%s", paragraph, offset, pending))
+		persist(fmt.Sprintf("I%d,%d:%s", paragraph, offset, pending))
 		docInsert(pending)
 		pending = ""
 	}
@@ -195,93 +231,44 @@ func MergeParagraph(pn int) {
 		Flush()
 		paragraph = pn
 		docMerge()
-		newVersion(fmt.Sprintf("M%d,%d", pn, offset))
+		persist(fmt.Sprintf("M%d,%d", pn, offset))
 	}
+}
+
+// Add a new version to the history.
+func newVersion(source int) int {
+	parent := current
+	current = len(history)
+	history = append(history, version{source, parent, 0})
+	history[parent].lastChild = current
+
+	return (current - parent) - 1
+}
+
+// Open or create a permascroll file.
+func OpenPermascroll(path string) (err error) {
+	permascroll, err = os.ReadFile(path)
+	if err == nil && len(permascroll) > 0 {
+		parsePermascroll()
+	}
+
+	file, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err == nil && len(permascroll) == 0 {
+		permascroll = []byte(magic)
+		if _, err := file.WriteString(magic); err != nil {
+			file.Close() // Ignore error; WriteString error takes precedence
+		}
+	}
+
+	if err != nil {
+		err = fmt.Errorf("failed to open permascroll: %w", err)
+	}
+
+	return err
 }
 
 // Number of paragraphs in the document.
 func Paragraphs() int { return len(document) }
-
-// Split a paragraph at a specified position.
-func SplitParagraph(pn, pos int) {
-	validatePos(pn, pos)
-
-	Flush()
-	paragraph, offset = pn, pos
-	newVersion(fmt.Sprintf("S%d,%d", pn, offset))
-	docSplit()
-}
-
-// Parse an operation from the permascroll.
-func parseOperation(source int) (delta int, op byte, text string) {
-	match := opRx.FindSubmatch(permascroll[source:])
-	source += len(match[0])
-
-	if len(match[1]) > 0 {
-		delta, _ = strconv.Atoi(string(match[1]))
-	}
-
-	op = match[2][0]
-	if op == 'D' || op == 'I' {
-		match = diRx.FindSubmatch(permascroll[source:])
-		text = string(match[3])
-	} else {
-		match = msRx.FindSubmatch(permascroll[source:])
-	}
-
-	paragraph, _ = strconv.Atoi(string(match[1]))
-	offset, _ = strconv.Atoi(string(match[2]))
-
-	return
-}
-
-// Redo the last undone operation, if any.
-func Redo() byte {
-	child := history[current].lastChild
-	if child == 0 || deleting > 0 || len(pending) > 0 {
-		return 0
-	}
-
-	current = child
-	_, op, text := parseOperation(history[current].source)
-
-	switch op {
-	case 'D':
-		docDelete(len(text))
-	case 'I':
-		docInsert(text)
-	case 'M':
-		docMerge()
-	default: // 'R' not implemented yet, must be 'S'
-		docSplit()
-	}
-
-	return op
-}
-
-// Undo the immediately preceding operation, if any.
-func Undo() byte {
-	if current == 0 {
-		return 0
-	}
-
-	Flush()
-	_, op, text := parseOperation(history[current].source)
-	current = history[current].parent
-
-	switch op {
-	case 'D':
-		docInsert(text)
-	case 'I':
-		docDelete(len(text))
-	case 'M':
-		docSplit()
-	default: // 'R' not implemented yet, must be 'S'
-		docMerge()
-	}
-
-	return op
-}
 
 /*
 NOTE that this package violates the Go convention that panics should not cross
@@ -290,6 +277,115 @@ code rather than anything that can be resolved by error handling.  If errors
 were returned instead, every caller would still have to panic after checking for
 them.
 */
+
+// Parse an operation from the permascroll.
+func parseOperation(source *int) (delta int, op byte, text string) {
+	match := opRx.FindSubmatch(permascroll[*source:])
+	if match == nil {
+		panic(fmt.Errorf("invalid operation %q, %w", permascroll[*source], errParse))
+	}
+	*source += len(match[0])
+
+	if len(match[1]) > 0 {
+		delta, _ = strconv.Atoi(string(match[1]))
+	}
+
+	op = match[2][0]
+	if op == 'D' || op == 'I' {
+		match = diRx.FindSubmatch(permascroll[*source:])
+	} else {
+		match = msRx.FindSubmatch(permascroll[*source:])
+	}
+	if match == nil {
+		panic(fmt.Errorf("invalid arguments for %q, %w", op, errParse))
+	}
+	*source += len(match[0])
+
+	paragraph, _ = strconv.Atoi(string(match[1]))
+	offset, _ = strconv.Atoi(string(match[2]))
+	if op == 'D' || op == 'I' {
+		text = string(match[3])
+	}
+
+	return delta, op, text
+}
+
+// Parse the entire permascroll.
+func parsePermascroll() {
+	if len(permascroll) < len(magic) || !bytes.Equal(permascroll[:len(magic)], []byte(magic)) {
+		panic(fmt.Errorf("invalid magic, %w", errParse))
+	}
+
+	source := len(magic)
+	for source < len(permascroll) {
+		opSource := source
+		delta, op, text := parseOperation(&source)
+		for range delta {
+			docUndo()
+		}
+		newVersion(opSource)
+		docRedo(op, text)
+	}
+}
+
+// Persist an operation to the permascroll.
+func persist(s string) {
+	delta := newVersion(len(permascroll))
+	if delta > 0 {
+		s = strconv.Itoa(delta) + s
+	}
+
+	s += "\n"
+	permascroll = append(permascroll, []byte(s)...)
+	if _, err := file.WriteString(s); err != nil {
+		file.Close() // ignore error; Write error takes precedence
+		panic(fmt.Errorf("persist failed: %w", err))
+	}
+}
+
+// Redo the last undone operation, if any.
+func Redo() (op byte) {
+	child := history[current].lastChild
+	if child > 0 && deleting == 0 && len(pending) == 0 {
+		current = child
+		source := history[current].source
+		var text string
+		_, op, text = parseOperation(&source)
+		docRedo(op, text)
+	}
+
+	return op
+}
+
+// Split a paragraph at a specified position.
+func SplitParagraph(pn, pos int) {
+	validatePos(pn, pos)
+
+	Flush()
+	paragraph, offset = pn, pos
+	persist(fmt.Sprintf("S%d,%d", pn, offset))
+	docSplit()
+}
+
+// Ensure the permascroll backing store is written to stable storage.
+func SyncPermascroll() (err error) {
+	Flush()
+	if err = file.Sync(); err != nil {
+		err = fmt.Errorf("failed to sync permascroll: %w", err)
+	}
+
+	return err
+}
+
+// Undo the immediately preceding operation, if any.
+func Undo() (op byte) {
+	if current > 0 {
+		Flush()
+		op = docUndo()
+	}
+
+	return op
+}
 
 func validatePn(pn int) {
 	if pn < 1 || pn > len(document) {

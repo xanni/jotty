@@ -2,12 +2,19 @@ package main
 
 import (
 	"log"
+	"os"
+	"time"
 
 	"git.sericyb.com.au/jotty/edits"
+	ps "git.sericyb.com.au/jotty/permascroll"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0"
+const (
+	defaultName = "jotty.jot"
+	syncDelay   = 10 * time.Second
+	version     = "0"
+)
 
 var dispatch = map[tea.KeyType]func(){
 	tea.KeyUp:        edits.IncScope,
@@ -30,7 +37,7 @@ var dispatch = map[tea.KeyType]func(){
 
 var sx, sy int // screen dimensions
 
-type model struct{}
+type model struct{ timer *time.Timer }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool {
@@ -53,6 +60,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		if isSizeOK() {
+			m.timer.Reset(syncDelay)
 			if f, ok := dispatch[msg.Type]; ok {
 				f()
 			} else if msg.Type == tea.KeyRunes && !msg.Alt {
@@ -72,10 +80,33 @@ func (m model) View() (s string) {
 	return s
 }
 
+func cleanup() {
+	ps.Flush()
+	if err := ps.ClosePermascroll(); err != nil {
+		log.Printf("%+v", err)
+	}
+}
+
 func main() {
-	var m model
-	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	path := defaultName
+	if len(os.Args) > 1 {
+		path = os.Args[1]
+	}
+	if err := ps.OpenPermascroll(path); err != nil {
 		log.Fatalf("%+v", err)
 	}
+	defer cleanup()
+
+	var m model
+	m.timer = time.AfterFunc(syncDelay, func() {
+		if err := ps.SyncPermascroll(); err != nil {
+			log.Printf("%+v", err)
+		}
+		m.timer.Reset(syncDelay)
+	})
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		log.Printf("%+v", err)
+	}
+	m.timer.Stop()
 }

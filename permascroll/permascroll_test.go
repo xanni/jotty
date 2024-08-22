@@ -1,10 +1,20 @@
 package permascroll
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func init() { openDevNull() }
+
+func openDevNull() {
+	if err := OpenPermascroll(os.DevNull); err != nil {
+		panic(err)
+	}
+}
 
 func TestInit(t *testing.T) {
 	assert := assert.New(t)
@@ -18,6 +28,13 @@ func TestAppendText(t *testing.T) {
 	Init()
 	AppendText(1, "Test")
 	assert.Equal("Test", pending)
+}
+
+func TestClosePermascroll(t *testing.T) {
+	file = nil
+	require.ErrorContains(t, ClosePermascroll(), "failed to close permascroll: invalid argument")
+
+	openDevNull()
 }
 
 func TestDeleteText(t *testing.T) {
@@ -202,6 +219,36 @@ func TestMergeParagraph(t *testing.T) {
 	}
 }
 
+func TestOpenPermascroll(t *testing.T) {
+	require.ErrorContains(t, OpenPermascroll(""), "failed to open permascroll: ")
+
+	testFile, err := os.CreateTemp("", "jotty")
+	name := testFile.Name()
+	defer os.Remove(name)
+	if err != nil {
+		panic(err)
+	}
+	testFile.Close()
+	if err = os.Chmod(name, 0o444); err != nil {
+		panic(err)
+	}
+	require.ErrorContains(t, OpenPermascroll(name), "failed to open permascroll: ")
+
+	testFile, err = os.CreateTemp("", "jotty")
+	name = testFile.Name()
+	defer os.Remove(name)
+	if err != nil {
+		panic(err)
+	}
+	if _, err = testFile.WriteString(magic + "I1,0:Test\n"); err != nil {
+		panic(err)
+	}
+	require.NoError(t, OpenPermascroll(name))
+	require.NoError(t, ClosePermascroll())
+
+	openDevNull()
+}
+
 func TestParseOperation(t *testing.T) {
 	assert := assert.New(t)
 
@@ -219,12 +266,46 @@ func TestParseOperation(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			delta, op, text := parseOperation(history[test.i].source)
+			source := history[test.i].source
+			delta, op, text := parseOperation(&source)
 			assert.Equal(0, delta)
 			assert.Equal(test.op, op)
 			assert.Equal(test.text, text)
 		})
 	}
+}
+
+func TestParsePermascroll(t *testing.T) {
+	assert := assert.New(t)
+
+	permascroll = []byte{}
+	assert.PanicsWithError(`invalid magic, parse failed`, func() { parsePermascroll() })
+
+	permascroll = []byte("bad magic\n")
+	assert.PanicsWithError(`invalid magic, parse failed`, func() { parsePermascroll() })
+
+	permascroll = []byte(magic + "bad\n")
+	assert.PanicsWithError(`invalid operation 'b', parse failed`, func() { parsePermascroll() })
+
+	permascroll = []byte(magic + "I:bad\n")
+	assert.PanicsWithError(`invalid arguments for 'I', parse failed`, func() { parsePermascroll() })
+
+	Init()
+	parsePermascroll()
+	assert.Equal([]version{{}}, history)
+
+	permascroll = []byte(magic + "S1,0\nI1,0:Test\n2I1,0:Two\n")
+	parsePermascroll()
+	assert.Equal(3, current)
+	assert.Equal([]string{"Two"}, document)
+	assert.Equal([]version{{0, 0, 3}, {8, 0, 2}, {13, 1, 0}, {23, 0, 0}}, history)
+}
+
+func TestPersist(t *testing.T) {
+	file = nil
+	assert.PanicsWithError(t, "persist failed: invalid argument", func() { persist("error") })
+
+	openDevNull()
 }
 
 func TestSplitParagraph(t *testing.T) {

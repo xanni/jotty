@@ -1,12 +1,19 @@
 package edits
 
 import (
+	"os"
 	"slices"
 	"testing"
 
 	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	if err := ps.OpenPermascroll(os.DevNull); err != nil {
+		panic(err)
+	}
+}
 
 func TestInsertParaBreak(t *testing.T) {
 	assert := assert.New(t)
