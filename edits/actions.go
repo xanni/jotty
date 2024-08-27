@@ -261,7 +261,7 @@ func Delete() {
 }
 
 func refresh() {
-	cache = nil // TODO only zap changed paragraphs
+	cache = nil
 	total = counts{0, 0, 0, 1}
 	pn, pos := ps.GetPos()
 	cursor = counts{uniseg.GraphemeClusterCount(ps.GetText(pn)[:pos]), 0, 0, pn}

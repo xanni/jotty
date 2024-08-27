@@ -343,10 +343,15 @@ func drawWindow() {
 		}
 	}
 
-	// The cursor is outside the screen: redraw everything
+	// Redraw everything
 	cache = make([]para, pn-1, pn)
-	cursPara, firstPara, firstLine = pn, pn, 0
-	for rows := 0; rows < ey && pn <= ps.Paragraphs(); pn++ {
+	cursPara = pn
+	if firstPara < 1 || firstPara > cursPara { // Ensure cursor is onscreen
+		firstPara, firstLine = max(pn-1, 1), 0 // Provide one preceding paragraph of context if possible
+	}
+
+	pn = firstPara
+	for rows := 0; (pn <= cursor[Para] || rows < ey) && pn <= ps.Paragraphs(); pn++ {
 		drawPara(pn)
 		rows += len(cache[pn-1].text) + 1
 	}

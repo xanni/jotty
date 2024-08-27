@@ -17,6 +17,7 @@ func init() {
 
 func resetCache() {
 	cache = []para{{}}
+	cursPara = 1
 	total = counts{0, 0, 0, 1}
 }
 
@@ -221,7 +222,7 @@ func TestDrawWindow(t *testing.T) {
 	cache = nil
 	cursor[Para] = 2
 	drawWindow()
-	expect = []para{{}, {4, []int{0}, []int{0}, []string{"_Test"}}}
+	expect = []para{{text: []string{""}}, {4, []int{0}, []int{0}, []string{"_Test"}}}
 	assert.Equal(expect, cache)
 
 	cursor[Para] = 1
@@ -242,8 +243,19 @@ func TestDrawWindow(t *testing.T) {
 	ps.SplitParagraph(3, 0)
 	cursor[Para] = 4
 	drawWindow()
-	expect = []para{{}, {}, {}, {text: []string{"_"}}}
+	expect[0].text = []string{""}
+	expect = append(expect, para{text: []string{"_"}})
 	assert.Equal(expect, cache)
+
+	cursor[Para] = 3
+	cache = nil
+	firstPara = 4
+	drawWindow()
+	expect[0] = para{}
+	expect[2].text = []string{"_"}
+	expect[3].text = []string{""}
+	assert.Equal(expect, cache)
+	assert.Equal(2, firstPara)
 }
 
 func TestScreen(t *testing.T) {
