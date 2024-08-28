@@ -105,18 +105,33 @@ is critical information during navigation and the user will be looking at the
 cursor.  This is better than needing to look elsewhere on the screen, for
 example a status line, though it can also be secondarily indicated in that way.
 
+### Edit marks
+
 Edit marks are indicated with vertical lines "|" which should also be a distinct
-colour or blinking.
+colour or blinking.  In this implementation, edit marks must all be within the
+same paragraph.  Placing an edit mark in a different paragraph will clear any
+existing edit marks.
 
 "Selected" text around or between edit marks should have distinct background
-colors or inverse text.
+colors or text attributes.  There is a primary and a secondary selection.
+
+In this document, "first", "second" and "third" mark refer to the edit marks in
+ascending order of their character position within the paragraph, which is not
+required to correspond with the sequence in which the marks were created.
 
 When there is a single edit mark, the character, word, sentence or paragraph (if
-any) immediately preceding and following the mark are selected.  When there are
-two edit marks, the text inbetween the marks is additionally selected.  When
-there are three edit marks, only the text between the first two and the last two
-marks are the selections.  Setting additional marks beyond a third will remove
-the first (oldest) mark.
+any) immediately following the mark is the primary selection and the same scope
+unit (if any) immediately preceding the mark is the secondary selection.
+
+When there are two edit marks, the text inbetween the marks is the primary
+selection and the scope unit immediately following the second mark is the
+secondary selection.
+
+When there are three edit marks, the text between the first and second marks is
+the primary selection and between the second and third marks is the secondary
+selection.
+
+Setting additional marks beyond a third will remove the oldest mark.
 
 ## User experience design
 
@@ -334,37 +349,36 @@ these are very common operations and selecting from the menu is too cumbersome.
 
 ### Editing
 
-When there is one edit mark, `Space` will exchange the highlighted strings on
-either side of the edit mark.  When there are two or three edit marks, `Space`
-will exchange the highlighted strings on either side of the second edit mark. A
-second `Space` will revert this, as will undo.
+When there is one edit mark, `Space` will exchange the primary and secondary
+selections on either side of the edit mark.  When there are two or three edit
+marks, `Space` will exchange the primary and secondary selections on either side
+of the second edit mark. A second `Space` will revert this, as will undo.
 
-When there is one edit mark, `Enter`, `Del` or `^X` will remove the highlighted
-string after the mark and append it to the "cut buffer" stack.  When there are
-two edit marks, `Enter`, `Del` or `^X` will remove the highlighted string
-between the marks. When there are three edit marks, `Enter`, `Del` or `^X` will
-remove both highlighted strings into the cut buffer as separate entries.  `^C`
-will perform the same actions but copying rather than removing the strings from
-the source.  This newly created cut buffer entry becomes the current cut buffer
-selection and the cut window, if implemented, is scrolled or redrawn to present
-it.
+When there is one edit mark, `Enter`, `Del` or `^X` will remove the primary
+selection after the mark and append it to the "cut buffer" stack.  When there
+are two edit marks, `Enter`, `Del` or `^X` will remove the primary selection
+between the marks.  When there are three edit marks, `Enter`, `Del` or `^X` will
+remove both the primary and the secondary selection into the cut buffer as
+separate entries.  The newly created cut buffer entry containing the former
+primary selection becomes the current cut buffer selection.  The cut window, if
+implemented, is scrolled or redrawn to present it and the edit marks are
+removed.  `^C` will perform the same actions but copying rather than removing
+the selection(s) from the source.
 
-When there is one edit mark, typing printable characters will delete the
-highlighted string after the edit mark and commence inserting new text at the
-edit mark.  The edit mark will be deleted.  When there are two or three edit
-marks, typing printable characters will delete the highlighted string between
-the first two marks and commence inserting at the first edit mark.  All marks
-will be deleted.
+When there is one edit mark, typing printable characters will delete the primary
+selection after the edit mark and commence inserting new text at the edit mark.
+When there are two or three edit marks, typing printable characters will delete
+the primary selection between the first two marks and commence inserting at the
+first edit mark.  All marks will then be removed.
 
 When an entry in the cut buffer is selected with the "next" and "previous"
 actions (but not with the "cut" or "copy" actions), navigation with
 up-down-left-right and placing and removing edit marks apply to that cut buffer
-entry.  `Space` or `Enter` will copy the entire cut buffer entry or the
-highlighted region between two cut buffer edit marks to the current cursor
-position.  It will have no effect if there are one or three edit marks in the
-cut buffer. Additional spaces or enters will copy the same string again each
-time.  Typing printable characters will deselect the cut buffer and insert into
-the edit buffer at the current cursor position as usual.
+entry.  `Space` or `Enter` will copy the entire cut buffer entry or the primary
+selection between two cut buffer edit marks to the current cursor position.
+Additional spaces or enters will copy the same selection again each time.
+Typing printable characters will deselect the cut buffer and insert into the
+edit buffer at the current cursor position as usual.
 
 ### Status line
 
@@ -380,30 +394,24 @@ the current scope unit information can be displayed.
 
 `Jotty v0  ¶0/0 $0/0 #0/0 @0/0`
 
+### Text attributes
+
+The defaults are white text on a black background with the cursor blinking and
+reversed, edit marks blinking yellow, primary selections in reversed black on
+red and secondary selections in underlined magenta.
+
 ## Internal data representation
 
 There is an edit buffer containing UTF-8 text which represents the current state
 of the document and optionally a cut buffer that contains various excised
-strings, each with a creation timestamp.
-
-The edit and cut buffers are constructed from lists of references to
-(transclusions from) the permascroll, each of which is a byte offset and a
-length pointing into the text string of "Insert" operations.  Only versions
-within the portion of the permascroll that has been read will be visible in the
-user interface.
-
-An operation list records all operations performed in the current edit session
-that have not yet been undone, and all changes to the operation list are
-converted to Permascroll operations and regularly persisted.  This can be via a
-library or a network API.
-
-The edit buffer and cut buffer can be fully or partially reconstructed when
-editing is resumed by reading some or all of the permascroll.
+strings, each with a creation timestamp.  The edit buffer and cut buffer can be
+fully or partially reconstructed when editing is resumed by reading some or all
+of the permascroll.
 
 The current cursor position and up to three "edit mark" positions are recorded
-as character (not byte) offsets into the edit buffer.  These are not recorded in
-the permascroll and could be persisted to storage separately in order to
-preserve them on exit.
+as paragraph and character (not byte) offsets into the edit buffer.  These are
+not recorded in the permascroll and could be persisted to storage separately in
+order to preserve them on exit.
 
 The edit window is a vertically scrolling window rendering a visible portion of
 the edit buffer with word wrapping.  Words longer than a certain size (initially

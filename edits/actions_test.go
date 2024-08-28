@@ -113,6 +113,42 @@ func TestIncScope(t *testing.T) {
 	assert.Equal(Word, scope)
 }
 
+func TestMark(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	ps.Init()
+	ps.AppendText(1, "Testing")
+
+	drawWindow()
+	Mark()
+	assert.Equal(1, markPara)
+	assert.Equal([]int{0}, mark)
+
+	cursor[Char] = 2
+	Mark()
+	assert.Equal([]int{0, 2}, mark)
+
+	cursor[Char] = 6
+	Mark()
+	assert.Equal([]int{0, 2, 6}, mark)
+
+	cursor[Char] = 4
+	Mark()
+	assert.Equal([]int{2, 6, 4}, mark)
+
+	cursor[Char] = 2
+	Mark()
+	assert.Equal([]int{6, 4}, mark)
+
+	ps.SplitParagraph(1, 7)
+	cursor = counts{0, 0, 0, 2}
+	Mark()
+	assert.Equal(2, markPara)
+	assert.Equal([]int{0}, mark)
+}
+
 func TestSpace(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()

@@ -26,6 +26,7 @@ func setupTest() {
 	cursor = counts{Para: 1}
 	firstPara, firstLine = 0, 0
 	initialCap = false
+	mark = nil
 	scope = Char
 	ps.Init()
 	resetCache()
@@ -159,6 +160,19 @@ func TestDrawLineCursor(t *testing.T) {
 		state := -1
 		assert.Equal(string(cursorChar[scope]), drawLine(1, &c, &source, &state))
 	}
+}
+
+func TestDrawLineMark(t *testing.T) {
+	assert := assert.New(t)
+	ResizeScreen(margin+2, 3)
+	setupTest()
+
+	markPara = 1
+	mark = []int{1, 2, 0}
+	c := 0
+	source := []byte("Test")
+	state := -1
+	assert.Equal("|_T|e -", drawLine(1, &c, &source, &state))
 }
 
 func TestDrawPara(t *testing.T) {

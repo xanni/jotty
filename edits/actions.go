@@ -72,6 +72,30 @@ func IncScope() {
 	}
 }
 
+func Mark() {
+	// Remove existing marks?
+	if markPara != cursor[Para] {
+		mark = nil
+		if markPara > 0 {
+			drawPara(markPara)
+		}
+		markPara = cursor[Para]
+	} else {
+		for i, m := range mark {
+			if m == cursor[Char] {
+				mark = slices.Delete(mark, i, i+1)
+
+				return
+			}
+		}
+	}
+
+	if len(mark) > 2 {
+		mark = slices.Delete(mark, 0, 1)
+	}
+	mark = append(mark, cursor[Char])
+}
+
 func Space() {
 	if scope >= Sent {
 		insertParaBreak()

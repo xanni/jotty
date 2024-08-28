@@ -40,27 +40,25 @@ implemented in the "uniseg" module.
 */
 
 var (
-	ID                   string // The program name and version
-	counterChar          = [...]rune{'@', '#', '$', '¶'}
-	cursorChar           = [...]rune{'_', '#', '$', '¶'}
-	cursPara, cursLine   int // Paragraph and line containing the cursor
-	ex, ey               int // Edit window dimensions
-	firstPara, firstLine int // Paragraph and line at top of edit window
-	output               = termenv.NewOutput(os.Stdout)
+	ID          string // The program name and version
+	counterChar = [...]rune{'@', '#', '$', '¶'}
+	cursorChar  = [...]rune{'_', '#', '$', '¶'}
 )
 
 const (
-	cursorCharCap = '↑'
-	margin        = 5 // Up to 3 edit marks, cursor and wrap indicator
+	cursorCharCap = '↑'       // Capitalisation indicator character
+	margin        = 5         // Up to 3 edit marks, cursor and wrap indicator
+	markChar      = "|"       // Visual representation of an edit mark
+	markColor     = "#ffff00" // ANSIBrightYellow
 )
 
 type Scope int
 
 const (
 	Char Scope = iota // Character
-	Word
-	Sent // Sentence
-	Para // Paragraph
+	Word              // Word
+	Sent              // Sentence
+	Para              // Paragraph
 	MaxScope
 )
 
@@ -83,11 +81,17 @@ purposes.
 */
 
 var (
-	after, before strings.Builder // Text of the current paragraph after and before the cursor position
-	cache         []para
-	cursor        = counts{Para: 1} // Current cursor position
-	initialCap    = true            // Initial capital at the start of a sentence
-	scope         Scope
+	after, before        strings.Builder // Text of the current paragraph after and before the cursor position
+	cache                []para
+	cursor               = counts{Para: 1} // Current cursor position
+	cursPara, cursLine   int               // Paragraph and line containing the cursor
+	ex, ey               int               // Edit window dimensions
+	firstPara, firstLine int               // Paragraph and line at top of edit window
+	initialCap           = true            // Initial capital at the start of a sentence
+	markPara             int               // Paragraph containing the mark(s), if any
+	mark                 []int             // Character positions of the marks
+	output               = termenv.NewOutput(os.Stdout)
+	scope                Scope
 )
 
 // Add a word to the index if not already present.
@@ -129,6 +133,10 @@ func cursorString() string {
 	}
 
 	return output.String(string(cc)).Reverse().Blink().String()
+}
+
+func markString() string {
+	return output.String(markChar).Blink().Foreground(output.Color(markColor)).String()
 }
 
 // Draw the status bar that appears on the last line of the screen.
@@ -223,11 +231,23 @@ func drawLine(pn int, c *int, source *[]byte, state *int) string {
 			break
 		}
 
-		if pn == cursor[Para] && *c == cursor[Char] && (x == 0 || w > 0) {
-			t.WriteString(cursorString())
-			updateCursorPos()
-			m++
-			x++
+		if x == 0 || w > 0 {
+			if pn == markPara {
+				for _, mc := range mark {
+					if *c == mc {
+						t.WriteString(markString())
+						m++
+						x++
+					}
+				}
+			}
+
+			if pn == cursor[Para] && *c == cursor[Char] {
+				t.WriteString(cursorString())
+				updateCursorPos()
+				m++
+				x++
+			}
 		}
 
 		if len(*source) == 0 {
