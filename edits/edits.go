@@ -209,81 +209,94 @@ func updateBeforeAndAfter(c int, g []byte) {
 	}
 }
 
+type line struct {
+	c      int             // Character count
+	m      int             // Right margin
+	source *[]byte         // Paragraph text being rendered
+	state  int             // Unicode segmentation state
+	t      strings.Builder // Text
+	w      int             // Monospace width of current character
+	x      int             // Current column position in the line
+}
+
+func (l *line) drawMarker(s string) {
+	l.t.WriteString(s)
+	l.m++
+	l.x++
+}
+
+func (l *line) drawAllMarkers(pn int) {
+	if l.x == 0 || l.w > 0 {
+		if pn == markPara {
+			for _, mc := range mark {
+				if l.c == mc {
+					l.drawMarker(markString())
+				}
+			}
+		}
+
+		if pn == cursor[Para] && l.c == cursor[Char] {
+			l.drawMarker(cursorString())
+			updateCursorPos()
+		}
+	}
+}
+
 /*
 Draw one line in the edit window.  Word wraps at the end of the line.
 
-Takes the current paragraph number, character count, document source text and
-uniseg state and returns the text of the line.  Consumes text from the document
-source and updates the character count and uniseg state.
+Takes the current paragraph number and returns the text of the line.  Consumes
+text from the document source and updates the character count and uniseg state.
 */
-func drawLine(pn int, c *int, source *[]byte, state *int) string {
-	var f int            // Unicode boundary flags
-	m := ex - margin - 1 // Right margin
+func (l *line) drawLine(pn int) string {
+	l.m, l.w, l.x = ex-margin-1, 0, 0
+	l.t.Reset()
+	var f int // Unicode boundary flags
 	var r rune
-	var t strings.Builder
-	var w int // Monospace width of character
-	var x int // Column position in the line
 	for {
 		// Break loop at margin or mandatory break
 		f &= uniseg.MaskLine
-		if len(*source) > 0 &&
-			(x > m || f == uniseg.LineMustBreak || (f == uniseg.LineCanBreak && x+nextSegWidth(*source) > m)) {
+		if len(*l.source) > 0 &&
+			(l.x > l.m || f == uniseg.LineMustBreak || (f == uniseg.LineCanBreak && l.x+nextSegWidth(*l.source) > l.m)) {
 			break
 		}
 
-		if x == 0 || w > 0 {
-			if pn == markPara {
-				for _, mc := range mark {
-					if *c == mc {
-						t.WriteString(markString())
-						m++
-						x++
-					}
-				}
-			}
+		l.drawAllMarkers(pn)
 
-			if pn == cursor[Para] && *c == cursor[Char] {
-				t.WriteString(cursorString())
-				updateCursorPos()
-				m++
-				x++
-			}
-		}
-
-		if len(*source) == 0 {
+		if len(*l.source) == 0 {
 			break
 		}
 
 		var g []byte // Grapheme cluster
-		g, *source, f, *state = uniseg.Step(*source, *state)
+		g, *l.source, f, l.state = uniseg.Step(*l.source, l.state)
 		r, _ = utf8.DecodeRune(g)
 
 		if pn == cursor[Para] {
-			updateBeforeAndAfter(*c, g)
+			updateBeforeAndAfter(l.c, g)
 		}
 
-		w = f >> uniseg.ShiftWidth
-		if w > 0 {
-			*c++
-			t.Write(g)
-			x += w
+		l.w = f >> uniseg.ShiftWidth
+		if l.w > 0 {
+			l.c++
+			l.t.Write(g)
+			l.x += l.w
 		}
 
-		if f&uniseg.MaskWord != 0 && isAlphanumeric(*source) {
-			indexWord(pn, *c)
+		if f&uniseg.MaskWord != 0 && isAlphanumeric(*l.source) {
+			indexWord(pn, l.c)
 		}
 
-		if f&uniseg.MaskSentence != 0 && len(*source) > 0 {
-			indexSent(pn, *c)
+		if f&uniseg.MaskSentence != 0 && len(*l.source) > 0 {
+			indexSent(pn, l.c)
 		}
 	}
 
-	if x > m && f == 0 && !unicode.Is(unicode.Z, r) { // Not a space character
-		t.WriteString(strings.Repeat(" ", ex-x-1))
-		t.WriteString(output.String("-").Reverse().String())
+	if l.x > l.m && f == 0 && !unicode.Is(unicode.Z, r) { // Not a space character
+		l.t.WriteString(strings.Repeat(" ", ex-l.x-1))
+		l.t.WriteString(output.String("-").Reverse().String())
 	}
 
-	return t.String()
+	return l.t.String()
 }
 
 // Reset character, word and sentence indexes for a paragraph.
@@ -317,12 +330,11 @@ func drawPara(pn int) {
 		indexWord(pn, 0)
 	}
 
-	var c int
-	state := -1
+	l := line{source: &source, state: -1}
 	p := &cache[pn-1]
 	for {
-		p.text = append(p.text, drawLine(pn, &c, &source, &state))
-		if cursLine == -1 && (c > cursor[Char] || len(source) == 0) {
+		p.text = append(p.text, l.drawLine(pn))
+		if cursLine == -1 && (l.c > cursor[Char] || len(source) == 0) {
 			cursLine = len(p.text) - 1
 		}
 		if len(source) == 0 {
@@ -331,8 +343,8 @@ func drawPara(pn int) {
 	}
 
 	// Update character counts
-	p.chars = c
-	total[Char] += c
+	p.chars = l.c
+	total[Char] += l.c
 }
 
 /*

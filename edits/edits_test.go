@@ -105,48 +105,43 @@ func TestDrawLine(t *testing.T) {
 	ResizeScreen(margin+3, 2)
 	setupTest()
 
-	c := 0
 	source := []byte{}
-	state := -1
-	assert.Equal("_", drawLine(1, &c, &source, &state))
-	assert.Equal("", drawLine(2, &c, &source, &state))
+	l := line{source: &source, state: -1}
+	assert.Equal("_", l.drawLine(1))
+	assert.Equal("", l.drawLine(2))
 
 	source = []byte("1\xff2")
-	state = -1
-	assert.Equal("_1\xff2", drawLine(1, &c, &source, &state))
-	assert.Equal(3, c)
+	l = line{source: &source, state: -1}
+	assert.Equal("_1\xff2", l.drawLine(1))
+	assert.Equal(3, l.c)
 
 	source = []byte("Test")
-	state = -1
-	assert.Equal("Tes    -", drawLine(1, &c, &source, &state))
+	l = line{source: &source, state: -1}
+	assert.Equal("_Tes   -", l.drawLine(1))
 
-	c = 0
 	cursor[Char] = 3
 	source = []byte("12 3")
-	state = -1
-	assert.Equal("12 ", drawLine(1, &c, &source, &state))
-	assert.Equal("_3", drawLine(1, &c, &source, &state))
+	l = line{source: &source, state: -1}
+	assert.Equal("12 ", l.drawLine(1))
+	assert.Equal("_3", l.drawLine(1))
 
-	c = 0
 	source = []byte(". Test")
-	state = -1
-	assert.Equal(". ", drawLine(1, &c, &source, &state))
+	l = line{source: &source, state: -1}
+	assert.Equal(". ", l.drawLine(1))
 	assert.Equal(2, lastSentence(1))
 
-	c = 0
 	source = []byte("1\n2")
-	state = -1
-	assert.Equal("1", drawLine(1, &c, &source, &state))
+	l = line{source: &source, state: -1}
+	assert.Equal("1", l.drawLine(1))
 
-	c = 0
 	cursor[Char] = 1
 	source = []byte("1\u200b2") // Zero-width space
-	state = -1
-	assert.Equal("1_2", drawLine(1, &c, &source, &state))
+	l = line{source: &source, state: -1}
+	assert.Equal("1_2", l.drawLine(1))
 
 	source = []byte("12  ")
-	state = -1
-	assert.Equal("12 ", drawLine(1, &c, &source, &state))
+	l = line{source: &source, state: -1}
+	assert.Equal("1_2 ", l.drawLine(1))
 }
 
 func TestDrawLineCursor(t *testing.T) {
@@ -155,10 +150,9 @@ func TestDrawLineCursor(t *testing.T) {
 	setupTest()
 
 	for scope = Char; scope < MaxScope; scope++ {
-		c := 0
 		source := []byte{}
-		state := -1
-		assert.Equal(string(cursorChar[scope]), drawLine(1, &c, &source, &state))
+		l := line{source: &source, state: -1}
+		assert.Equal(string(cursorChar[scope]), l.drawLine(1))
 	}
 }
 
@@ -169,10 +163,9 @@ func TestDrawLineMark(t *testing.T) {
 
 	markPara = 1
 	mark = []int{1, 2, 0}
-	c := 0
 	source := []byte("Test")
-	state := -1
-	assert.Equal("|_T|e -", drawLine(1, &c, &source, &state))
+	l := line{source: &source, state: -1}
+	assert.Equal("|_T|e -", l.drawLine(1))
 }
 
 func TestDrawPara(t *testing.T) {
