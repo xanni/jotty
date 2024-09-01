@@ -46,10 +46,12 @@ var (
 )
 
 const (
-	cursorCharCap = '↑'       // Capitalisation indicator character
-	margin        = 5         // Up to 3 edit marks, cursor and wrap indicator
-	markChar      = "|"       // Visual representation of an edit mark
-	markColor     = "#ffff00" // ANSIBrightYellow
+	cursorCharCap  = '↑'       // Capitalisation indicator character
+	margin         = 5         // Up to 3 edit marks, cursor and wrap indicator
+	markChar       = "|"       // Visual representation of an edit mark
+	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
+	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
+	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
 )
 
 type Scope int
@@ -72,6 +74,8 @@ type para struct {
 	text  []string // Rendered lines including cursor and marks
 }
 
+type selection struct{ begin, end int }
+
 /*
 The "cache" variable caches the paragraphs displayed in the terminal in order
 to avoid constantly redrawing the entire window.
@@ -91,6 +95,8 @@ var (
 	markPara             int               // Paragraph containing the mark(s), if any
 	mark                 []int             // Character positions of the marks
 	output               = termenv.NewOutput(os.Stdout)
+	primary, secondary   selection
+	prevSelected         bool // Previous paragraph is currently selected
 	scope                Scope
 )
 
@@ -137,6 +143,14 @@ func cursorString() string {
 
 func markString() string {
 	return output.String(markChar).Blink().Foreground(output.Color(markColor)).String()
+}
+
+func primaryStyle(s string) string {
+	return output.String(s).Reverse().Foreground(output.Color(primaryColor)).String()
+}
+
+func secondaryStyle(s string) string {
+	return output.String(s).Underline().Foreground(output.Color(secondaryColor)).String()
 }
 
 // Draw the status bar that appears on the last line of the screen.
@@ -209,14 +223,133 @@ func updateBeforeAndAfter(c int, g []byte) {
 	}
 }
 
+// Get the character position one scope unit backwards.
+func preceding(end int) (begin int) {
+	p := cache[cursor[Para]-1]
+
+	switch scope {
+	case Char:
+		if end > 0 {
+			begin = end - 1
+		}
+	case Word:
+		i, _ := slices.BinarySearch[[]int](p.cword, end)
+		if i > 0 {
+			begin = p.cword[i-1]
+		}
+	case Sent:
+		i, _ := slices.BinarySearch[[]int](p.csent, end)
+		if i > 0 {
+			begin = p.csent[i-1]
+		}
+	default: // Para
+	}
+
+	return begin
+}
+
+// Get the character position one scope unit forwards.
+func following(begin int) (end int) {
+	p := cache[cursor[Para]-1]
+	end = p.chars
+
+	switch scope {
+	case Char:
+		if begin < p.chars {
+			end = begin + 1
+		}
+	case Word:
+		i, found := slices.BinarySearch[[]int](p.cword, begin)
+		if found {
+			i++
+		}
+		if i < len(p.cword) {
+			end = p.cword[i]
+		}
+	case Sent:
+		i, found := slices.BinarySearch[[]int](p.csent, begin)
+		if found {
+			i++
+		}
+		if i < len(p.csent) {
+			end = p.csent[i]
+		}
+	default: // Para
+	}
+
+	return end
+}
+
+// Sort three edit marks in ascending order.
+func sortedMarks() (m [3]int) {
+	m = ([3]int)(mark)
+
+	if m[0] > m[1] {
+		m[0], m[1] = m[1], m[0]
+	}
+
+	if m[0] > m[2] {
+		m[0], m[2] = m[2], m[0]
+	}
+
+	if m[1] > m[2] {
+		m[1], m[2] = m[2], m[1]
+	}
+
+	return m
+}
+
+// Set the selections based on the current edit marks and scope.
+func updateSelections() {
+	selectPrevPara := scope == Para && markPara > 1 && len(mark) == 1 && mark[0] == 0
+	if selectPrevPara != prevSelected {
+		prevSelected = selectPrevPara
+		drawPara(markPara - 1)
+	}
+
+	switch len(mark) {
+	case 1:
+		primary, secondary = selection{mark[0], following(mark[0])}, selection{preceding(mark[0]), mark[0]}
+	case 2:
+		first := min(mark[0], mark[1])
+		second := max(mark[0], mark[1])
+		primary, secondary = selection{first, second}, selection{second, following(second)}
+	case 3:
+		sorted := sortedMarks()
+		primary, secondary = selection{sorted[0], sorted[1]}, selection{sorted[1], sorted[2]}
+	default: // No marks
+		primary, secondary = selection{}, selection{}
+	}
+}
+
 type line struct {
 	c      int             // Character count
 	m      int             // Right margin
+	pn     int             // Paragraph number
 	source *[]byte         // Paragraph text being rendered
 	state  int             // Unicode segmentation state
 	t      strings.Builder // Text
 	w      int             // Monospace width of current character
 	x      int             // Current column position in the line
+}
+
+// Draw one character in the edit window with highlighting as required.
+func (l *line) drawChar(g []byte) {
+	isPrimary := l.pn == markPara && l.c >= primary.begin && l.c < primary.end
+	isSecondary := (l.pn == markPara && l.c >= secondary.begin && l.c < secondary.end) ||
+		(l.pn == markPara-1 && prevSelected)
+
+	switch {
+	case isPrimary:
+		l.t.WriteString((primaryStyle(string(g))))
+	case isSecondary:
+		l.t.WriteString((secondaryStyle(string(g))))
+	default:
+		l.t.Write(g)
+	}
+
+	l.c++
+	l.x += l.w
 }
 
 func (l *line) drawMarker(s string) {
@@ -225,9 +358,10 @@ func (l *line) drawMarker(s string) {
 	l.x++
 }
 
-func (l *line) drawAllMarkers(pn int) {
+// Draw the cursor and any edit mark if at the current position.
+func (l *line) drawAllMarkers() {
 	if l.x == 0 || l.w > 0 {
-		if pn == markPara {
+		if l.pn == markPara {
 			for _, mc := range mark {
 				if l.c == mc {
 					l.drawMarker(markString())
@@ -235,7 +369,7 @@ func (l *line) drawAllMarkers(pn int) {
 			}
 		}
 
-		if pn == cursor[Para] && l.c == cursor[Char] {
+		if l.pn == cursor[Para] && l.c == cursor[Char] {
 			l.drawMarker(cursorString())
 			updateCursorPos()
 		}
@@ -245,10 +379,10 @@ func (l *line) drawAllMarkers(pn int) {
 /*
 Draw one line in the edit window.  Word wraps at the end of the line.
 
-Takes the current paragraph number and returns the text of the line.  Consumes
-text from the document source and updates the character count and uniseg state.
+Returns the text of the line.  Consumes text from the document source and
+updates the character count and uniseg state.
 */
-func (l *line) drawLine(pn int) string {
+func (l *line) drawLine() string {
 	l.m, l.w, l.x = ex-margin-1, 0, 0
 	l.t.Reset()
 	var f int // Unicode boundary flags
@@ -261,7 +395,7 @@ func (l *line) drawLine(pn int) string {
 			break
 		}
 
-		l.drawAllMarkers(pn)
+		l.drawAllMarkers()
 
 		if len(*l.source) == 0 {
 			break
@@ -271,23 +405,21 @@ func (l *line) drawLine(pn int) string {
 		g, *l.source, f, l.state = uniseg.Step(*l.source, l.state)
 		r, _ = utf8.DecodeRune(g)
 
-		if pn == cursor[Para] {
+		if l.pn == cursor[Para] {
 			updateBeforeAndAfter(l.c, g)
 		}
 
 		l.w = f >> uniseg.ShiftWidth
 		if l.w > 0 {
-			l.c++
-			l.t.Write(g)
-			l.x += l.w
+			l.drawChar(g)
 		}
 
 		if f&uniseg.MaskWord != 0 && isAlphanumeric(*l.source) {
-			indexWord(pn, l.c)
+			indexWord(l.pn, l.c)
 		}
 
 		if f&uniseg.MaskSentence != 0 && len(*l.source) > 0 {
-			indexSent(pn, l.c)
+			indexSent(l.pn, l.c)
 		}
 	}
 
@@ -330,10 +462,10 @@ func drawPara(pn int) {
 		indexWord(pn, 0)
 	}
 
-	l := line{source: &source, state: -1}
+	l := line{pn: pn, source: &source, state: -1}
 	p := &cache[pn-1]
 	for {
-		p.text = append(p.text, l.drawLine(pn))
+		p.text = append(p.text, l.drawLine())
 		if cursLine == -1 && (l.c > cursor[Char] || len(source) == 0) {
 			cursLine = len(p.text) - 1
 		}

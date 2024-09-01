@@ -61,6 +61,8 @@ func DecScope() {
 	if scope < Sent {
 		initialCap = false
 	}
+
+	updateSelections()
 }
 
 func IncScope() {
@@ -70,13 +72,17 @@ func IncScope() {
 	} else {
 		scope++
 	}
+
+	updateSelections()
 }
 
 func Mark() {
 	// Remove existing marks?
 	if markPara != cursor[Para] {
 		mark = nil
+
 		if markPara > 0 {
+			updateSelections()
 			drawPara(markPara)
 		}
 		markPara = cursor[Para]
@@ -84,6 +90,7 @@ func Mark() {
 		for i, m := range mark {
 			if m == cursor[Char] {
 				mark = slices.Delete(mark, i, i+1)
+				updateSelections()
 
 				return
 			}
@@ -94,6 +101,7 @@ func Mark() {
 		mark = slices.Delete(mark, 0, 1)
 	}
 	mark = append(mark, cursor[Char])
+	updateSelections()
 }
 
 func Space() {

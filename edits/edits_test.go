@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	ps "git.sericyb.com.au/jotty/permascroll"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -100,48 +101,192 @@ func TestNextSegWidth(t *testing.T) {
 	assert.Equal(4, nextSegWidth([]byte("One-two")))
 }
 
+func TestPreceding(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	cache = []para{{26, []int{0, 5, 12, 16}, []int{0, 12}, []string{"Four words. Two sentences."}}}
+
+	tests := map[string]struct {
+		scope      Scope
+		end, begin int
+	}{
+		"Char": {Char, 18, 17}, "Word": {Word, 18, 16}, "Sent": {Sent, 18, 12}, "Para": {Para, 18, 0},
+		"Word start": {Word, 0, 0}, "Sent start": {Sent, 0, 0},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			scope = test.scope
+			assert.Equal(test.begin, preceding(test.end))
+		})
+	}
+}
+
+func TestFollowing(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	cache = []para{{26, []int{0, 5, 12, 16}, []int{0, 12}, []string{"Four words. Two sentences."}}}
+
+	tests := map[string]struct {
+		scope      Scope
+		begin, end int
+	}{
+		"Char": {Char, 2, 3}, "Word": {Word, 2, 5}, "Sent": {Sent, 2, 12}, "Para": {Para, 2, 26},
+		"Word boundary": {Word, 5, 12}, "Sent boundary": {Sent, 12, 26},
+		"Last word": {Word, 20, 26}, "Last sent": {Sent, 18, 26},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			scope = test.scope
+			assert.Equal(test.end, following(test.begin))
+		})
+	}
+}
+
+func TestSortedMarks(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := map[string]struct {
+		mark   []int
+		sorted [3]int
+	}{
+		"Sorted":   {[]int{1, 2, 3}, [3]int{1, 2, 3}}, // Best case
+		"Reversed": {[]int{3, 2, 1}, [3]int{1, 2, 3}}, // Worst case
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			mark = test.mark
+			assert.Equal(test.sorted, sortedMarks())
+		})
+	}
+}
+
+func TestUpdateSelections(t *testing.T) {
+	assert := assert.New(t)
+	ResizeScreen(margin+3, 2)
+	setupTest()
+	cache = []para{{26, []int{0, 5, 12, 16}, []int{0, 12}, []string{"Four words. Two sentences."}}}
+
+	tests := map[string]struct {
+		mark               []int
+		primary, secondary selection
+	}{
+		"No marks":    {[]int{}, selection{}, selection{}},
+		"One mark":    {[]int{2}, selection{2, 3}, selection{1, 2}},
+		"Two marks":   {[]int{4, 2}, selection{2, 4}, selection{4, 5}},
+		"Three marks": {[]int{6, 4, 2}, selection{2, 4}, selection{4, 6}},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			mark = test.mark
+			updateSelections()
+			assert.Equal(test.primary, primary)
+			assert.Equal(test.secondary, secondary)
+		})
+	}
+
+	cache = append(cache, para{4, []int{0}, []int{0}, []string{"Test"}})
+	mark = nil
+	markPara = 2
+	scope = Para
+	updateSelections()
+	assert.False(prevSelected)
+
+	mark = []int{1}
+	updateSelections()
+	assert.False(prevSelected)
+
+	mark = []int{0}
+	updateSelections()
+	assert.True(prevSelected)
+}
+
+func setProfile(profile termenv.Profile) {
+	output = termenv.NewOutput(os.Stdout, termenv.WithProfile(profile))
+}
+
+func TestDrawChar(t *testing.T) {
+	assert := assert.New(t)
+	ResizeScreen(margin+3, 2)
+	setupTest()
+	setProfile(termenv.ANSI)
+	defer setProfile(termenv.Ascii)
+
+	prevSelected = true
+	primary, secondary = selection{1, 2}, selection{2, 3}
+	tests := map[string]struct {
+		c, markPara int
+		expect      string
+	}{
+		"Unmarked para": {0, 3, "T"},
+		"Before mark":   {0, 1, "T"},
+		"Primary":       {1, 1, primaryStyle("T")},
+		"Secondary":     {2, 1, secondaryStyle("T")},
+		"After mark":    {3, 1, "T"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			l := line{c: test.c, pn: 1}
+			markPara = test.markPara
+			l.drawChar([]byte("T"))
+			assert.Equal(test.expect, l.t.String())
+		})
+	}
+
+	l := line{pn: 1}
+	markPara = 2
+	prevSelected = true
+	l.drawChar([]byte("T"))
+	assert.Equal(secondaryStyle("T"), l.t.String())
+}
+
 func TestDrawLine(t *testing.T) {
 	assert := assert.New(t)
 	ResizeScreen(margin+3, 2)
 	setupTest()
 
 	source := []byte{}
-	l := line{source: &source, state: -1}
-	assert.Equal("_", l.drawLine(1))
-	assert.Equal("", l.drawLine(2))
+	l := line{pn: 1, source: &source, state: -1}
+	assert.Equal("_", l.drawLine())
+	l.pn++
+	assert.Equal("", l.drawLine())
 
 	source = []byte("1\xff2")
-	l = line{source: &source, state: -1}
-	assert.Equal("_1\xff2", l.drawLine(1))
+	l = line{pn: 1, source: &source, state: -1}
+	assert.Equal("_1\xff2", l.drawLine())
 	assert.Equal(3, l.c)
 
 	source = []byte("Test")
-	l = line{source: &source, state: -1}
-	assert.Equal("_Tes   -", l.drawLine(1))
+	l = line{pn: 1, source: &source, state: -1}
+	assert.Equal("_Tes   -", l.drawLine())
 
 	cursor[Char] = 3
 	source = []byte("12 3")
-	l = line{source: &source, state: -1}
-	assert.Equal("12 ", l.drawLine(1))
-	assert.Equal("_3", l.drawLine(1))
+	l = line{pn: 1, source: &source, state: -1}
+	assert.Equal("12 ", l.drawLine())
+	assert.Equal("_3", l.drawLine())
 
 	source = []byte(". Test")
-	l = line{source: &source, state: -1}
-	assert.Equal(". ", l.drawLine(1))
+	l = line{pn: 1, source: &source, state: -1}
+	assert.Equal(". ", l.drawLine())
 	assert.Equal(2, lastSentence(1))
 
 	source = []byte("1\n2")
-	l = line{source: &source, state: -1}
-	assert.Equal("1", l.drawLine(1))
+	l = line{pn: 1, source: &source, state: -1}
+	assert.Equal("1", l.drawLine())
 
 	cursor[Char] = 1
 	source = []byte("1\u200b2") // Zero-width space
-	l = line{source: &source, state: -1}
-	assert.Equal("1_2", l.drawLine(1))
+	l = line{pn: 1, source: &source, state: -1}
+	assert.Equal("1_2", l.drawLine())
 
 	source = []byte("12  ")
-	l = line{source: &source, state: -1}
-	assert.Equal("1_2 ", l.drawLine(1))
+	l = line{pn: 1, source: &source, state: -1}
+	assert.Equal("1_2 ", l.drawLine())
 }
 
 func TestDrawLineCursor(t *testing.T) {
@@ -151,8 +296,8 @@ func TestDrawLineCursor(t *testing.T) {
 
 	for scope = Char; scope < MaxScope; scope++ {
 		source := []byte{}
-		l := line{source: &source, state: -1}
-		assert.Equal(string(cursorChar[scope]), l.drawLine(1))
+		l := line{pn: 1, source: &source, state: -1}
+		assert.Equal(string(cursorChar[scope]), l.drawLine())
 	}
 }
 
@@ -164,8 +309,8 @@ func TestDrawLineMark(t *testing.T) {
 	markPara = 1
 	mark = []int{1, 2, 0}
 	source := []byte("Test")
-	l := line{source: &source, state: -1}
-	assert.Equal("|_T|e -", l.drawLine(1))
+	l := line{pn: 1, source: &source, state: -1}
+	assert.Equal("|_T|e -", l.drawLine())
 }
 
 func TestDrawPara(t *testing.T) {

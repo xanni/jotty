@@ -121,7 +121,9 @@ required to correspond with the sequence in which the marks were created.
 
 When there is a single edit mark, the character, word, sentence or paragraph (if
 any) immediately following the mark is the primary selection and the same scope
-unit (if any) immediately preceding the mark is the secondary selection.
+unit (if any) immediately preceding the mark is the secondary selection.  As a
+special case, if the mark is at the first character of the paragraph, the entire
+preceding paragraph (if any) is the secondary selection.
 
 When there are two edit marks, the text inbetween the marks is the primary
 selection and the scope unit immediately following the second mark is the
