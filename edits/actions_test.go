@@ -143,6 +143,7 @@ func TestMark(t *testing.T) {
 	assert.Equal([]int{6, 4}, mark)
 
 	ps.SplitParagraph(1, 7)
+	drawPara(2)
 	cursor = counts{0, 0, 0, 2}
 	Mark()
 	assert.Equal(2, markPara)
