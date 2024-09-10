@@ -26,8 +26,9 @@ func setupTest() {
 	ID = "J"
 	cursor = counts{Para: 1}
 	firstPara, firstLine = 0, 0
-	initialCap = false
-	mark = nil
+	initialCap, prevSelected = false, false
+	mark, markPara = nil, 0
+	primary, secondary = selection{}, selection{}
 	scope = Char
 	ps.Init()
 	resetCache()
@@ -144,25 +145,6 @@ func TestFollowing(t *testing.T) {
 	}
 }
 
-func TestSortedMarks(t *testing.T) {
-	assert := assert.New(t)
-
-	tests := map[string]struct {
-		mark   []int
-		sorted [3]int
-	}{
-		"Sorted":   {[]int{1, 2, 3}, [3]int{1, 2, 3}}, // Best case
-		"Reversed": {[]int{3, 2, 1}, [3]int{1, 2, 3}}, // Worst case
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(_ *testing.T) {
-			mark = test.mark
-			assert.Equal(test.sorted, sortedMarks())
-		})
-	}
-}
-
 func TestUpdateSelections(t *testing.T) {
 	assert := assert.New(t)
 	ResizeScreen(margin+3, 2)
@@ -170,18 +152,23 @@ func TestUpdateSelections(t *testing.T) {
 	cache = []para{{26, []int{0, 5, 12, 16}, []int{0, 12}, []string{"Four words. Two sentences."}}}
 
 	tests := map[string]struct {
+		cursor             int
 		mark               []int
 		primary, secondary selection
 	}{
-		"No marks":    {[]int{}, selection{}, selection{}},
-		"One mark":    {[]int{2}, selection{2, 3}, selection{1, 2}},
-		"Two marks":   {[]int{4, 2}, selection{2, 4}, selection{4, 5}},
-		"Three marks": {[]int{6, 4, 2}, selection{2, 4}, selection{4, 6}},
+		"No marks":      {0, []int{}, selection{}, selection{}},
+		"One mark":      {2, []int{2}, selection{2, 3, 0, 0}, selection{1, 2, 0, 0}},
+		"Cursor before": {0, []int{2}, selection{0, 2, 0, 0}, selection{2, 3, 0, 0}},
+		"Cursor after":  {4, []int{2}, selection{2, 4, 0, 0}, selection{4, 5, 0, 0}},
+		"Two marks":     {4, []int{4, 2}, selection{2, 4, 0, 0}, selection{4, 5, 0, 0}},
+		"Three marks":   {6, []int{6, 4, 2}, selection{2, 4, 0, 0}, selection{4, 6, 0, 0}},
+		"Four marks":    {8, []int{6, 4, 8, 2}, selection{2, 4, 0, 0}, selection{6, 8, 0, 0}},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			mark = test.mark
+			cursor[Char] = test.cursor
+			markPara, mark = 1, test.mark
 			updateSelections()
 			assert.Equal(test.primary, primary)
 			assert.Equal(test.secondary, secondary)
@@ -190,7 +177,7 @@ func TestUpdateSelections(t *testing.T) {
 
 	cache = append(cache, para{4, []int{0}, []int{0}, []string{"Test"}})
 	mark = nil
-	markPara = 2
+	cursor[Para], markPara = 2, 2
 	scope = Para
 	updateSelections()
 	assert.False(prevSelected)
@@ -202,6 +189,10 @@ func TestUpdateSelections(t *testing.T) {
 	mark = []int{0}
 	updateSelections()
 	assert.True(prevSelected)
+
+	cursor[Para] = 1
+	updateSelections()
+	assert.False(prevSelected)
 }
 
 func setProfile(profile termenv.Profile) {
@@ -216,7 +207,7 @@ func TestDrawChar(t *testing.T) {
 	defer setProfile(termenv.Ascii)
 
 	prevSelected = true
-	primary, secondary = selection{1, 2}, selection{2, 3}
+	primary, secondary = selection{1, 2, 0, 0}, selection{2, 3, 0, 0}
 	tests := map[string]struct {
 		c, markPara int
 		expect      string
@@ -242,6 +233,11 @@ func TestDrawChar(t *testing.T) {
 	prevSelected = true
 	l.drawChar([]byte("T"))
 	assert.Equal(secondaryStyle("T"), l.t.String())
+
+	prevSelected = false
+	l.t.Reset()
+	l.drawChar([]byte("T"))
+	assert.Equal("T", l.t.String())
 }
 
 func TestDrawLine(t *testing.T) {
@@ -262,7 +258,7 @@ func TestDrawLine(t *testing.T) {
 
 	source = []byte("Test")
 	l = line{pn: 1, source: &source, state: -1}
-	assert.Equal("_Tes   -", l.drawLine())
+	assert.Equal("_Tes    -", l.drawLine())
 
 	cursor[Char] = 3
 	source = []byte("12 3")
@@ -310,7 +306,7 @@ func TestDrawLineMark(t *testing.T) {
 	mark = []int{1, 2, 0}
 	source := []byte("Test")
 	l := line{pn: 1, source: &source, state: -1}
-	assert.Equal("|_T|e -", l.drawLine())
+	assert.Equal("|_T|e  -", l.drawLine())
 }
 
 func TestDrawPara(t *testing.T) {
@@ -347,6 +343,11 @@ func TestDrawPara(t *testing.T) {
 	ps.SplitParagraph(1, 7)
 	drawPara(2)
 	assert.Equal(para{text: []string{""}}, cache[1])
+
+	markPara, primary, secondary = 1, selection{cend: 4}, selection{cbegin: 4, cend: 7}
+	drawPara(1)
+	assert.Equal(selection{0, 4, 0, 4}, primary)
+	assert.Equal(selection{4, 7, 4, 7}, secondary)
 }
 
 func TestDrawWindow(t *testing.T) {

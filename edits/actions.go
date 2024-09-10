@@ -76,6 +76,8 @@ func IncScope() {
 	updateSelections()
 }
 
+func ClearMarks() { mark = nil; updateSelections() }
+
 func Mark() {
 	// Remove existing marks?
 	if markPara != cursor[Para] {
@@ -97,14 +99,39 @@ func Mark() {
 		}
 	}
 
-	if len(mark) > 2 {
+	if len(mark) > 3 {
 		mark = slices.Delete(mark, 0, 1)
 	}
 	mark = append(mark, cursor[Char])
 	updateSelections()
 }
 
+func exchange() {
+	if prevSelected {
+		ps.ExchangeParagraphs(cursor[Para])
+		primary.cend, secondary.cend = cache[cursor[Para]-2].chars, cache[cursor[Para]-1].chars
+	} else {
+		ps.ExchangeText(cursor[Para], primary.obegin, primary.oend, secondary.obegin, secondary.oend)
+		primarySize, secondarySize := primary.cend-primary.cbegin, secondary.cend-secondary.cbegin
+		if secondary.cbegin < primary.cbegin {
+			end := primary.cbegin + primarySize
+			primary.cbegin, primary.cend, secondary.cend = end-secondarySize, end, secondary.cbegin+primarySize
+		} else {
+			end := secondary.cbegin + secondarySize
+			primary.cend, secondary.cbegin, secondary.cend = primary.cbegin+secondarySize, end-primarySize, end
+		}
+	}
+}
+
 func Space() {
+	if prevSelected || secondary.cend > secondary.cbegin {
+		exchange()
+		mark = nil
+		refresh()
+
+		return
+	}
+
 	if scope >= Sent {
 		insertParaBreak()
 
@@ -303,6 +330,7 @@ func Undo() {
 	op := ps.Undo()
 	if op > 0 {
 		refresh()
+		ClearMarks()
 	}
 }
 
@@ -310,5 +338,6 @@ func Redo() {
 	op := ps.Redo()
 	if op > 0 {
 		refresh()
+		ClearMarks()
 	}
 }

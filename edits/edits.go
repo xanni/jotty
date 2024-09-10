@@ -47,7 +47,7 @@ var (
 
 const (
 	cursorCharCap  = '↑'       // Capitalisation indicator character
-	margin         = 5         // Up to 3 edit marks, cursor and wrap indicator
+	margin         = 6         // Up to 4 edit marks, cursor and wrap indicator
 	markChar       = "|"       // Visual representation of an edit mark
 	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
 	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
@@ -74,7 +74,10 @@ type para struct {
 	text  []string // Rendered lines including cursor and marks
 }
 
-type selection struct{ begin, end int }
+type selection struct {
+	cbegin, cend int // Character positions within the marked paragraph
+	obegin, oend int // Byte offsets within the paragraph in the document
+}
 
 /*
 The "cache" variable caches the paragraphs displayed in the terminal in order
@@ -214,15 +217,6 @@ func nextSegWidth(source []byte) (width int) {
 	return width
 }
 
-// Helper function.
-func updateBeforeAndAfter(c int, g []byte) {
-	if c < cursor[Char] {
-		before.Write(g)
-	} else {
-		after.Write(g)
-	}
-}
-
 // Get the character position one scope unit backwards.
 func preceding(end int) (begin int) {
 	p := cache[cursor[Para]-1]
@@ -280,27 +274,12 @@ func following(begin int) (end int) {
 	return end
 }
 
-// Sort three edit marks in ascending order.
-func sortedMarks() (m [3]int) {
-	m = ([3]int)(mark)
-
-	if m[0] > m[1] {
-		m[0], m[1] = m[1], m[0]
-	}
-
-	if m[0] > m[2] {
-		m[0], m[2] = m[2], m[0]
-	}
-
-	if m[1] > m[2] {
-		m[1], m[2] = m[2], m[1]
-	}
-
-	return m
-}
-
 // Set the selections based on the current edit marks and scope.
 func updateSelections() {
+	if len(mark) > 0 && cursor[Para] != markPara {
+		mark = nil
+	}
+
 	selectPrevPara := scope == Para && markPara > 1 && len(mark) == 1 && mark[0] == 0
 	if selectPrevPara != prevSelected {
 		prevSelected = selectPrevPara
@@ -308,17 +287,27 @@ func updateSelections() {
 	}
 
 	switch len(mark) {
+	case 0:
+		primary, secondary = selection{}, selection{}
 	case 1:
-		primary, secondary = selection{mark[0], following(mark[0])}, selection{preceding(mark[0]), mark[0]}
+		if cursor[Char] == mark[0] {
+			primary, secondary = selection{cbegin: mark[0], cend: following(mark[0])},
+				selection{cbegin: preceding(mark[0]), cend: mark[0]}
+		} else {
+			first := min(mark[0], cursor[Char])
+			second := max(mark[0], cursor[Char])
+			primary, secondary = selection{cbegin: first, cend: second}, selection{cbegin: second, cend: following(second)}
+		}
 	case 2:
 		first := min(mark[0], mark[1])
 		second := max(mark[0], mark[1])
-		primary, secondary = selection{first, second}, selection{second, following(second)}
-	case 3:
-		sorted := sortedMarks()
-		primary, secondary = selection{sorted[0], sorted[1]}, selection{sorted[1], sorted[2]}
-	default: // No marks
-		primary, secondary = selection{}, selection{}
+		primary, secondary = selection{cbegin: first, cend: second}, selection{cbegin: second, cend: following(second)}
+	default: // 3 or 4 marks
+		sorted := make([]int, len(mark))
+		copy(sorted, mark)
+		slices.Sort(sorted)
+		primary, secondary = selection{cbegin: sorted[0], cend: sorted[1]},
+			selection{cbegin: sorted[len(sorted)-2], cend: sorted[len(sorted)-1]}
 	}
 }
 
@@ -333,10 +322,35 @@ type line struct {
 	x      int             // Current column position in the line
 }
 
+// Helper function.
+func (l *line) updateBeforeAndAfter(g []byte) {
+	if l.pn == markPara {
+		offset := len(before.String()) + len(after.String())
+		switch l.c {
+		case primary.cbegin:
+			primary.obegin = offset
+		case primary.cend:
+			primary.oend = offset
+		}
+		switch l.c {
+		case secondary.cbegin:
+			secondary.obegin = offset
+		case secondary.cend:
+			secondary.oend = offset
+		}
+	}
+
+	if l.c < cursor[Char] {
+		before.Write(g)
+	} else {
+		after.Write(g)
+	}
+}
+
 // Draw one character in the edit window with highlighting as required.
 func (l *line) drawChar(g []byte) {
-	isPrimary := l.pn == markPara && l.c >= primary.begin && l.c < primary.end
-	isSecondary := (l.pn == markPara && l.c >= secondary.begin && l.c < secondary.end) ||
+	isPrimary := l.pn == markPara && l.c >= primary.cbegin && l.c < primary.cend
+	isSecondary := (l.pn == markPara && l.c >= secondary.cbegin && l.c < secondary.cend) ||
 		(l.pn == markPara-1 && prevSelected)
 
 	switch {
@@ -406,7 +420,7 @@ func (l *line) drawLine() string {
 		r, _ = utf8.DecodeRune(g)
 
 		if l.pn == cursor[Para] {
-			updateBeforeAndAfter(l.c, g)
+			l.updateBeforeAndAfter(g)
 		}
 
 		l.w = f >> uniseg.ShiftWidth
@@ -477,6 +491,16 @@ func drawPara(pn int) {
 	// Update character counts
 	p.chars = l.c
 	total[Char] += l.c
+
+	// Update selections
+	if pn == markPara {
+		offset := len(before.String()) + len(after.String())
+		if primary.cend == l.c {
+			primary.oend = offset
+		} else if secondary.cend == l.c {
+			secondary.oend = offset
+		}
+	}
 }
 
 /*

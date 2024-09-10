@@ -20,7 +20,6 @@ func TestInsertParaBreak(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 8)
 
-	ps.Init()
 	ps.AppendText(1, "Test")
 	cursor = counts{4, 0, 0, 1}
 	drawWindow()
@@ -118,9 +117,7 @@ func TestMark(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
-	ps.Init()
 	ps.AppendText(1, "Testing")
-
 	drawWindow()
 	Mark()
 	assert.Equal(1, markPara)
@@ -136,11 +133,15 @@ func TestMark(t *testing.T) {
 
 	cursor[Char] = 4
 	Mark()
-	assert.Equal([]int{2, 6, 4}, mark)
+	assert.Equal([]int{0, 2, 6, 4}, mark)
+
+	cursor[Char] = 7
+	Mark()
+	assert.Equal([]int{2, 6, 4, 7}, mark)
 
 	cursor[Char] = 2
 	Mark()
-	assert.Equal([]int{6, 4}, mark)
+	assert.Equal([]int{6, 4, 7}, mark)
 
 	ps.SplitParagraph(1, 7)
 	drawPara(2)
@@ -148,6 +149,36 @@ func TestMark(t *testing.T) {
 	Mark()
 	assert.Equal(2, markPara)
 	assert.Equal([]int{0}, mark)
+}
+
+func TestExchange(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	ps.AppendText(1, "First")
+	ps.SplitParagraph(1, 5)
+	ps.AppendText(2, "Second")
+	cursor[Para], markPara = 2, 2
+	prevSelected = true
+	drawPara(1)
+	drawPara(2)
+	exchange()
+	assert.Equal(selection{cend: 5}, primary, "Primary")
+	assert.Equal(selection{cend: 6}, secondary, "Secondary")
+
+	prevSelected = false
+	primary, secondary = selection{0, 1, 0, 1}, selection{2, 4, 2, 4}
+	exchange()
+	drawPara(2)
+	assert.Equal(selection{0, 2, 0, 2}, primary, "Primary")
+	assert.Equal(selection{3, 4, 3, 4}, secondary, "Secondary")
+
+	primary, secondary = selection{3, 5, 3, 5}, selection{0, 3, 0, 3}
+	exchange()
+	drawPara(2)
+	assert.Equal(selection{2, 5, 2, 5}, primary, "Primary")
+	assert.Equal(selection{0, 2, 0, 2}, secondary, "Secondary")
 }
 
 func TestSpace(t *testing.T) {
@@ -202,6 +233,29 @@ func TestSpace(t *testing.T) {
 	assert.Equal(2, ps.Paragraphs())
 	assert.Equal(Para, scope)
 	assert.True(initialCap)
+}
+
+func TestSpaceExchange(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	ps.AppendText(1, "Test")
+	cursor[Char] = 2
+	drawWindow()
+	Mark()
+	drawWindow()
+	Space()
+	assert.Nil(mark)
+	assert.Equal("Tset", ps.GetText(1))
+
+	cursor[Char] = 4
+	drawWindow()
+	Enter()
+	Mark()
+	drawWindow()
+	Space()
+	assert.Equal("Tset", ps.GetText(2))
 }
 
 func TestEnter(t *testing.T) {

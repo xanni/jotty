@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -29,12 +30,16 @@ const magic = "JottyV0\n"
 
 // Regular expressions for parsing permascroll entries.
 var (
-	diRx = regexp.MustCompile(`(\d+),(\d+):(.+)\n`) // Delete and Insert arguments
-	msRx = regexp.MustCompile(`(\d+),(\d+)\n`)      // Merge and Split arguments
-	opRx = regexp.MustCompile(`(\d*)([DIMRS])`)     // Operation prefix
+	diRx = regexp.MustCompile(`(\d+),(\d+):(.+)\n`)                     // Delete and Insert arguments
+	msRx = regexp.MustCompile(`(\d+),(\d+)\n`)                          // Merge and Split arguments
+	opRx = regexp.MustCompile(`(\d*)([DIMSX])`)                         // Operation prefix
+	exRx = regexp.MustCompile(`(\d+)(?:,(\d+)\+(\d+)/(\d+)\+(\d+))?\n`) // Exchange arguments
 )
 
-type version struct{ source, parent, lastChild int }
+type (
+	span    struct{ begin, end int }
+	version struct{ source, parent, lastChild int }
+)
 
 var (
 	current     int        // Current version in the history
@@ -78,7 +83,7 @@ func ClosePermascroll() (err error) {
 
 // Delete text from a paragraph between pos and end.
 func DeleteText(pn, pos, end int) {
-	validateRange(pn, pos, end)
+	validateSpan(pn, pos, end)
 
 	dEnd := offset + deleting
 	pEnd := offset + len(pending)
@@ -109,6 +114,22 @@ func docDelete(size int) {
 	document[paragraph-1] = p[:offset] + p[offset+size:]
 }
 
+func docExchange(first, second span) {
+	if first.end == 0 { // Exchange paragraphs
+		document[paragraph-1], document[paragraph-2] = document[paragraph-2], document[paragraph-1]
+	} else { // Exchange text ranges
+		p := document[paragraph-1]
+		var t strings.Builder
+		t.WriteString(p[:first.begin])
+		t.WriteString(p[second.begin:second.end])
+		t.WriteString(p[first.end:second.begin])
+		t.WriteString(p[first.begin:first.end])
+		t.WriteString(p[second.end:])
+		document[paragraph-1] = t.String()
+	}
+	offset = first.begin
+}
+
 func docInsert(text string) {
 	p := document[paragraph-1]
 	document[paragraph-1] = p[:offset] + text + p[offset:]
@@ -129,35 +150,74 @@ func docSplit() {
 	offset = 0
 }
 
-func docRedo(op byte, text string) {
-	switch op {
+func docRedo(op operation) {
+	paragraph, offset = op.pn, op.offset1
+	switch op.code {
 	case 'D':
-		docDelete(len(text))
+		docDelete(len(op.text))
 	case 'I':
-		docInsert(text)
+		docInsert(op.text)
 	case 'M':
 		docMerge()
-	default: // 'R' not implemented yet, must be 'S'
+	case 'S':
 		docSplit()
+	default: // 'X'
+		docExchange(span{op.offset1, op.offset1 + op.size1}, span{op.offset2, op.offset2 + op.size2})
 	}
 }
 
 func docUndo() byte {
 	source := history[current].source
 	current = history[current].parent
-	_, op, text := parseOperation(&source)
-	switch op {
+	_, op := parseOperation(&source)
+	paragraph, offset = op.pn, op.offset1
+	switch op.code {
 	case 'D':
-		docInsert(text)
+		docInsert(op.text)
 	case 'I':
-		docDelete(len(text))
+		docDelete(len(op.text))
 	case 'M':
 		docSplit()
-	default: // 'R' not implemented yet, must be 'S'
+	case 'S':
 		docMerge()
+	default: // 'X'
+		begin := op.offset2 + op.size2 - op.size1
+		docExchange(span{op.offset1, op.offset1 + op.size2}, span{begin, begin + op.size1})
 	}
 
-	return op
+	return op.code
+}
+
+// Exchange two paragraphs.
+func ExchangeParagraphs(pn int) {
+	validatePn(pn)
+	if pn < 2 {
+		panic(fmt.Errorf("paragraph '%d' %w", pn, errRange))
+	}
+
+	Flush()
+	persist(fmt.Sprintf("X%d", pn))
+	paragraph = pn
+	docExchange(span{}, span{})
+}
+
+// Exchange two text spans.
+func ExchangeText(pn, b1, e1, b2, e2 int) {
+	validateSpan(pn, b1, e1)
+	validateSpan(pn, b2, e2)
+	if b2 < b1 {
+		b1, e1, b2, e2 = b2, e2, b1, e1
+	}
+
+	if b2 < e1 {
+		panic(fmt.Errorf("overlap '%d-%d/%d-%d' %w", b1, e1, b2, e2, errRange))
+	}
+
+	Flush()
+	persist(fmt.Sprintf("X%d,%d+%d/%d+%d", pn, b1, e1-b1, b2, e2-b2))
+
+	paragraph = pn
+	docExchange(span{b1, e1}, span{b2, e2})
 }
 
 // Write pending insertion or deletion to permascroll.
@@ -278,8 +338,34 @@ were returned instead, every caller would still have to panic after checking for
 them.
 */
 
+// Parse the arguments of an exchange operation from the permascroll.
+func parseExchange(source *int) (op operation) {
+	op.code = 'X'
+	match := exRx.FindSubmatch(permascroll[*source:])
+	if match == nil {
+		panic(fmt.Errorf("invalid arguments for 'X', %w", errParse))
+	}
+	*source += len(match[0])
+
+	op.pn, _ = strconv.Atoi(string(match[1]))
+	if len(match[2]) > 0 {
+		op.offset1, _ = strconv.Atoi(string(match[2]))
+		op.size1, _ = strconv.Atoi(string(match[3]))
+		op.offset2, _ = strconv.Atoi(string(match[4]))
+		op.size2, _ = strconv.Atoi(string(match[5]))
+	}
+
+	return op
+}
+
+type operation struct {
+	code                               byte
+	pn, offset1, size1, offset2, size2 int
+	text                               string
+}
+
 // Parse an operation from the permascroll.
-func parseOperation(source *int) (delta int, op byte, text string) {
+func parseOperation(source *int) (delta int, op operation) {
 	match := opRx.FindSubmatch(permascroll[*source:])
 	if match == nil {
 		panic(fmt.Errorf("invalid operation %q, %w", permascroll[*source], errParse))
@@ -290,24 +376,30 @@ func parseOperation(source *int) (delta int, op byte, text string) {
 		delta, _ = strconv.Atoi(string(match[1]))
 	}
 
-	op = match[2][0]
-	if op == 'D' || op == 'I' {
+	op.code = match[2][0]
+	switch op.code {
+	case 'D', 'I':
 		match = diRx.FindSubmatch(permascroll[*source:])
-	} else {
+	case 'M', 'S':
 		match = msRx.FindSubmatch(permascroll[*source:])
+	default: // 'X'
+		op = parseExchange(source)
+		match[0] = []byte{}
 	}
 	if match == nil {
-		panic(fmt.Errorf("invalid arguments for %q, %w", op, errParse))
+		panic(fmt.Errorf("invalid arguments for %q, %w", op.code, errParse))
 	}
 	*source += len(match[0])
 
-	paragraph, _ = strconv.Atoi(string(match[1]))
-	offset, _ = strconv.Atoi(string(match[2]))
-	if op == 'D' || op == 'I' {
-		text = string(match[3])
+	if op.code != 'X' {
+		op.pn, _ = strconv.Atoi(string(match[1]))
+		op.offset1, _ = strconv.Atoi(string(match[2]))
+	}
+	if op.code == 'D' || op.code == 'I' {
+		op.text = string(match[3])
 	}
 
-	return delta, op, text
+	return delta, op
 }
 
 // Parse the entire permascroll.
@@ -319,12 +411,12 @@ func parsePermascroll() {
 	source := len(magic)
 	for source < len(permascroll) {
 		opSource := source
-		delta, op, text := parseOperation(&source)
+		delta, op := parseOperation(&source)
 		for range delta {
 			docUndo()
 		}
 		newVersion(opSource)
-		docRedo(op, text)
+		docRedo(op)
 	}
 }
 
@@ -344,17 +436,17 @@ func persist(s string) {
 }
 
 // Redo the last undone operation, if any.
-func Redo() (op byte) {
+func Redo() (code byte) {
 	child := history[current].lastChild
 	if child > 0 && deleting == 0 && len(pending) == 0 {
 		current = child
 		source := history[current].source
-		var text string
-		_, op, text = parseOperation(&source)
-		docRedo(op, text)
+		_, op := parseOperation(&source)
+		docRedo(op)
+		code = op.code
 	}
 
-	return op
+	return code
 }
 
 // Split a paragraph at a specified position.
@@ -400,7 +492,7 @@ func validatePos(pn, pos int) {
 	}
 }
 
-func validateRange(pn, pos, end int) {
+func validateSpan(pn, pos, end int) {
 	validatePos(pn, pos)
 	if end <= pos || end > len(document[pn-1])+len(pending)+1 {
 		panic(fmt.Errorf("end '%d,%d-%d' %w", pn, pos, end, errRange))

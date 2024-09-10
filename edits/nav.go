@@ -154,6 +154,7 @@ func Left() {
 	default: // Para
 		leftPara()
 	}
+	updateSelections()
 }
 
 func Right() {
@@ -168,6 +169,7 @@ func Right() {
 	default: // Para
 		rightPara()
 	}
+	updateSelections()
 }
 
 func Home() {
@@ -186,6 +188,7 @@ func Home() {
 		cursor = ocursor
 		scope = Char
 	}
+	updateSelections()
 }
 
 func End() {
@@ -207,4 +210,5 @@ func End() {
 		cursor = ocursor
 		scope = Char
 	}
+	updateSelections()
 }

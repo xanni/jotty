@@ -115,25 +115,29 @@ existing edit marks.
 "Selected" text around or between edit marks should have distinct background
 colors or text attributes.  There is a primary and a secondary selection.
 
-In this document, "first", "second" and "third" mark refer to the edit marks in
-ascending order of their character position within the paragraph, which is not
-required to correspond with the sequence in which the marks were created.
+In this documentation, "first", "second", "third" and "fourth" refer to the edit
+marks in ascending order of their character position within the paragraph, which
+is not required to correspond with the sequence in which the marks were created.
 
-When there is a single edit mark, the character, word, sentence or paragraph (if
-any) immediately following the mark is the primary selection and the same scope
-unit (if any) immediately preceding the mark is the secondary selection.  As a
-special case, if the mark is at the first character of the paragraph, the entire
-preceding paragraph (if any) is the secondary selection.
+When there is a single edit mark and the cursor is at the mark, the character,
+word, sentence or paragraph (if any) immediately following the mark is the
+primary selection and the same scope unit (if any) immediately preceding the
+mark is the secondary selection.  As a special case, if the scope is paragraph
+and the mark is at the first character of the paragraph, the entire preceding
+paragraph (if any) is the secondary selection.
 
 When there are two edit marks, the text inbetween the marks is the primary
 selection and the scope unit immediately following the second mark is the
-secondary selection.
+secondary selection.  When there is a single edit mark and the cursor is not at
+the mark, the cursor acts as a second edit mark.
 
 When there are three edit marks, the text between the first and second marks is
 the primary selection and between the second and third marks is the secondary
 selection.
 
-Setting additional marks beyond a third will remove the oldest mark.
+When there are four edit marks, the text between the first and second marks is
+the primary selection and between the third and fourth marks is the secondary
+selection.  Setting additional marks beyond a fourth will remove the oldest mark.
 
 ## User experience design
 
@@ -222,6 +226,8 @@ previous one separated by a space and thus merge them into a single paragraph.
 the end of a paragraph, it will append the next paragraph to the current one
 separated by a space and thus merge them into a single paragraph.
 
+`^C` copies the current scope unit after the cursor, if any, to the cut buffer.
+
 `^Z` is "undo", which reverts the state of the document to the immediately
 preceding version persisted to the permascroll.  Once the document is back to
 the initial empty state it has no further effect.
@@ -233,6 +239,7 @@ alternatives for selection.  If the last operation was not a deletion or "undo",
 `^Y` does nothing.
 
 `Tab` (`^I`) creates or removes a new edit mark at the cursor position.
+`Shift-Tab` clears all edit marks if implemented.
 
 `Insert` or `^V` inserts the currently selected entry in the cut buffer, if any,
 at the cursor position.
@@ -261,28 +268,26 @@ undo and `Escape` cancel it.  Note that no progress will be lost due to a quit.
 A quit confirmation may not be required when Jotty is being used as a library as
 that may be implemented by the calling application.
 
-`^E` or an `Export` menu item allow exporting the entire document (if there are
-no edit marks), the region beween a single edit mark and the cursor, or the
-region between the first and last edit marks if there is more than one edit
-mark.  A file name will be required and the output will be written as a linear
-UTF-8 sequence of the selected characters.  This action may not be available
-when Jotty is being used as a library to provide an editor window for another
-application which is then responsible for requesting the contents of the edit
-buffer as required.
+`^E` or an `Export` menu item allow exporting the primary selection or if there
+are no edit marks, the entire document.  A file name will be required and the
+output will be written as a linear UTF-8 sequence of the selected characters.
+This action may not be available when Jotty is being used as a library to
+provide an editor window for another application which is then responsible for
+requesting the contents of the edit buffer as required.
 
 If implemented, `^O` or an `Import` menu item allow importing external documents
 at the current cursor position as a single insert operation.
 
 `^J` or a `Join` menu item joins the current sentence with the next by moving
-the cursor to and removing the next period, then lowercasing the next
-alphabetical character after the cursor, or alternatively if the sentence is the
-last in the current paragraph, joins the current paragraph with the next
-separated by a space.  As always, undo reverts this.
+the cursor to the end of the current sentence and removing the terminating
+punctuation, then lowercasing the next alphabetical character after the cursor,
+or alternatively if the sentence is the last in the current paragraph, joins the
+current paragraph with the next separated by a space.  As always, undo reverts
+this.
 
-If implemented, `^A` cycles the current scope unit, the region between a single
-edit mark and the cursor, or the region between the first and last edit marks
-through markdown-style *italic*, **bold**, ***bold-italic*** and back to
-unstyled text again.
+If implemented, `^A` cycles the primary selection or if there are no edit
+marks, the current scope unit through markdown-style *italic*, **bold**,
+***bold-italic*** and back to unstyled text again.
 
 If search is implemented, `^F` or a `Find` menu item is used to find text, `^G`
 finds the next instance of the current search string and `^B` finds the previous
@@ -351,25 +356,24 @@ these are very common operations and selecting from the menu is too cumbersome.
 
 ### Editing
 
-When there is one edit mark, `Space` will exchange the primary and secondary
-selections on either side of the edit mark.  When there are two or three edit
-marks, `Space` will exchange the primary and secondary selections on either side
-of the second edit mark. A second `Space` will revert this, as will undo.
+When edit marks are present, `Space` will exchange the text indicated by the
+primary and secondary selections.  A second `Space` will revert this, as will
+undo.  This was called a "switcheroo" in Ted's original designs.
 
 When there is one edit mark, `Enter`, `Del` or `^X` will remove the primary
 selection after the mark and append it to the "cut buffer" stack.  When there
 are two edit marks, `Enter`, `Del` or `^X` will remove the primary selection
-between the marks.  When there are three edit marks, `Enter`, `Del` or `^X` will
-remove both the primary and the secondary selection into the cut buffer as
-separate entries.  The newly created cut buffer entry containing the former
-primary selection becomes the current cut buffer selection.  The cut window, if
-implemented, is scrolled or redrawn to present it and the edit marks are
-removed.  `^C` will perform the same actions but copying rather than removing
-the selection(s) from the source.
+between the marks.  When there are three or four edit marks, `Enter`, `Del` or
+`^X` will remove both the primary and the secondary selection into the cut
+buffer as separate entries.  The newly created cut buffer entry containing the
+former primary selection becomes the current cut buffer selection.  The cut
+window, if implemented, is scrolled or redrawn to present it and the edit marks
+are removed.  `^C` will perform the same actions but copying rather than
+removing the selection(s) from the source.
 
 When there is one edit mark, typing printable characters will delete the primary
 selection after the edit mark and commence inserting new text at the edit mark.
-When there are two or three edit marks, typing printable characters will delete
+When there are two or more edit marks, typing printable characters will delete
 the primary selection between the first two marks and commence inserting at the
 first edit mark.  All marks will then be removed.
 
@@ -410,9 +414,9 @@ strings, each with a creation timestamp.  The edit buffer and cut buffer can be
 fully or partially reconstructed when editing is resumed by reading some or all
 of the permascroll.
 
-The current cursor position and up to three "edit mark" positions are recorded
-as paragraph and character (not byte) offsets into the edit buffer.  These are
-not recorded in the permascroll and could be persisted to storage separately in
+The current cursor position and up to four "edit mark" positions are recorded as
+paragraph and character (not byte) offsets into the edit buffer.  These are not
+recorded in the permascroll and could be persisted to storage separately in
 order to preserve them on exit.
 
 The edit window is a vertically scrolling window rendering a visible portion of
@@ -457,18 +461,19 @@ This implementation differs from the earlier Xanadu designs in the following way
 Operations are recorded in the permascroll as follows:
 
 ```abnf
-address     = 1*DIGIT "," 1*DIGIT ; Paragraph number and byte offset
-range       = address "-" address ; Half-open range within the document
-separator   = "," / ":"           ; Colon indicates a paragraph break
+address     = 1*DIGIT "," 1*DIGIT                       ; Paragraph number and byte offset
+span        = 1*DIGIT "+" 1*DIGIT                       ; Byte offset and size of selection
+text        = 1*(VCHAR / SP)                            ; Literal text string
 
-delete      = "D" address ":" 1*(VCHAR / SP) LF   ; Delete text
-insert      = "I" address ":" 1*(VCHAR / SP) LF   ; Insert text
-merge       = "M" address LF                      ; Merge paragraphs
-rearrange   = "R" range "/" (address / range) LF  ; Rearrange text
-split       = "S" address LF                      ; Split paragraph
+copy        = "C" address ("+" 1*DIGIT) / (":" text) LF ; Copy or cut text
+delete      = "D" address ":" text LF                   ; Delete text
+insert      = "I" address ":" text LF                   ; Insert text
+merge       = "M" address LF                            ; Merge paragraphs
+split       = "S" address LF                            ; Split paragraph
+exchange    = "X" 1*DIGIT [ "," span "/" span ] LF      ; Exchange paragraphs or spans
 
-magic       = "JottyV0" LF        ; Permascroll format descriptor
-operation   = [ 1*DIGIT ] (delete / insert / merge / rearrange / split)
+magic       = "JottyV0" LF                              ; Permascroll format descriptor
+operation   = [ 1*DIGIT ] (copy / delete / exchange / insert / merge / split)
 permascroll = magic *operation
 ```
 
