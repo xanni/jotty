@@ -275,7 +275,7 @@ func GetText(pn int) (t string) {
 func InsertText(pn int, pos int, text string) {
 	validatePos(pn, pos)
 
-	if pn == paragraph && pos >= offset && pos <= offset+len(pending) {
+	if pn == paragraph && deleting == 0 && pos >= offset && pos <= offset+len(pending) {
 		pending = pending[:pos-offset] + text + pending[pos-offset:]
 	} else {
 		Flush()

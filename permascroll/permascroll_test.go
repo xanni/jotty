@@ -252,8 +252,9 @@ func TestInsertText(t *testing.T) {
 	assert.Equal("FiveEightSeven", GetText(2))
 
 	DeleteText(1, 5, 9)
-	InsertText(1, 14, "Nine")
-	assert.Equal("ThreeSixOneTwoNine", GetText(1))
+	InsertText(1, 5, "Nine")
+	InsertText(1, 18, "Ten")
+	assert.Equal("ThreeNineSixOneTwoTen", GetText(1))
 }
 
 func TestMergeParagraph(t *testing.T) {
