@@ -83,6 +83,19 @@ func TestInsertRunes(t *testing.T) {
 	assert.Equal(3, cursor[Char])
 }
 
+func TestInsertRunesReplace(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+	ps.AppendText(1, "Test")
+	mark, markPara, primary = []int{1, 2}, 1, selection{1, 2, 1, 2}
+	drawWindow()
+
+	InsertRunes([]rune("I"))
+	drawPara(1)
+	assert.Equal([]string{"TI_st"}, cache[0].text)
+}
+
 func TestDecScope(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
@@ -264,9 +277,15 @@ func TestEnter(t *testing.T) {
 	ResizeScreen(margin+4, 3)
 
 	ps.AppendText(1, "Test")
+	markPara, mark, primary = 1, []int{1}, selection{1, 2, 1, 2}
+	Enter()
+	assert.Equal("Tst", ps.GetText(1))
+
+	primary = selection{1, 2, 1, 2}
 	drawWindow()
 	scope = Sent
 	Enter()
+	assert.Equal(selection{}, primary)
 	assert.Equal(2, ps.Paragraphs())
 	assert.Equal(Para, scope)
 }
@@ -404,6 +423,15 @@ func TestDelete(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 3)
 
+	ps.AppendText(1, "Test")
+	markPara, mark, primary = 1, []int{1}, selection{1, 2, 1, 2}
+	Delete()
+	assert.Equal("Tst", ps.GetText(1))
+
+	primary = selection{1, 2, 1, 2}
+	Delete()
+	assert.Equal(selection{}, primary)
+
 	tests := map[string]struct {
 		text   string
 		cursor int
@@ -429,6 +457,41 @@ func TestDelete(t *testing.T) {
 			assert.Equal(test.expect, ps.GetText(1), "text")
 		})
 	}
+}
+
+func TestCut(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	ps.AppendText(1, "Test")
+	markPara, mark, primary = 1, []int{1, 2}, selection{1, 2, 1, 2}
+	cut()
+	assert.Equal("Tst", ps.GetText(1))
+
+	ps.AppendText(1, " more")
+	markPara, mark, primary, secondary = 1, []int{1, 3, 6, 7}, selection{1, 3, 1, 3}, selection{6, 7, 6, 7}
+	cut()
+	assert.Equal("T moe", ps.GetText(1))
+}
+
+func TestCutPrimary(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	ps.AppendText(1, "Test")
+	markPara, primary = 1, selection{1, 2, 1, 2}
+	cutPrimary()
+	assert.Equal(para{3, []int{0}, []int{0}, []string{"T_st"}}, cache[0])
+	assert.Nil(mark)
+	assert.Equal(selection{}, primary)
+
+	ps.SplitParagraph(1, 3)
+	ps.AppendText(2, "more")
+	markPara, primary = 2, selection{0, 4, 0, 4}
+	cutPrimary()
+	assert.Equal([]para{{3, []int{0}, []int{0}, []string{"Tst"}}, {text: []string{"_"}}}, cache)
 }
 
 func TestUndoRedo(t *testing.T) {

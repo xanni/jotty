@@ -39,6 +39,12 @@ func InsertRunes(runes []rune) {
 		runes[0] = unicode.ToUpper(runes[0])
 	}
 
+	if len(mark) > 0 {
+		cutPrimary()
+	} else {
+		updateSelections()
+	}
+
 	t := string(runes)
 	if cursor[Char] >= cache[cursor[Para]-1].chars {
 		ps.AppendText(cursor[Para], t)
@@ -176,7 +182,12 @@ func Space() {
 }
 
 func Enter() {
-	insertParaBreak()
+	if len(mark) > 0 {
+		cut()
+	} else {
+		updateSelections()
+		insertParaBreak()
+	}
 }
 
 func mergePrevPara() {
@@ -261,6 +272,8 @@ func getSents(n int, s string) string {
 }
 
 func Backspace() {
+	ClearMarks()
+
 	if cursor[Char] == 0 {
 		mergePrevPara()
 
@@ -295,7 +308,34 @@ func Backspace() {
 	cursor[Char] = uniseg.GraphemeClusterCount(s)
 }
 
+func cutPrimary() {
+	ps.DeleteText(markPara, primary.obegin, primary.oend)
+	cursor = counts{Char: primary.cbegin, Para: markPara}
+
+	if cursPara != markPara {
+		drawPara(cursPara) // Erase the old cursor position
+	}
+
+	ClearMarks()
+	drawPara(markPara)
+}
+
+func cut() {
+	if len(mark) > 2 {
+		ps.DeleteText(markPara, secondary.obegin, secondary.oend)
+	}
+
+	cutPrimary()
+}
+
 func Delete() {
+	if len(mark) > 0 {
+		cut()
+
+		return
+	}
+	updateSelections()
+
 	if cursor[Char] == cache[cursor[Para]-1].chars {
 		mergeNextPara()
 
