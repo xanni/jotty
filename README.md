@@ -460,21 +460,45 @@ This implementation differs from the earlier Xanadu designs in the following way
 
 Operations are recorded in the permascroll as follows:
 
-```abnf
-address     = 1*DIGIT "," 1*DIGIT                       ; Paragraph number and byte offset
-span        = 1*DIGIT "+" 1*DIGIT                       ; Byte offset and size of selection
-text        = 1*(VCHAR / SP)                            ; Literal text string
+```plantuml
+@startebnf
+tab       = ? 0x09 ? ;
+newline   = ? 0x0a ? ;
+character = ? 0x20 - 0x7e ? ;
+digit     = ? 0x30 - 0x39 ? ;
 
-copy        = "C" address ("+" 1*DIGIT) / (":" text) LF ; Copy or cut text
-delete      = "D" address ":" text LF                   ; Delete text
-insert      = "I" address ":" text LF                   ; Insert text
-merge       = "M" address LF                            ; Merge paragraphs
-split       = "S" address LF                            ; Split paragraph
-exchange    = "X" 1*DIGIT [ "," span "/" span ] LF      ; Exchange paragraphs or spans
+integer = {digit}- ;
+text    = {character}- ;
 
-magic       = "JottyV0" LF                              ; Permascroll format descriptor
-operation   = [ 1*DIGIT ] (copy / delete / exchange / insert / merge / split)
-permascroll = magic *operation
+(* Paragraph number and byte offset *)
+address = integer, ',', integer ;
+
+(* Byte offset and size of selection *)
+span = integer, '+', integer- ;
+
+(* Copy or cut text *)
+copy = 'C', address,
+  ( '+', integer | ':', text ), newline ;
+
+(* Insert or delete text *)
+insert_delete = ( 'I' | 'D' ), address, ':', text, newline ;
+
+(* Replace text *)
+replace = 'R', address, ':', text, tab, text, newline ;
+
+(* Split or merge paragraphs *)
+split_merge = ( 'S' | 'M' ), address, newline;
+
+(* Exchange paragraphs or spans *)
+exchange = 'X', integer, [ ',', span, '/', span ], newline ;
+
+(* Permascroll format descriptor *)
+magic = 'JottyV0', newline ;
+
+operation = [ integer ], ( copy | insert_delete | replace | split_merge | exchange ) ;
+
+permascroll = magic, { operation } ;
+@endebnf
 ```
 
 ## Feature sets
