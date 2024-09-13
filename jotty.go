@@ -17,24 +17,17 @@ const (
 )
 
 var dispatch = map[tea.KeyType]func(){
-	tea.KeyUp:        edits.IncScope,
-	tea.KeyDown:      edits.DecScope,
-	tea.KeyEnter:     edits.Enter,
-	tea.KeySpace:     edits.Space,
-	tea.KeyLeft:      edits.Left,
-	tea.KeyRight:     edits.Right,
-	tea.KeyHome:      edits.Home,
-	tea.KeyCtrlU:     edits.Home,
-	tea.KeyEnd:       edits.End,
-	tea.KeyCtrlD:     edits.End,
-	tea.KeyBackspace: edits.Backspace,
-	tea.KeyCtrlH:     edits.Backspace,
-	tea.KeyTab:       edits.Mark,
-	tea.KeyShiftTab:  edits.ClearMarks,
-	tea.KeyDelete:    edits.Delete,
-	tea.KeyCtrlX:     edits.Delete,
-	tea.KeyCtrlY:     edits.Redo,
-	tea.KeyCtrlZ:     edits.Undo,
+	tea.KeyUp: edits.IncScope, tea.KeyDown: edits.DecScope,
+	tea.KeyLeft: edits.Left, tea.KeyRight: edits.Right,
+	tea.KeyCtrlC: edits.Copy,
+	tea.KeyEnd:   edits.End, tea.KeyCtrlD: edits.End,
+	tea.KeyBackspace: edits.Backspace, tea.KeyCtrlH: edits.Backspace,
+	tea.KeyTab: edits.Mark, tea.KeyShiftTab: edits.ClearMarks,
+	tea.KeyEnter: edits.Enter, tea.KeySpace: edits.Space,
+	tea.KeyHome: edits.Home, tea.KeyCtrlU: edits.Home,
+	tea.KeyInsert: edits.InsertCut, tea.KeyCtrlV: edits.InsertCut,
+	tea.KeyDelete: edits.Delete, tea.KeyCtrlX: edits.Delete,
+	tea.KeyCtrlY: edits.Redo, tea.KeyCtrlZ: edits.Undo,
 }
 
 var sx, sy int // screen dimensions

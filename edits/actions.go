@@ -33,19 +33,13 @@ func insertParaBreak() {
 	scope = Para
 }
 
-// Insert runes into the document.
-func InsertRunes(runes []rune) {
-	if initialCap && unicode.IsLower(runes[0]) {
-		runes[0] = unicode.ToUpper(runes[0])
-	}
-
+func insert(t string) {
 	if len(mark) > 0 {
 		cutPrimary()
 	} else {
 		updateSelections()
 	}
 
-	t := string(runes)
 	if cursor[Char] >= cache[cursor[Para]-1].chars {
 		ps.AppendText(cursor[Para], t)
 	} else {
@@ -55,6 +49,23 @@ func InsertRunes(runes []rune) {
 	initialCap = false
 	ocursor = counts{}
 	scope = Char
+}
+
+// Insert contents of cut buffer into the document.
+func InsertCut() {
+	cutBuffer := ps.GetCut()
+	if len(cutBuffer) > 0 {
+		insert(cutBuffer)
+	}
+}
+
+// Insert runes into the document.
+func InsertRunes(runes []rune) {
+	if initialCap && unicode.IsLower(runes[0]) {
+		runes[0] = unicode.ToUpper(runes[0])
+	}
+
+	insert(string(runes))
 }
 
 func DecScope() {
@@ -308,8 +319,39 @@ func Backspace() {
 	cursor[Char] = uniseg.GraphemeClusterCount(s)
 }
 
+// Get the byte offset and size of the scope unit after the cursor.
+func scopeSpan() (int, int) {
+	var t string
+
+	switch scope {
+	case Char:
+		_, t, _, _ = uniseg.FirstGraphemeClusterInString(after.String(), -1)
+	case Word:
+		t = strings.TrimLeft(after.String(), " ")
+		_, t, _ = uniseg.FirstWordInString(t, -1)
+		t = strings.TrimLeft(t, " ")
+	case Sent:
+		_, t, _ = uniseg.FirstSentenceInString(after.String(), -1)
+	default: // scope == Para by exclusion; keep t as empty string
+	}
+
+	return before.Len(), before.Len() + after.Len() - len(t)
+}
+
+func Copy() {
+	if len(mark) > 0 {
+		ps.CopyText(markPara, primary.obegin, primary.oend)
+
+		return
+	}
+
+	updateSelections()
+	pos, end := scopeSpan()
+	ps.CopyText(cursor[Para], pos, end)
+}
+
 func cutPrimary() {
-	ps.DeleteText(markPara, primary.obegin, primary.oend)
+	ps.CutText(markPara, primary.obegin, primary.oend)
 	cursor = counts{Char: primary.cbegin, Para: markPara}
 
 	if cursPara != markPara {
@@ -342,21 +384,8 @@ func Delete() {
 		return
 	}
 
-	var t string
-
-	switch scope {
-	case Char:
-		_, t, _, _ = uniseg.FirstGraphemeClusterInString(after.String(), -1)
-	case Word:
-		t = strings.TrimLeft(after.String(), " ")
-		_, t, _ = uniseg.FirstWordInString(t, -1)
-		t = strings.TrimLeft(t, " ")
-	case Sent:
-		_, t, _ = uniseg.FirstSentenceInString(after.String(), -1)
-	default: // scope == Para by exclusion; keep t as empty string
-	}
-
-	ps.DeleteText(cursor[Para], before.Len(), before.Len()+after.Len()-len(t))
+	pos, end := scopeSpan()
+	ps.DeleteText(cursor[Para], pos, end)
 }
 
 func refresh() {
