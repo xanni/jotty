@@ -85,6 +85,8 @@ func TestStatusLine(t *testing.T) {
 
 	ID = "Jotty v0"
 	initialCap = false
+	ps.AppendText(1, "Testing")
+	ps.CopyText(1, 0, 7)
 	ResizeScreen(6, 3)
 	assert.Equal("@0/0", statusLine())
 
@@ -93,6 +95,12 @@ func TestStatusLine(t *testing.T) {
 
 	ResizeScreen(30, 3)
 	assert.Equal("Jotty v0  ¶1/1 $0/0 #0/0 @0/0 ", statusLine())
+
+	ResizeScreen(45, 3)
+	assert.Equal("Jotty v0  ¶1/1 $0/0 #0/0 @0/0    cut: Test"+string(moreChar), statusLine())
+
+	ResizeScreen(50, 3)
+	assert.Equal("Jotty v0  ¶1/1 $0/0 #0/0 @0/0    cut: Testing", statusLine())
 }
 
 func TestNextSegWidth(t *testing.T) {

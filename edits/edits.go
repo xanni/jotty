@@ -48,7 +48,9 @@ var (
 const (
 	cursorCharCap  = '↑'       // Capitalisation indicator character
 	margin         = 6         // Up to 4 edit marks, cursor and wrap indicator
-	markChar       = "|"       // Visual representation of an edit mark
+	markChar       = '|'       // Visual representation of an edit mark
+	moreChar       = '…'       // Continuation indicator character
+	cutColor       = "#808080" // Cut text: ANSIBrightBlack
 	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
 	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
 	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
@@ -145,7 +147,11 @@ func cursorString() string {
 }
 
 func markString() string {
-	return output.String(markChar).Blink().Foreground(output.Color(markColor)).String()
+	return output.String(string(markChar)).Blink().Foreground(output.Color(markColor)).String()
+}
+
+func cutStyle(s string) string {
+	return output.String(s).CrossOut().Foreground(output.Color(cutColor)).String()
 }
 
 func primaryStyle(s string) string {
@@ -158,6 +164,8 @@ func secondaryStyle(s string) string {
 
 // Draw the status bar that appears on the last line of the screen.
 func statusLine() string {
+	const cutLabel = "   cut: "
+	const minCut = 4       // Minimum amount of cut buffer to display
 	const separators = 4   // One space after each scope
 	var c [MaxScope]string // Counters for each scope
 	var w int              // Total width of counters in character cells
@@ -185,6 +193,17 @@ func statusLine() string {
 				t.WriteString(c[sc])
 			}
 			t.WriteByte(' ')
+		}
+	}
+
+	cutBuffer := ps.GetCut()
+	cutMax := ex - (t.Len() + len(cutLabel) + 2)
+	cutLen := len(cutBuffer)
+	if cutLen > 0 && cutMax >= minCut {
+		t.WriteString(cutLabel)
+		t.WriteString(cutStyle(cutBuffer[:min(cutLen, cutMax)]))
+		if cutLen > cutMax {
+			t.WriteRune(moreChar)
 		}
 	}
 
@@ -325,7 +344,7 @@ type line struct {
 // Helper function.
 func (l *line) updateBeforeAndAfter(g []byte) {
 	if l.pn == markPara {
-		offset := len(before.String()) + len(after.String())
+		offset := before.Len() + after.Len()
 		switch l.c {
 		case primary.cbegin:
 			primary.obegin = offset
@@ -494,7 +513,7 @@ func drawPara(pn int) {
 
 	// Update selections
 	if pn == markPara {
-		offset := len(before.String()) + len(after.String())
+		offset := before.Len() + after.Len()
 		if primary.cend == l.c {
 			primary.oend = offset
 		} else if secondary.cend == l.c {

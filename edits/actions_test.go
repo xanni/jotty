@@ -57,6 +57,21 @@ func TestInsertParaBreak(t *testing.T) {
 	assert.Equal(4, ps.Paragraphs())
 }
 
+func TestInsertCut(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+	ps.AppendText(1, "Test")
+	drawWindow()
+
+	InsertCut()
+	assert.Equal("Test", ps.GetText(1))
+
+	ps.CopyText(1, 1, 2)
+	InsertCut()
+	assert.Equal("eTest", ps.GetText(1))
+}
+
 func TestInsertRunes(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
@@ -379,6 +394,56 @@ func TestBackspace(t *testing.T) {
 	}
 }
 
+func TestCopy(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+	ps.AppendText(1, "Test")
+	drawWindow()
+
+	Copy()
+	assert.Equal("T", ps.GetCut())
+
+	markPara, mark, primary = 1, []int{1}, selection{1, 2, 1, 2}
+	Copy()
+	assert.Equal("e", ps.GetCut())
+}
+
+func TestCut(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	ps.AppendText(1, "Test")
+	markPara, mark, primary = 1, []int{1, 2}, selection{1, 2, 1, 2}
+	cut()
+	assert.Equal("Tst", ps.GetText(1))
+
+	ps.AppendText(1, " more")
+	markPara, mark, primary, secondary = 1, []int{1, 3, 6, 7}, selection{1, 3, 1, 3}, selection{6, 7, 6, 7}
+	cut()
+	assert.Equal("T moe", ps.GetText(1))
+}
+
+func TestCutPrimary(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+
+	ps.AppendText(1, "Test")
+	markPara, primary = 1, selection{1, 2, 1, 2}
+	cutPrimary()
+	assert.Equal(para{3, []int{0}, []int{0}, []string{"T_st"}}, cache[0])
+	assert.Nil(mark)
+	assert.Equal(selection{}, primary)
+
+	ps.SplitParagraph(1, 3)
+	ps.AppendText(2, "more")
+	markPara, primary = 2, selection{0, 4, 0, 4}
+	cutPrimary()
+	assert.Equal([]para{{3, []int{0}, []int{0}, []string{"Tst"}}, {text: []string{"_"}}}, cache)
+}
+
 func TestDeleteMerge(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
@@ -457,41 +522,6 @@ func TestDelete(t *testing.T) {
 			assert.Equal(test.expect, ps.GetText(1), "text")
 		})
 	}
-}
-
-func TestCut(t *testing.T) {
-	assert := assert.New(t)
-	setupTest()
-	ResizeScreen(margin+4, 3)
-
-	ps.AppendText(1, "Test")
-	markPara, mark, primary = 1, []int{1, 2}, selection{1, 2, 1, 2}
-	cut()
-	assert.Equal("Tst", ps.GetText(1))
-
-	ps.AppendText(1, " more")
-	markPara, mark, primary, secondary = 1, []int{1, 3, 6, 7}, selection{1, 3, 1, 3}, selection{6, 7, 6, 7}
-	cut()
-	assert.Equal("T moe", ps.GetText(1))
-}
-
-func TestCutPrimary(t *testing.T) {
-	assert := assert.New(t)
-	setupTest()
-	ResizeScreen(margin+4, 3)
-
-	ps.AppendText(1, "Test")
-	markPara, primary = 1, selection{1, 2, 1, 2}
-	cutPrimary()
-	assert.Equal(para{3, []int{0}, []int{0}, []string{"T_st"}}, cache[0])
-	assert.Nil(mark)
-	assert.Equal(selection{}, primary)
-
-	ps.SplitParagraph(1, 3)
-	ps.AppendText(2, "more")
-	markPara, primary = 2, selection{0, 4, 0, 4}
-	cutPrimary()
-	assert.Equal([]para{{3, []int{0}, []int{0}, []string{"Tst"}}, {text: []string{"_"}}}, cache)
 }
 
 func TestUndoRedo(t *testing.T) {
