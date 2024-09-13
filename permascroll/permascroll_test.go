@@ -316,27 +316,65 @@ func TestOpenPermascroll(t *testing.T) {
 	openDevNull()
 }
 
+func TestParseCopyCut(t *testing.T) {
+	assert := assert.New(t)
+
+	permascroll = []byte(magic + "Cinvalid\n")
+	source := len(magic) + 1
+	op, match := parseCopyCut(&source)
+	assert.Equal(operation{code: 'C'}, op)
+	assert.Nil(match)
+
+	permascroll = []byte(magic + "C1,0+x\n")
+	source = len(magic) + 1
+	assert.PanicsWithError(`invalid size for 'C', strconv.Atoi: parsing "x": invalid syntax`,
+		func() { parseCopyCut(&source) })
+
+	tests := map[string]struct {
+		arguments string
+		op        operation
+		pn        string
+	}{
+		"Copy": {"1,2+3", operation{'C', 0, 0, 3, 0, 0, ""}, "1"},
+		"Cut":  {"4,5:Test", operation{'C', 0, 0, 0, 0, 0, "Test"}, "4"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			permascroll = []byte(magic + "C" + test.arguments + "\n")
+			source := len(magic) + 1
+			op, match := parseCopyCut(&source)
+			assert.Equal(test.op, op)
+			assert.Equal(test.pn, string(match[1]))
+		})
+	}
+}
+
 func TestParseExchange(t *testing.T) {
 	assert := assert.New(t)
 
 	permascroll = []byte(magic + "Xinvalid\n")
 	source := len(magic) + 1
-	assert.PanicsWithError("invalid arguments for 'X', parse failed", func() { parseExchange(&source) })
+	op, match := parseExchange(&source)
+	assert.Equal(operation{code: 'X'}, op)
+	assert.Nil(match)
 
 	tests := map[string]struct {
 		arguments string
 		op        operation
+		pn        string
 	}{
-		"Paragraph": {"2", operation{code: 'X', pn: 2}},
-		"Text":      {"1,0+1/2+3", operation{'X', 1, 0, 1, 2, 3, ""}},
+		"Paragraph": {"2", operation{code: 'X'}, "2"},
+		"Text":      {"1,0+1/2+3", operation{'X', 0, 0, 1, 2, 3, ""}, "1"},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
 			permascroll = []byte(magic + "X" + test.arguments + "\n")
 			source := len(magic) + 1
-			op := parseExchange(&source)
+			op, match := parseExchange(&source)
 			assert.Equal(test.op, op)
+			assert.Equal(test.pn, string(match[1]))
 		})
 	}
 }
@@ -352,14 +390,16 @@ func TestParseOperation(t *testing.T) {
 		"Insert":   {1, 'I', "Test"},
 		"Split":    {2, 'S', ""},
 		"Exchange": {3, 'X', ""},
-		"Delete":   {4, 'D', "e"},
-		"Merge":    {5, 'M', ""},
+		"Copy":     {4, 'C', ""},
+		"Delete":   {5, 'D', "e"},
+		"Merge":    {6, 'M', ""},
 	}
 
 	Init()
 	InsertText(1, 0, "Test")
 	SplitParagraph(1, 2)
 	ExchangeParagraphs(2)
+	CopyText(2, 1, 2)
 	DeleteText(2, 1, 2)
 	MergeParagraph(1)
 
@@ -458,28 +498,37 @@ func TestRedo(t *testing.T) {
 	assert.Equal(1, current)
 
 	MergeParagraph(1)
+	CopyText(1, 2, 3)
 	DeleteText(1, 2, 3)
 	SplitParagraph(1, 2)
+	CutText(1, 1, 2)
 	ExchangeParagraphs(2)
-	Undo()
-	Undo()
-	Undo()
-	Undo()
+	for range 6 {
+		Undo()
+	}
 	Redo()
 	assert.Equal(4, current)
 	assert.Equal([]string{"more"}, document)
 
 	Redo()
 	assert.Equal(5, current)
-	assert.Equal([]string{"moe"}, document)
+	assert.Equal("r", cut)
 
 	Redo()
 	assert.Equal(6, current)
-	assert.Equal([]string{"mo", "e"}, document)
+	assert.Equal([]string{"moe"}, document)
 
 	Redo()
 	assert.Equal(7, current)
-	assert.Equal([]string{"e", "mo"}, document)
+	assert.Equal([]string{"mo", "e"}, document)
+
+	Redo()
+	assert.Equal(8, current)
+	assert.Equal("o", cut)
+
+	Redo()
+	assert.Equal(9, current)
+	assert.Equal([]string{"e", "m"}, document)
 }
 
 func TestUndo(t *testing.T) {
@@ -496,21 +545,25 @@ func TestUndo(t *testing.T) {
 	assert.Equal([]string{"", ""}, document)
 
 	InsertText(1, 0, "Test")
-	Flush()
+	CopyText(1, 1, 2)
+	Undo()
+	assert.Equal(3, current)
+	assert.Empty(cut)
+
 	DeleteText(1, 1, 2)
 	Undo()
 	assert.Equal(3, current)
 	assert.Equal([]string{"Test", ""}, document)
-	assert.Equal([]version{{0, 0, 1}, {8, 0, 3}, {13, 1, 0}, {18, 1, 4}, {29, 3, 0}}, history)
-	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nD1,1:e\n", string(permascroll))
+	assert.Equal([]version{{0, 0, 1}, {8, 0, 3}, {13, 1, 0}, {18, 1, 5}, {29, 3, 0}, {36, 3, 0}}, history)
+	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nC1,1+1\n1D1,1:e\n", string(permascroll))
 
 	Undo()
 	SplitParagraph(1, 0)
 	Undo()
 	assert.Equal(1, current)
 	assert.Equal([]string{"", ""}, document)
-	assert.Equal([]version{{0, 0, 1}, {8, 0, 5}, {13, 1, 0}, {18, 1, 4}, {29, 3, 0}, {36, 1, 0}}, history)
-	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nD1,1:e\n3S1,0\n", string(permascroll))
+	assert.Equal([]version{{0, 0, 1}, {8, 0, 6}, {13, 1, 0}, {18, 1, 5}, {29, 3, 0}, {36, 3, 0}, {44, 1, 0}}, history)
+	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nC1,1+1\n1D1,1:e\n4S1,0\n", string(permascroll))
 }
 
 func TestValidatePn(t *testing.T) {

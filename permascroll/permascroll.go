@@ -30,9 +30,10 @@ const magic = "JottyV0\n"
 
 // Regular expressions for parsing permascroll entries.
 var (
+	ccRx = regexp.MustCompile(`(\d+),(\d+)([+:])(.+)\n`)                // Copy and Cut arguments
 	diRx = regexp.MustCompile(`(\d+),(\d+):(.+)\n`)                     // Delete and Insert arguments
 	msRx = regexp.MustCompile(`(\d+),(\d+)\n`)                          // Merge and Split arguments
-	opRx = regexp.MustCompile(`(\d*)([DIMSX])`)                         // Operation prefix
+	opRx = regexp.MustCompile(`(\d*)([CDIMSX])`)                        // Operation prefix
 	exRx = regexp.MustCompile(`(\d+)(?:,(\d+)\+(\d+)/(\d+)\+(\d+))?\n`) // Exchange arguments
 )
 
@@ -43,6 +44,7 @@ type (
 
 var (
 	current     int        // Current version in the history
+	cut         string     // Text cut from the document
 	deleting    int        // Number of bytes to delete starting from offset
 	document    []string   // Text of each paragraph
 	file        *os.File   // Permascroll backing storage
@@ -63,7 +65,7 @@ func init() { Init() }
 
 // Initialise permascroll.
 func Init() {
-	current, deleting, pending, paragraph, offset = 0, 0, "", 1, 0
+	current, cut, deleting, pending, paragraph, offset = 0, "", 0, "", 1, 0
 	document = []string{""} // Start with a single empty paragraph
 	history = []version{{}} // Start with a single empty version
 	permascroll = []byte(magic)
@@ -79,6 +81,26 @@ func ClosePermascroll() (err error) {
 	}
 
 	return err
+}
+
+// Copy text from a paragraph between pos and end.
+func CopyText(pn, pos, end int) {
+	validateSpan(pn, pos, end)
+
+	Flush()
+	cut = document[pn-1][pos:end]
+	persist(fmt.Sprintf("C%d,%d+%d", pn, pos, end-pos))
+}
+
+// Cut text from a paragraph between pos and end.
+func CutText(pn, pos, end int) {
+	validateSpan(pn, pos, end)
+
+	Flush()
+	cut = document[pn-1][pos:end]
+	persist(fmt.Sprintf("C%d,%d:%s", pn, pos, cut))
+	paragraph, offset = pn, pos
+	docDelete(end - pos)
 }
 
 // Delete text from a paragraph between pos and end.
@@ -153,6 +175,13 @@ func docSplit() {
 func docRedo(op operation) {
 	paragraph, offset = op.pn, op.offset1
 	switch op.code {
+	case 'C':
+		if op.size1 > 0 {
+			cut = document[paragraph-1][offset : offset+op.size1]
+		} else {
+			cut = document[paragraph-1][offset : offset+len(op.text)]
+			docDelete(len(op.text))
+		}
 	case 'D':
 		docDelete(len(op.text))
 	case 'I':
@@ -172,6 +201,11 @@ func docUndo() byte {
 	_, op := parseOperation(&source)
 	paragraph, offset = op.pn, op.offset1
 	switch op.code {
+	case 'C':
+		if len(op.text) > 0 {
+			docInsert(op.text)
+		}
+		cut = ""
 	case 'D':
 		docInsert(op.text)
 	case 'I':
@@ -237,6 +271,9 @@ func Flush() {
 		pending = ""
 	}
 }
+
+// Get the text cut from the document.
+func GetCut() string { return cut }
 
 // Get the current position in the document.
 func GetPos() (int, int) { return paragraph, offset }
@@ -338,16 +375,34 @@ were returned instead, every caller would still have to panic after checking for
 them.
 */
 
-// Parse the arguments of an exchange operation from the permascroll.
-func parseExchange(source *int) (op operation) {
-	op.code = 'X'
-	match := exRx.FindSubmatch(permascroll[*source:])
+// Parse the arguments of a copy or cut operation from the permascroll.
+func parseCopyCut(source *int) (op operation, match [][]byte) {
+	op.code = 'C'
+	match = ccRx.FindSubmatch(permascroll[*source:])
 	if match == nil {
-		panic(fmt.Errorf("invalid arguments for 'X', %w", errParse))
+		return op, match
 	}
-	*source += len(match[0])
 
-	op.pn, _ = strconv.Atoi(string(match[1]))
+	if match[3][0] == ':' {
+		op.text = string(match[4])
+	} else {
+		var err error
+		if op.size1, err = strconv.Atoi(string(match[4])); err != nil {
+			panic(fmt.Errorf("invalid size for 'C', %w", err))
+		}
+	}
+
+	return op, match
+}
+
+// Parse the arguments of an exchange operation from the permascroll.
+func parseExchange(source *int) (op operation, match [][]byte) {
+	op.code = 'X'
+	match = exRx.FindSubmatch(permascroll[*source:])
+	if match == nil {
+		return op, match
+	}
+
 	if len(match[2]) > 0 {
 		op.offset1, _ = strconv.Atoi(string(match[2]))
 		op.size1, _ = strconv.Atoi(string(match[3]))
@@ -355,7 +410,7 @@ func parseExchange(source *int) (op operation) {
 		op.size2, _ = strconv.Atoi(string(match[5]))
 	}
 
-	return op
+	return op, match
 }
 
 type operation struct {
@@ -378,25 +433,27 @@ func parseOperation(source *int) (delta int, op operation) {
 
 	op.code = match[2][0]
 	switch op.code {
+	case 'C':
+		op, match = parseCopyCut(source)
 	case 'D', 'I':
-		match = diRx.FindSubmatch(permascroll[*source:])
+		if match = diRx.FindSubmatch(permascroll[*source:]); match != nil {
+			op.text = string(match[3])
+		}
 	case 'M', 'S':
 		match = msRx.FindSubmatch(permascroll[*source:])
 	default: // 'X'
-		op = parseExchange(source)
-		match[0] = []byte{}
+		op, match = parseExchange(source)
 	}
+
 	if match == nil {
 		panic(fmt.Errorf("invalid arguments for %q, %w", op.code, errParse))
 	}
+
 	*source += len(match[0])
+	op.pn, _ = strconv.Atoi(string(match[1]))
 
 	if op.code != 'X' {
-		op.pn, _ = strconv.Atoi(string(match[1]))
 		op.offset1, _ = strconv.Atoi(string(match[2]))
-	}
-	if op.code == 'D' || op.code == 'I' {
-		op.text = string(match[3])
 	}
 
 	return delta, op
