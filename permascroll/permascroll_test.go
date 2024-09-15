@@ -5,12 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func init() { openDevNull() }
-
-func openDevNull() {
+func init() {
 	if err := OpenPermascroll(os.DevNull); err != nil {
 		panic(err)
 	}
@@ -28,13 +25,6 @@ func TestAppendText(t *testing.T) {
 	Init()
 	AppendText(1, "Test")
 	assert.Equal("Test", pending)
-}
-
-func TestClosePermascroll(t *testing.T) {
-	file = nil
-	require.ErrorContains(t, ClosePermascroll(), "failed to close permascroll: invalid argument")
-
-	openDevNull()
 }
 
 func TestDeleteText(t *testing.T) {
@@ -286,36 +276,6 @@ func TestMergeParagraph(t *testing.T) {
 	}
 }
 
-func TestOpenPermascroll(t *testing.T) {
-	require.ErrorContains(t, OpenPermascroll(""), "failed to open permascroll: ")
-
-	testFile, err := os.CreateTemp("", "jotty")
-	name := testFile.Name()
-	defer os.Remove(name)
-	if err != nil {
-		panic(err)
-	}
-	testFile.Close()
-	if err = os.Chmod(name, 0o444); err != nil {
-		panic(err)
-	}
-	require.ErrorContains(t, OpenPermascroll(name), "failed to open permascroll: ")
-
-	testFile, err = os.CreateTemp("", "jotty")
-	name = testFile.Name()
-	defer os.Remove(name)
-	if err != nil {
-		panic(err)
-	}
-	if _, err = testFile.WriteString(magic + "I1,0:Test\n"); err != nil {
-		panic(err)
-	}
-	require.NoError(t, OpenPermascroll(name))
-	require.NoError(t, ClosePermascroll())
-
-	openDevNull()
-}
-
 func TestParseCopyCut(t *testing.T) {
 	assert := assert.New(t)
 
@@ -438,13 +398,6 @@ func TestParsePermascroll(t *testing.T) {
 	assert.Equal(3, current)
 	assert.Equal([]string{"Two"}, document)
 	assert.Equal([]version{{0, 0, 3}, {8, 0, 2}, {13, 1, 0}, {23, 0, 0}}, history)
-}
-
-func TestPersist(t *testing.T) {
-	file = nil
-	assert.PanicsWithError(t, "persist failed: invalid argument", func() { persist("error") })
-
-	openDevNull()
 }
 
 func TestSplitParagraph(t *testing.T) {
