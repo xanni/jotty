@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -47,7 +46,6 @@ var (
 	cut         string     // Text cut from the document
 	deleting    int        // Number of bytes to delete starting from offset
 	document    []string   // Text of each paragraph
-	file        *os.File   // Permascroll backing storage
 	history     []version  // Document history
 	mutex       sync.Mutex // Mutex to ensure safety of Flush()
 	offset      int        // Current offset in the paragraph
@@ -73,15 +71,6 @@ func Init() {
 
 // Append text to a paragraph.
 func AppendText(pn int, text string) { InsertText(pn, GetSize(pn), text) }
-
-// Close the permascroll file.
-func ClosePermascroll() (err error) {
-	if err = file.Close(); err != nil {
-		err = fmt.Errorf("failed to close permascroll: %w", err)
-	}
-
-	return err
-}
 
 // Copy text from a paragraph between pos and end.
 func CopyText(pn, pos, end int) {
@@ -342,28 +331,6 @@ func newVersion(source int) int {
 	return (current - parent) - 1
 }
 
-// Open or create a permascroll file.
-func OpenPermascroll(path string) (err error) {
-	permascroll, err = os.ReadFile(path)
-	if err == nil && len(permascroll) > 0 {
-		parsePermascroll()
-	}
-
-	file, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err == nil && len(permascroll) == 0 {
-		permascroll = []byte(magic)
-		if _, err := file.WriteString(magic); err != nil {
-			file.Close() // Ignore error; WriteString error takes precedence
-		}
-	}
-
-	if err != nil {
-		err = fmt.Errorf("failed to open permascroll: %w", err)
-	}
-
-	return err
-}
-
 // Number of paragraphs in the document.
 func Paragraphs() int { return len(document) }
 
@@ -477,21 +444,6 @@ func parsePermascroll() {
 	}
 }
 
-// Persist an operation to the permascroll.
-func persist(s string) {
-	delta := newVersion(len(permascroll))
-	if delta > 0 {
-		s = strconv.Itoa(delta) + s
-	}
-
-	s += "\n"
-	permascroll = append(permascroll, []byte(s)...)
-	if _, err := file.WriteString(s); err != nil {
-		file.Close() // ignore error; Write error takes precedence
-		panic(fmt.Errorf("persist failed: %w", err))
-	}
-}
-
 // Redo the last undone operation, if any.
 func Redo() (code byte) {
 	child := history[current].lastChild
@@ -514,16 +466,6 @@ func SplitParagraph(pn, pos int) {
 	paragraph, offset = pn, pos
 	persist(fmt.Sprintf("S%d,%d", pn, offset))
 	docSplit()
-}
-
-// Ensure the permascroll backing store is written to stable storage.
-func SyncPermascroll() (err error) {
-	Flush()
-	if err = file.Sync(); err != nil {
-		err = fmt.Errorf("failed to sync permascroll: %w", err)
-	}
-
-	return err
 }
 
 // Undo the immediately preceding operation, if any.
