@@ -50,7 +50,9 @@ const (
 	margin         = 6         // Up to 4 edit marks, cursor and wrap indicator
 	markChar       = '|'       // Visual representation of an edit mark
 	moreChar       = '…'       // Continuation indicator character
+	confirmColor   = "#ffff00" // Confirmation message: ANSIBrightYellow
 	cutColor       = "#808080" // Cut text: ANSIBrightBlack
+	errorColor     = "#ff0000" // Error message: ANSIBrightRed
 	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
 	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
 	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
@@ -88,6 +90,8 @@ to avoid constantly redrawing the entire window.
 The "cursor" variable contains the current cursor position for navigation
 purposes.
 */
+
+var Message string // Modal confirmation or error message
 
 var (
 	after, before        strings.Builder // Text of the current paragraph after and before the cursor position
@@ -146,12 +150,24 @@ func cursorString() string {
 	return output.String(string(cc)).Reverse().Blink().String()
 }
 
+func errorString() string {
+	return output.String(string("Error: ")).Blink().Foreground(output.Color(errorColor)).String()
+}
+
 func markString() string {
 	return output.String(string(markChar)).Blink().Foreground(output.Color(markColor)).String()
 }
 
+func confirmStyle(s string) string {
+	return output.String(s).Blink().Foreground(output.Color(confirmColor)).String()
+}
+
 func cutStyle(s string) string {
 	return output.String(s).CrossOut().Foreground(output.Color(cutColor)).String()
+}
+
+func errorStyle(s string) string {
+	return output.String(s).Foreground(output.Color(errorColor)).String()
 }
 
 func primaryStyle(s string) string {
@@ -589,6 +605,18 @@ func screenLine(pn, ln *int) (line string) {
 	return line
 }
 
+// Remove the middle of an overlong string, because the beginning and end of
+// error messages are the most interesting parts.
+func truncate(max int, s string) string {
+	if len(s) <= max {
+		return s
+	}
+
+	half := max / 2
+
+	return s[:half] + string(moreChar) + s[len(s)-half:]
+}
+
 // The entire screen including the edits window and status line.
 func Screen() string {
 	drawWindow()
@@ -619,7 +647,14 @@ func Screen() string {
 	for len(t) < ey {
 		t = append(t, "")
 	}
-	t = append(t, statusLine())
+	switch {
+	case len(Message) == 0:
+		t = append(t, statusLine())
+	case Message[0] == 'C':
+		t = append(t, confirmStyle(Message))
+	default: // Go error messages always start with a lowercase letter
+		t = append(t, errorString()+errorStyle(truncate(ex-8, Message)))
+	}
 
 	return strings.Join(t, "\n")
 }

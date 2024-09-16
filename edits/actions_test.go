@@ -551,6 +551,12 @@ func TestExport(t *testing.T) {
 		panic(err)
 	}
 	assert.Equal("Two\n", string(text))
+
+	if err = os.Chmod(name, 0); err != nil {
+		panic(err)
+	}
+	Export(name)
+	assert.Contains(Message, "failed export: ")
 }
 
 func TestUndoRedo(t *testing.T) {

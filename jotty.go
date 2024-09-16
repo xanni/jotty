@@ -26,8 +26,10 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyBackspace: edits.Backspace, tea.KeyCtrlH: edits.Backspace,
 	tea.KeyTab: edits.Mark, tea.KeyShiftTab: edits.ClearMarks,
 	tea.KeyEnter: edits.Enter, tea.KeySpace: edits.Space,
+	tea.KeyEsc: confirmExit, tea.KeyCtrlQ: confirmExit,
 	tea.KeyHome: edits.Home, tea.KeyCtrlU: edits.Home,
 	tea.KeyInsert: edits.InsertCut, tea.KeyCtrlV: edits.InsertCut,
+	tea.KeyCtrlW:  confirmExit,
 	tea.KeyDelete: edits.Delete, tea.KeyCtrlX: edits.Delete,
 	tea.KeyCtrlY: edits.Redo, tea.KeyCtrlZ: edits.Undo,
 }
@@ -39,7 +41,8 @@ var (
 
 type model struct{ timer *time.Timer }
 
-func export() { edits.Export(exportPath) }
+func confirmExit() { edits.Message = "Confirm exit?" }
+func export()      { edits.Export(exportPath) }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool {
@@ -52,21 +55,36 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
+func acceptKey(m *model, msg tea.KeyMsg) {
+	if isSizeOK() {
+		m.timer.Reset(syncDelay)
+		if f, ok := dispatch[msg.Type]; ok {
+			f()
+		} else if msg.Type == tea.KeyRunes && !msg.Alt {
+			edits.InsertRunes(msg.Runes)
+		}
+	}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		sx, sy = msg.Width, msg.Height
 		edits.ResizeScreen(msg.Width, msg.Height)
 	case tea.KeyMsg:
-		if msg.Type == tea.KeyEsc || msg.Type == tea.KeyCtrlQ || msg.Type == tea.KeyCtrlW {
-			return m, tea.Quit
-		}
-		if isSizeOK() {
-			m.timer.Reset(syncDelay)
-			if f, ok := dispatch[msg.Type]; ok {
-				f()
-			} else if msg.Type == tea.KeyRunes && !msg.Alt {
-				edits.InsertRunes(msg.Runes)
+		switch {
+		case len(edits.Message) == 0:
+			acceptKey(&m, msg)
+		case edits.Message[0] != 'C':
+			if msg.Type == tea.KeySpace || msg.Type == tea.KeyEnter || msg.Type == tea.KeyEsc {
+				edits.Message = ""
+			}
+		default: // Exit confirmation
+			switch msg.Type {
+			case tea.KeyEsc, tea.KeyCtrlZ:
+				edits.Message = ""
+			case tea.KeySpace, tea.KeyEnter, tea.KeyCtrlQ, tea.KeyCtrlW:
+				return m, tea.Quit
 			}
 		}
 	}
