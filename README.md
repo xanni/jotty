@@ -402,6 +402,10 @@ the current scope unit information can be displayed.
 
 `Jotty v0  ¶0/0 $0/0 #0/0 @0/0`
 
+Exit confirmations and error messages can also be displayed on the status line
+and act as modal dialogues, remaining until acknowledged. `Space`, `Enter`
+or `Esc` will accept an error message.
+
 ### Text attributes
 
 The defaults are white text on a black background with the cursor blinking and

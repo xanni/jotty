@@ -419,11 +419,24 @@ func TestDrawWindow(t *testing.T) {
 	assert.Equal(2, firstPara)
 }
 
+func TestTruncate(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("Test", truncate(4, "Test"))
+	assert.Equal("T"+string(moreChar)+"t", truncate(3, "Test"))
+}
+
 func TestScreen(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 5)
 
+	Message = "Confirm"
+	assert.Equal("_\n\n\n\nConfirm", Screen())
+
+	Message = "test"
+	assert.Equal("_\n\n\n\nError: t"+string(moreChar)+"t", Screen())
+
+	Message = ""
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
 	ps.SplitParagraph(1, 0)

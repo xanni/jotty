@@ -389,13 +389,17 @@ func Delete() {
 }
 
 func Export(path string) {
+	var err error
 	if len(mark) > 0 {
-		_ = ps.ExportText(path, markPara, primary.obegin, primary.oend)
+		err = ps.ExportText(path, markPara, primary.obegin, primary.oend)
 	} else {
 		updateSelections()
-		_ = ps.ExportText(path, 0, 0, 0)
+		err = ps.ExportText(path, 0, 0, 0)
 	}
-	// TODO display error if any
+
+	if err != nil {
+		Message = err.Error()
+	}
 }
 
 func refresh() {
