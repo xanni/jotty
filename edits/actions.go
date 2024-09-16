@@ -388,6 +388,16 @@ func Delete() {
 	ps.DeleteText(cursor[Para], pos, end)
 }
 
+func Export(path string) {
+	if len(mark) > 0 {
+		_ = ps.ExportText(path, markPara, primary.obegin, primary.oend)
+	} else {
+		updateSelections()
+		_ = ps.ExportText(path, 0, 0, 0)
+	}
+	// TODO display error if any
+}
+
 func refresh() {
 	cache = nil
 	total = counts{0, 0, 0, 1}
