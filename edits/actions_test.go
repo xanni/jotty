@@ -524,6 +524,35 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestExport(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+
+	testFile, err := os.CreateTemp("", "jotty")
+	if err != nil {
+		panic(err)
+	}
+	name := testFile.Name()
+	defer os.Remove(name)
+
+	ps.AppendText(1, "One")
+	ps.SplitParagraph(1, 3)
+	ps.AppendText(2, "Two")
+	Export(name)
+	var text []byte
+	if text, err = os.ReadFile(name); err != nil {
+		panic(err)
+	}
+	assert.Equal("One\n\nTwo\n", string(text))
+
+	markPara, mark, primary = 2, []int{0}, selection{0, 3, 0, 3}
+	Export(name)
+	if text, err = os.ReadFile(name); err != nil {
+		panic(err)
+	}
+	assert.Equal("Two\n", string(text))
+}
+
 func TestUndoRedo(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()

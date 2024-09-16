@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"git.sericyb.com.au/jotty/edits"
@@ -21,6 +22,7 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyLeft: edits.Left, tea.KeyRight: edits.Right,
 	tea.KeyCtrlC: edits.Copy,
 	tea.KeyEnd:   edits.End, tea.KeyCtrlD: edits.End,
+	tea.KeyCtrlE:     export,
 	tea.KeyBackspace: edits.Backspace, tea.KeyCtrlH: edits.Backspace,
 	tea.KeyTab: edits.Mark, tea.KeyShiftTab: edits.ClearMarks,
 	tea.KeyEnter: edits.Enter, tea.KeySpace: edits.Space,
@@ -30,9 +32,14 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyCtrlY: edits.Redo, tea.KeyCtrlZ: edits.Undo,
 }
 
-var sx, sy int // screen dimensions
+var (
+	exportPath = "jotty.txt"
+	sx, sy     int // screen dimensions
+)
 
 type model struct{ timer *time.Timer }
+
+func export() { edits.Export(exportPath) }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool {
@@ -85,8 +92,13 @@ func cleanup() {
 func main() {
 	path := defaultName
 	if len(os.Args) > 1 {
-		path = os.Args[1]
+		exportPath, path = os.Args[1], os.Args[1]
+		if i := strings.LastIndex(exportPath, ".jot"); i >= 0 {
+			exportPath = exportPath[:i]
+		}
+		exportPath += ".txt"
 	}
+
 	if err := ps.OpenPermascroll(path); err != nil {
 		log.Fatalf("%+v", err)
 	}
@@ -97,7 +109,6 @@ func main() {
 		if err := ps.SyncPermascroll(); err != nil {
 			log.Printf("%+v", err)
 		}
-		m.timer.Reset(syncDelay)
 	})
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
