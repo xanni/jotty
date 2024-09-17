@@ -3,7 +3,7 @@ module git.sericyb.com.au/jotty
 go 1.22.0
 
 require (
-	github.com/charmbracelet/bubbletea v1.1.0
+	github.com/charmbracelet/bubbletea v1.1.1
 	github.com/muesli/termenv v0.15.2
 	github.com/rivo/uniseg v0.4.7
 	github.com/stretchr/testify v1.9.0
