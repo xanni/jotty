@@ -9,6 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unsafe"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 /*
@@ -23,6 +26,10 @@ the primedia and are always and only permascroll record separators.  All
 operations contain sufficient information to ensure they are reversible.
 
 This package coalesces adjacent and overlapping text insertions and deletions.
+
+It also maintains hashes of the document and cut buffer contents and uses them
+to detect when a previous state is revisited, thus avoiding persisting the same
+state to the permascroll again and instead updating the version history.
 */
 
 const magic = "JottyV0\n"
@@ -42,16 +49,18 @@ type (
 )
 
 var (
-	current     int        // Current version in the history
-	cut         string     // Text cut from the document
-	deleting    int        // Number of bytes to delete starting from offset
-	document    []string   // Text of each paragraph
-	history     []version  // Document history
-	mutex       sync.Mutex // Mutex to ensure safety of Flush()
-	offset      int        // Current offset in the paragraph
-	paragraph   int        // Current paragraph number
-	pending     string     // Text not yet written to the permascroll
-	permascroll []byte     // Serialised history of all document versions
+	current     int            // Current version in the history
+	cut         string         // Text cut from the document
+	deleting    int            // Number of bytes to delete starting from offset
+	docHash     []uint64       // Hash of each paragraph
+	document    []string       // Text of each paragraph
+	histHash    map[uint64]int // Map of hashes to version numbers
+	history     []version      // Document history
+	mutex       sync.Mutex     // Mutex to ensure safety of Flush()
+	offset      int            // Current offset in the paragraph
+	paragraph   int            // Current paragraph number
+	pending     string         // Text not yet written to the permascroll
+	permascroll []byte         // Serialised history of all document versions
 )
 
 var (
@@ -61,11 +70,29 @@ var (
 
 func init() { Init() }
 
+// Compute the hash of the current version of the document.
+func hashDocument() uint64 {
+	size := len(docHash) * 8                                          // Each uint64 is 8 bytes
+	buf := (*[1 << 32]byte)(unsafe.Pointer(&docHash[0]))[0:size:size] // Get the underlying docHash array
+
+	hash := xxhash.New()
+	_, _ = hash.Write(buf)
+	_, _ = hash.WriteString(cut)
+
+	return hash.Sum64()
+}
+
+func updateHash(pn int) {
+	docHash[pn-1] = xxhash.Sum64String(document[pn-1])
+}
+
 // Initialise permascroll.
 func Init() {
 	current, cut, deleting, pending, paragraph, offset = 0, "", 0, "", 1, 0
 	document = []string{""} // Start with a single empty paragraph
+	docHash = []uint64{xxhash.Sum64String("")}
 	history = []version{{}} // Start with a single empty version
+	histHash = map[uint64]int{hashDocument(): 0}
 	permascroll = []byte(magic)
 }
 
@@ -87,9 +114,9 @@ func CutText(pn, pos, end int) {
 
 	Flush()
 	cut = document[pn-1][pos:end]
-	persist(fmt.Sprintf("C%d,%d:%s", pn, pos, cut))
 	paragraph, offset = pn, pos
 	docDelete(end - pos)
+	persist(fmt.Sprintf("C%d,%d:%s", pn, pos, cut))
 }
 
 // Delete text from a paragraph between pos and end.
@@ -123,11 +150,13 @@ func DeleteText(pn, pos, end int) {
 func docDelete(size int) {
 	p := document[paragraph-1]
 	document[paragraph-1] = p[:offset] + p[offset+size:]
+	updateHash(paragraph)
 }
 
 func docExchange(first, second span) {
 	if first.end == 0 { // Exchange paragraphs
 		document[paragraph-1], document[paragraph-2] = document[paragraph-2], document[paragraph-1]
+		updateHash(paragraph - 1)
 	} else { // Exchange text ranges
 		p := document[paragraph-1]
 		var t strings.Builder
@@ -138,25 +167,32 @@ func docExchange(first, second span) {
 		t.WriteString(p[second.end:])
 		document[paragraph-1] = t.String()
 	}
+	updateHash(paragraph)
 	offset = first.begin
 }
 
 func docInsert(text string) {
 	p := document[paragraph-1]
 	document[paragraph-1] = p[:offset] + text + p[offset:]
+	updateHash(paragraph)
 	offset += len(text)
 }
 
 func docMerge() {
 	offset = len(document[paragraph-1])
 	document[paragraph-1] += document[paragraph]
+	updateHash(paragraph)
 	document = slices.Delete(document, paragraph, paragraph+1)
+	docHash = slices.Delete(docHash, paragraph, paragraph+1)
 }
 
 func docSplit() {
 	p := document[paragraph-1]
 	document = slices.Insert(document, paragraph, p[offset:])
+	docHash = slices.Insert(docHash, paragraph, 0)
+	updateHash(paragraph + 1)
 	document[paragraph-1] = p[:offset]
+	updateHash(paragraph)
 	paragraph++
 	offset = 0
 }
@@ -219,9 +255,9 @@ func ExchangeParagraphs(pn int) {
 	}
 
 	Flush()
-	persist(fmt.Sprintf("X%d", pn))
 	paragraph = pn
 	docExchange(span{}, span{})
+	persist(fmt.Sprintf("X%d", pn))
 }
 
 // Exchange two text spans.
@@ -237,10 +273,9 @@ func ExchangeText(pn, b1, e1, b2, e2 int) {
 	}
 
 	Flush()
-	persist(fmt.Sprintf("X%d,%d+%d/%d+%d", pn, b1, e1-b1, b2, e2-b2))
-
 	paragraph = pn
 	docExchange(span{b1, e1}, span{b2, e2})
+	persist(fmt.Sprintf("X%d,%d+%d/%d+%d", pn, b1, e1-b1, b2, e2-b2))
 }
 
 // Write pending insertion or deletion to permascroll.
@@ -251,12 +286,13 @@ func Flush() {
 	if deleting > 0 {
 		p := document[paragraph-1]
 		t := p[offset : offset+deleting]
-		persist(fmt.Sprintf("D%d,%d:%s", paragraph, offset, t))
 		docDelete(deleting)
+		persist(fmt.Sprintf("D%d,%d:%s", paragraph, offset, t))
 		deleting = 0
 	} else if len(pending) > 0 {
-		persist(fmt.Sprintf("I%d,%d:%s", paragraph, offset, pending))
+		o := offset
 		docInsert(pending)
+		persist(fmt.Sprintf("I%d,%d:%s", paragraph, o, pending))
 		pending = ""
 	}
 }
@@ -324,9 +360,16 @@ func MergeParagraph(pn int) {
 // Add a new version to the history.
 func newVersion(source int) int {
 	parent := current
+	h := hashDocument()
+	if v, found := histHash[h]; found {
+		current = v
+
+		return -1
+	}
+
 	current = len(history)
 	history = append(history, version{source, parent, 0})
-	history[parent].lastChild = current
+	history[parent].lastChild, histHash[h] = current, current
 
 	return (current - parent) - 1
 }
@@ -439,8 +482,8 @@ func parsePermascroll() {
 		for range delta {
 			docUndo()
 		}
-		newVersion(opSource)
 		docRedo(op)
+		newVersion(opSource)
 	}
 }
 
@@ -464,8 +507,8 @@ func SplitParagraph(pn, pos int) {
 
 	Flush()
 	paragraph, offset = pn, pos
-	persist(fmt.Sprintf("S%d,%d", pn, offset))
 	docSplit()
+	persist(fmt.Sprintf("S%d,%d", pn, pos))
 }
 
 // Undo the immediately preceding operation, if any.

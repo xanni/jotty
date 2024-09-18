@@ -101,6 +101,10 @@ func OpenPermascroll(path string) (err error) {
 // Persist an operation to the permascroll.
 func persist(s string) {
 	delta := newVersion(len(permascroll))
+	if delta < 0 {
+		return
+	}
+
 	if delta > 0 {
 		s = strconv.Itoa(delta) + s
 	}

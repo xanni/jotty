@@ -108,6 +108,7 @@ func TestOpenPermascroll(t *testing.T) {
 }
 
 func TestPersist(t *testing.T) {
+	docInsert("Test")
 	file = &mockFileType{err: errInvalidArg}
 	assert.PanicsWithError(t, "persist failed: invalid argument", func() { persist("error") })
 

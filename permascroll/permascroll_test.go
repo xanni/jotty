@@ -107,6 +107,7 @@ func TestDocExchange(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {})
 		document = []string{"Test", "strings"}
+		docHash = []uint64{0, 0}
 		docExchange(span{test.begin1, test.end1}, span{test.begin2, test.end2})
 		assert.Equal(test.expect, document)
 	}
@@ -117,26 +118,51 @@ func TestExchangeParagraphs(t *testing.T) {
 	assert.PanicsWithError("paragraph '1' out of range", func() { ExchangeParagraphs(1) })
 
 	Init()
-	document = []string{"One", "Two"}
+	SplitParagraph(1, 0)
+	AppendText(1, "One")
+	AppendText(2, "Two")
+
 	ExchangeParagraphs(2)
+	assert.Equal(4, current)
 	assert.Equal([]string{"Two", "One"}, document)
-	assert.Equal(magic+"X2\n", string(permascroll))
+	expect := magic + "S1,0\nI1,0:One\nI2,0:Two\nX2\n"
+	assert.Equal(expect, string(permascroll))
+
+	ExchangeParagraphs(2)
+	assert.Equal(3, current)
+	assert.Equal([]string{"One", "Two"}, document)
+	assert.Equal(expect, string(permascroll))
+
+	ExchangeParagraphs(2)
+	assert.Equal(4, current)
+	assert.Equal([]string{"Two", "One"}, document)
+	assert.Equal(expect, string(permascroll))
 }
 
 func TestExchangeText(t *testing.T) {
 	assert := assert.New(t)
 	Init()
 
-	document = []string{"Test"}
+	docInsert("Test")
 	assert.PanicsWithError("overlap '1-3/2-4' out of range", func() { ExchangeText(1, 1, 3, 2, 4) })
 
 	ExchangeText(1, 1, 4, 0, 1)
 	assert.Equal("estT", document[0])
-	assert.Equal(magic+"X1,0+1/1+3\n", string(permascroll))
+	expect := magic + "X1,0+1/1+3\n"
+	assert.Equal(expect, string(permascroll))
 
 	ExchangeText(1, 1, 2, 3, 4)
 	assert.Equal("eTts", document[0])
-	assert.Equal(magic+"X1,0+1/1+3\nX1,1+1/3+1\n", string(permascroll))
+	expect += "X1,1+1/3+1\n"
+	assert.Equal(expect, string(permascroll))
+
+	ExchangeText(1, 1, 2, 3, 4)
+	assert.Equal("estT", document[0])
+	assert.Equal(expect, string(permascroll))
+
+	ExchangeText(1, 1, 2, 3, 4)
+	assert.Equal("eTts", document[0])
+	assert.Equal(expect, string(permascroll))
 }
 
 func TestFlushDeleting(t *testing.T) {
@@ -145,20 +171,20 @@ func TestFlushDeleting(t *testing.T) {
 		offset, deleting  int
 		para, permascroll string
 	}{
-		"Beginning": {0, 1, "est", "D1,0:T"},
-		"Middle":    {1, 1, "Tst", "D1,1:e"},
-		"End":       {3, 1, "Tes", "D1,3:t"},
-		"All":       {0, 4, "", "D1,0:Test"},
+		"Beginning": {0, 1, "est", "D1,0:T\n"},
+		"Middle":    {1, 1, "Tst", "D1,1:e\n"},
+		"End":       {3, 1, "Tes", "D1,3:t\n"},
+		"All":       {0, 4, "", ""},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
 			Init()
-			document = []string{"Test"}
+			docInsert("Test")
 			offset, deleting = test.offset, test.deleting
 			Flush()
 			assert.Equal(test.para, document[0])
-			assert.Equal(magic+test.permascroll+"\n", string(permascroll))
+			assert.Equal(magic+test.permascroll, string(permascroll))
 		})
 	}
 }
@@ -187,7 +213,7 @@ func TestFlushInserting(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
 			Init()
-			document = []string{"Test"}
+			docInsert("Test")
 			offset, pending = test.offset, "New"
 			Flush()
 			assert.Equal(test.para, document[0])
@@ -269,6 +295,7 @@ func TestMergeParagraph(t *testing.T) {
 		t.Run(name, func(_ *testing.T) {
 			Init()
 			document = test.document
+			docHash = []uint64{0, 0}
 			MergeParagraph(1)
 			assert.Equal(test.para, document[0])
 			assert.Equal(test.offset, offset)
@@ -432,7 +459,7 @@ func TestRedo(t *testing.T) {
 	assert.Equal(0, current)
 
 	SplitParagraph(1, 0)
-	InsertText(1, 0, "Test")
+	AppendText(1, "Test")
 	Undo()
 	Redo()
 	assert.Equal(2, current)
@@ -492,31 +519,38 @@ func TestUndo(t *testing.T) {
 	assert.Equal(0, current)
 
 	SplitParagraph(1, 0)
+	AppendText(1, "Test")
 	MergeParagraph(1)
 	Undo()
-	assert.Equal(1, current)
-	assert.Equal([]string{"", ""}, document)
+	assert.Equal(2, current)
+	assert.Equal([]string{"Test", ""}, document)
 
-	InsertText(1, 0, "Test")
 	CopyText(1, 1, 2)
 	Undo()
-	assert.Equal(3, current)
+	assert.Equal(2, current)
 	assert.Empty(cut)
 
 	DeleteText(1, 1, 2)
 	Undo()
-	assert.Equal(3, current)
+	assert.Equal(2, current)
 	assert.Equal([]string{"Test", ""}, document)
-	assert.Equal([]version{{0, 0, 1}, {8, 0, 3}, {13, 1, 0}, {18, 1, 5}, {29, 3, 0}, {36, 3, 0}}, history)
-	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nC1,1+1\n1D1,1:e\n", string(permascroll))
+	expectHist := []version{{0, 0, 1}, {8, 0, 2}, {13, 1, 5}, {23, 2, 0}, {28, 2, 0}, {36, 2, 0}}
+	assert.Equal(expectHist, history)
+	expect := magic + "S1,0\nI1,0:Test\nM1,4\n1C1,1+1\n2D1,1:e\n"
+	assert.Equal(expect, string(permascroll))
 
 	Undo()
+	assert.Equal(1, current)
+
 	SplitParagraph(1, 0)
 	Undo()
 	assert.Equal(1, current)
 	assert.Equal([]string{"", ""}, document)
-	assert.Equal([]version{{0, 0, 1}, {8, 0, 6}, {13, 1, 0}, {18, 1, 5}, {29, 3, 0}, {36, 3, 0}, {44, 1, 0}}, history)
-	assert.Equal(magic+"S1,0\nM1,0\n1I1,0:Test\nC1,1+1\n1D1,1:e\n4S1,0\n", string(permascroll))
+	expectHist = append(expectHist, version{44, 1, 0})
+	expectHist[1].lastChild = 6
+	assert.Equal(expectHist, history)
+	expect += "4S1,0\n"
+	assert.Equal(expect, string(permascroll))
 }
 
 func TestValidatePn(t *testing.T) {
