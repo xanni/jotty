@@ -1,8 +1,11 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,7 +17,7 @@ import (
 const (
 	defaultName = "jotty.jot"
 	syncDelay   = 10 * time.Second
-	version     = "0"
+	version     = "0.1"
 )
 
 var dispatch = map[tea.KeyType]func(){
@@ -37,6 +40,7 @@ var dispatch = map[tea.KeyType]func(){
 var (
 	exportPath = "jotty.txt"
 	sx, sy     int // screen dimensions
+	vFlag      = flag.Bool("version", false, "print program version and exit")
 )
 
 type model struct{ timer *time.Timer }
@@ -107,7 +111,20 @@ func cleanup() {
 	}
 }
 
+func usage() {
+	fmt.Printf("Usage:\n  %s [filename]\n\nIf filename is not provided, defaults to '%s'\n\nOptions:\n",
+		filepath.Base(os.Args[0]), defaultName)
+	flag.PrintDefaults()
+}
+
 func main() {
+	flag.Usage = usage
+	flag.Parse()
+	if *vFlag {
+		println(filepath.Base(os.Args[0]) + " version " + version)
+		os.Exit(0)
+	}
+
 	path := defaultName
 	if len(os.Args) > 1 {
 		exportPath, path = os.Args[1], os.Args[1]
