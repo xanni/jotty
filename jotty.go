@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
@@ -14,10 +15,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+//go:generate sh -c "printf %s $(git describe --always --tags) > version.txt"
+//go:embed version.txt
+var version string
+
 const (
 	defaultName = "jotty.jot"
 	syncDelay   = 10 * time.Second
-	version     = "0.1"
 )
 
 var dispatch = map[tea.KeyType]func(){
@@ -54,7 +58,7 @@ func isSizeOK() bool {
 }
 
 func (m model) Init() tea.Cmd {
-	edits.ID = "Jotty v" + version
+	edits.ID = "Jotty " + version
 
 	return nil
 }
@@ -121,13 +125,13 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 	if *vFlag {
-		println(filepath.Base(os.Args[0]) + " version " + version)
+		println(filepath.Base(os.Args[0]) + " " + version)
 		os.Exit(0)
 	}
 
 	path := defaultName
 	if len(os.Args) > 1 {
-		exportPath, path = os.Args[1], os.Args[1]
+		exportPath, path = flag.Arg(0), flag.Arg(0)
 		if i := strings.LastIndex(exportPath, ".jot"); i >= 0 {
 			exportPath = exportPath[:i]
 		}

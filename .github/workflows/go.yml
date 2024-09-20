@@ -21,6 +21,9 @@ jobs:
       with:
         go-version-file: 'go.mod'
 
+    - name: Generate
+      run: go generate -v ./...
+
     - name: Build
       run: go build -v ./...
 
