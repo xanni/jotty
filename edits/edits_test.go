@@ -26,7 +26,7 @@ func setupTest() {
 	ID = "J"
 	cursor = counts{Para: 1}
 	firstPara, firstLine = 0, 0
-	initialCap, prevSelected, ShowHelp = false, false, false
+	initialCap, prevSelected, Mode = false, false, None
 	mark, markPara = nil, 0
 	primary, secondary = selection{}, selection{}
 	scope = Char
@@ -439,13 +439,13 @@ func TestScreen(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 5)
 
-	Message = "Confirm"
+	SetMode(Quit, "Confirm")
 	assert.Equal("_\n\n\n\nConfirm", Screen())
 
-	Message = "test"
+	SetMode(Error, "test")
 	assert.Equal("_\n\n\n\nError: t"+string(moreChar)+"t", Screen())
 
-	Message = ""
+	ClearMode()
 	assert.Equal("_\n\n\n\n@0/0", Screen())
 
 	ps.SplitParagraph(1, 0)
@@ -470,10 +470,10 @@ func TestScreen(t *testing.T) {
 	cursor[Para] = 3
 	assert.Equal("1 2 \n3 4\n\n_\n@14/14", Screen())
 
-	Help = []byte("Test")
-	ShowHelp = true
+	HelpText = []byte("Test")
+	Mode = Help
 	assert.Equal("   Test\n——————————\n\n_\n@14/14", Screen())
 
-	ShowHelp = false
+	Mode = None
 	assert.Equal("1 2 \n3 4\n\n_\n@14/14", Screen())
 }

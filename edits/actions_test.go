@@ -556,7 +556,7 @@ func TestExport(t *testing.T) {
 		panic(err)
 	}
 	Export(name)
-	assert.Contains(Message, "failed export: ")
+	assert.Contains(message, "failed export: ")
 }
 
 func TestUndoRedo(t *testing.T) {

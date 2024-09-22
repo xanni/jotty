@@ -398,7 +398,7 @@ func Export(path string) {
 	}
 
 	if err != nil {
-		Message = err.Error()
+		SetMode(Error, err.Error())
 	}
 }
 

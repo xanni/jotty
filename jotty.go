@@ -52,9 +52,9 @@ var (
 
 type model struct{ timer *time.Timer }
 
-func confirmExit() { edits.Message = "Confirm exit?" }
+func confirmExit() { edits.SetMode(edits.Quit, "Confirm exit?") }
 func export()      { edits.Export(exportPath) }
-func help()        { edits.ShowHelp = true }
+func help()        { edits.SetMode(edits.Help, "") }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool {
@@ -84,24 +84,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sx, sy = msg.Width, msg.Height
 		edits.ResizeScreen(msg.Width, msg.Height)
 	case tea.KeyMsg:
-		switch {
-		case edits.ShowHelp:
-			if msg.Type == tea.KeyEsc {
-				edits.ShowHelp = false
-			}
-		case len(edits.Message) == 0:
-			acceptKey(&m, msg)
-		case edits.Message[0] != 'C':
+		switch edits.Mode {
+		case edits.Error:
 			if msg.Type == tea.KeySpace || msg.Type == tea.KeyEnter || msg.Type == tea.KeyEsc {
-				edits.Message = ""
+				edits.ClearMode()
 			}
-		default: // Exit confirmation
+		case edits.Help:
+			if msg.Type == tea.KeyEsc {
+				edits.ClearMode()
+			}
+		case edits.Quit:
 			switch msg.Type {
 			case tea.KeyEsc:
-				edits.Message = ""
+				edits.ClearMode()
 			case tea.KeySpace, tea.KeyEnter, tea.KeyCtrlQ, tea.KeyCtrlW:
 				return m, tea.Quit
 			}
+		default:
+			acceptKey(&m, msg)
 		}
 	}
 
@@ -152,7 +152,7 @@ func main() {
 	}
 
 	defer cleanup()
-	edits.Help, _ = i18n.ReadFile("i18n/help.en")
+	edits.HelpText, _ = i18n.ReadFile("i18n/help.en")
 
 	var m model
 	m.timer = time.AfterFunc(syncDelay, func() {

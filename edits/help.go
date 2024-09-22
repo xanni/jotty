@@ -7,7 +7,7 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-var Help []byte
+var HelpText []byte
 
 func dropParagraphs(w []string) []string {
 	i := len(w) - ey
@@ -24,7 +24,7 @@ func dropParagraphs(w []string) []string {
 
 // The help window.
 func helpWindow() (w []string) {
-	w = strings.Split(string(Help), "\n")
+	w = strings.Split(string(HelpText), "\n")
 	if len(w[len(w)-1]) == 0 { // Trim final blank line
 		w = slices.Delete(w, len(w)-1, len(w))
 	}

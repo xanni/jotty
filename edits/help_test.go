@@ -21,13 +21,13 @@ func TestHelpWindow(t *testing.T) {
 	assert := assert.New(t)
 	ResizeScreen(6, 8)
 
-	Help = []byte("")
+	HelpText = []byte("")
 	assert.Equal([]string{"——————"}, helpWindow())
 
-	Help = []byte("One\n\nTwo")
+	HelpText = []byte("One\n\nTwo")
 	assert.Equal([]string{" One", "", " Two", "——————"}, helpWindow())
 
-	Help = []byte("Testing\n\nMore\n\nText")
+	HelpText = []byte("Testing\n\nMore\n\nText")
 	assert.Equal([]string{"Testi-", "ng", "", "More", "", "Text", "——————"}, helpWindow())
 
 	ResizeScreen(6, 5)

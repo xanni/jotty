@@ -46,7 +46,8 @@ var (
 )
 
 const (
-	cursorCharCap  = '↑'       // Capitalisation indicator character
+	cursorCharCap  = '↑' // Capitalisation indicator character
+	errorLabel     = "Error: "
 	margin         = 6         // Up to 4 edit marks, cursor and wrap indicator
 	markChar       = '|'       // Visual representation of an edit mark
 	moreChar       = '…'       // Continuation indicator character
@@ -57,6 +58,15 @@ const (
 	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
 	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
 	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
+)
+
+type ModeType int
+
+const (
+	None ModeType = iota
+	Error
+	Help
+	Quit
 )
 
 type Scope int
@@ -92,10 +102,10 @@ The "cursor" variable contains the current cursor position for navigation
 purposes.
 */
 
-var (
-	Message  string // Modal confirmation or error message
-	ShowHelp bool   // Display help window
-)
+var Mode ModeType
+
+func ClearMode()                        { Mode, message = None, "" }
+func SetMode(mode ModeType, msg string) { Mode, message = mode, msg }
 
 var (
 	after, before        strings.Builder // Text of the current paragraph after and before the cursor position
@@ -107,6 +117,7 @@ var (
 	initialCap           = true            // Initial capital at the start of a sentence
 	markPara             int               // Paragraph containing the mark(s), if any
 	mark                 []int             // Character positions of the marks
+	message              string            // Modal confirmation or error message
 	output               = termenv.NewOutput(os.Stdout)
 	primary, secondary   selection
 	prevSelected         bool // Previous paragraph is currently selected
@@ -155,7 +166,7 @@ func cursorString() string {
 }
 
 func errorString() string {
-	return output.String(string("Error: ")).Blink().Foreground(output.Color(errorColor)).String()
+	return output.String(string(errorLabel)).Blink().Foreground(output.Color(errorColor)).String()
 }
 
 func markString() string {
@@ -676,19 +687,19 @@ func Screen() string {
 		t = append(t, "")
 	}
 
-	if ShowHelp {
+	if Mode == Help {
 		window := helpWindow()
 		t = slices.Delete(t, 0, len(window))
 		t = slices.Insert(t, 0, window...)
 	}
 
-	switch {
-	case len(Message) == 0:
+	switch Mode {
+	case Quit:
+		t = append(t, confirmStyle(message))
+	case Error: // Go error messages always start with a lowercase letter
+		t = append(t, errorString()+errorStyle(truncate(ex-(uniseg.StringWidth(errorLabel)+1), message)))
+	default:
 		t = append(t, statusLine())
-	case Message[0] == 'C':
-		t = append(t, confirmStyle(Message))
-	default: // Go error messages always start with a lowercase letter
-		t = append(t, errorString()+errorStyle(truncate(ex-8, Message)))
 	}
 
 	return strings.Join(t, "\n")
