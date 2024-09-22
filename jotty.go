@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "embed"
+	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -15,6 +15,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+//go:embed i18n
+var i18n embed.FS
+
 //go:generate sh -c "printf %s $(git describe --always --tags) > version.txt"
 //go:embed version.txt
 var version string
@@ -25,7 +28,8 @@ const (
 )
 
 var dispatch = map[tea.KeyType]func(){
-	tea.KeyUp: edits.IncScope, tea.KeyDown: edits.DecScope,
+	tea.KeyEsc: help,
+	tea.KeyUp:  edits.IncScope, tea.KeyDown: edits.DecScope,
 	tea.KeyLeft: edits.Left, tea.KeyRight: edits.Right,
 	tea.KeyCtrlC: edits.Copy,
 	tea.KeyEnd:   edits.End, tea.KeyCtrlD: edits.End,
@@ -33,10 +37,9 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyBackspace: edits.Backspace, tea.KeyCtrlH: edits.Backspace,
 	tea.KeyTab: edits.Mark, tea.KeyShiftTab: edits.ClearMarks,
 	tea.KeyEnter: edits.Enter, tea.KeySpace: edits.Space,
-	tea.KeyEsc: confirmExit, tea.KeyCtrlQ: confirmExit,
+	tea.KeyCtrlQ: confirmExit, tea.KeyCtrlW: confirmExit,
 	tea.KeyHome: edits.Home, tea.KeyCtrlU: edits.Home,
 	tea.KeyInsert: edits.InsertCut, tea.KeyCtrlV: edits.InsertCut,
-	tea.KeyCtrlW:  confirmExit,
 	tea.KeyDelete: edits.Delete, tea.KeyCtrlX: edits.Delete,
 	tea.KeyCtrlY: edits.Redo, tea.KeyCtrlZ: edits.Undo,
 }
@@ -51,6 +54,7 @@ type model struct{ timer *time.Timer }
 
 func confirmExit() { edits.Message = "Confirm exit?" }
 func export()      { edits.Export(exportPath) }
+func help()        { edits.ShowHelp = true }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool {
@@ -81,6 +85,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		edits.ResizeScreen(msg.Width, msg.Height)
 	case tea.KeyMsg:
 		switch {
+		case edits.ShowHelp:
+			if msg.Type == tea.KeyEsc {
+				edits.ShowHelp = false
+			}
 		case len(edits.Message) == 0:
 			acceptKey(&m, msg)
 		case edits.Message[0] != 'C':
@@ -89,7 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		default: // Exit confirmation
 			switch msg.Type {
-			case tea.KeyEsc, tea.KeyCtrlZ:
+			case tea.KeyEsc:
 				edits.Message = ""
 			case tea.KeySpace, tea.KeyEnter, tea.KeyCtrlQ, tea.KeyCtrlW:
 				return m, tea.Quit
@@ -116,7 +124,8 @@ func cleanup() {
 }
 
 func usage() {
-	fmt.Printf("Usage:\n  %s [filename]\n\nIf filename is not provided, defaults to '%s'\n\nOptions:\n",
+	fmt.Println("https://github.com/xanni/jotty  ⓒ 2024 Andrew Pam <xanni@xanadu.net>")
+	fmt.Printf("\nUsage:\n  %s [filename]\n\nIf filename is not provided, defaults to '%s'\n\nOptions:\n",
 		filepath.Base(os.Args[0]), defaultName)
 	flag.PrintDefaults()
 }
@@ -141,7 +150,9 @@ func main() {
 	if err := ps.OpenPermascroll(path); err != nil {
 		log.Fatalf("%+v", err)
 	}
+
 	defer cleanup()
+	edits.Help, _ = i18n.ReadFile("i18n/help.en")
 
 	var m model
 	m.timer = time.AfterFunc(syncDelay, func() {

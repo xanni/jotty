@@ -26,7 +26,7 @@ func setupTest() {
 	ID = "J"
 	cursor = counts{Para: 1}
 	firstPara, firstLine = 0, 0
-	initialCap, prevSelected = false, false
+	initialCap, prevSelected, ShowHelp = false, false, false
 	mark, markPara = nil, 0
 	primary, secondary = selection{}, selection{}
 	scope = Char
@@ -87,20 +87,29 @@ func TestStatusLine(t *testing.T) {
 	initialCap = false
 	ps.AppendText(1, "Testing")
 	ps.CopyText(1, 0, 7)
-	ResizeScreen(6, 3)
-	assert.Equal("@0/0", statusLine())
-
 	ResizeScreen(20, 3)
-	assert.Equal("¶1/1 $0/0 #0/0 @0/0 ", statusLine())
+	expect := "@0/0"
+	assert.Equal(expect, statusLine())
 
-	ResizeScreen(30, 3)
-	assert.Equal("Jotty v0  ¶1/1 $0/0 #0/0 @0/0 ", statusLine())
+	ResizeScreen(21, 3)
+	expect = "¶1/1 $0/0 #0/0 " + expect + " "
+	assert.Equal(expect, statusLine())
 
-	ResizeScreen(45, 3)
-	assert.Equal("Jotty v0  ¶1/1 $0/0 #0/0 @0/0    cut: Test"+string(moreChar), statusLine())
+	ResizeScreen(31, 3)
+	expect = ID + "  " + expect
+	assert.Equal(expect, statusLine())
 
-	ResizeScreen(50, 3)
-	assert.Equal("Jotty v0  ¶1/1 $0/0 #0/0 @0/0    cut: Testing", statusLine())
+	ResizeScreen(46, 3)
+	expect += "   cut: Testin" + string(moreChar)
+	assert.Equal(expect, statusLine())
+
+	ResizeScreen(47, 3)
+	expect = "Jotty v0  ¶1/1 $0/0 #0/0 @0/0    cut: Testing"
+	assert.Equal(expect, statusLine())
+
+	ResizeScreen(57, 3)
+	expect += "  ESC=Help"
+	assert.Equal(expect, statusLine())
 }
 
 func TestNextSegWidth(t *testing.T) {
@@ -448,7 +457,7 @@ func TestScreen(t *testing.T) {
 
 	ps.SplitParagraph(2, 0)
 	cursor[Para] = 3
-	assert.Equal("\n\n\n_\n@0/0", Screen())
+	assert.Equal("\n\n_\n\n@0/0", Screen())
 
 	cursor[Para] = 2
 	assert.Equal("_\n\n\n\n@0/0", Screen())
@@ -459,5 +468,12 @@ func TestScreen(t *testing.T) {
 	assert.Equal("_A B \nC D\n\n1 2 \n@0/14", Screen())
 
 	cursor[Para] = 3
+	assert.Equal("1 2 \n3 4\n\n_\n@14/14", Screen())
+
+	Help = []byte("Test")
+	ShowHelp = true
+	assert.Equal("   Test\n——————————\n\n_\n@14/14", Screen())
+
+	ShowHelp = false
 	assert.Equal("1 2 \n3 4\n\n_\n@14/14", Screen())
 }

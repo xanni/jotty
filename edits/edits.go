@@ -53,6 +53,7 @@ const (
 	confirmColor   = "#ffff00" // Confirmation message: ANSIBrightYellow
 	cutColor       = "#808080" // Cut text: ANSIBrightBlack
 	errorColor     = "#ff0000" // Error message: ANSIBrightRed
+	helpColor      = "#00ffff" // Help text: ANSIBrightCyan
 	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
 	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
 	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
@@ -91,7 +92,10 @@ The "cursor" variable contains the current cursor position for navigation
 purposes.
 */
 
-var Message string // Modal confirmation or error message
+var (
+	Message  string // Modal confirmation or error message
+	ShowHelp bool   // Display help window
+)
 
 var (
 	after, before        strings.Builder // Text of the current paragraph after and before the cursor position
@@ -170,6 +174,10 @@ func errorStyle(s string) string {
 	return output.String(s).Foreground(output.Color(errorColor)).String()
 }
 
+func helpStyle(s string) string {
+	return output.String(s).Foreground(output.Color(helpColor)).String()
+}
+
 func primaryStyle(s string) string {
 	return output.String(s).Reverse().Foreground(output.Color(primaryColor)).String()
 }
@@ -178,28 +186,47 @@ func secondaryStyle(s string) string {
 	return output.String(s).Underline().Foreground(output.Color(secondaryColor)).String()
 }
 
+// Draw the cut buffer if there is room on the status line.
+func cutBuffer(cutMax int) (buf string) {
+	const minCut = 4 // Minimum amount of cut buffer to display
+
+	text := ps.GetCut()
+	cutLen := uniseg.StringWidth(text)
+	if cutLen > 0 && cutMax >= minCut {
+		cutLen = min(cutLen, cutMax)
+		buf = text[:cutLen]
+		if len(text) > cutMax {
+			buf += string(moreChar)
+		}
+	}
+
+	return buf
+}
+
 // Draw the status bar that appears on the last line of the screen.
 func statusLine() string {
-	const cutLabel = "   cut: "
-	const minCut = 4       // Minimum amount of cut buffer to display
+	const cutLabel = "cut:"
+	const helpLabel = "ESC=Help"
+	const padding = "  "   // Spaces between items
 	const separators = 4   // One space after each scope
 	var c [MaxScope]string // Counters for each scope
-	var w int              // Total width of counters in character cells
 
 	current := cursorPos()
 	total[Para] = ps.Paragraphs()
+	w := separators // Total width of status line content
 	for sc := Char; sc <= Para; sc++ {
 		c[sc] = string(counterChar[sc]) + strconv.Itoa(current[sc]) + "/" + strconv.Itoa(total[sc])
 		w += uniseg.StringWidth(c[sc])
 	}
 
 	var t strings.Builder
-	if ex >= len(ID)+w+separators {
+	if len(ID)+len(padding)+w < ex {
 		t.WriteString(ID)
-		t.WriteString("  ")
+		t.WriteString(padding)
+		w += len(ID) + len(padding)
 	}
 
-	if ex < w+separators {
+	if w >= ex {
 		t.WriteString(c[scope])
 	} else {
 		for sc := Para; sc >= Char; sc-- {
@@ -212,15 +239,14 @@ func statusLine() string {
 		}
 	}
 
-	cutBuffer := ps.GetCut()
-	cutMax := ex - (t.Len() + len(cutLabel) + 2)
-	cutLen := len(cutBuffer)
-	if cutLen > 0 && cutMax >= minCut {
-		t.WriteString(cutLabel)
-		t.WriteString(cutStyle(cutBuffer[:min(cutLen, cutMax)]))
-		if cutLen > cutMax {
-			t.WriteRune(moreChar)
-		}
+	if buf := cutBuffer(ex - (w + len(padding) + uniseg.StringWidth(cutLabel) + 4)); buf != "" {
+		t.WriteString(padding + " " + cutLabel + " " + cutStyle(buf))
+		w += len(padding) + uniseg.StringWidth(cutLabel) + uniseg.StringWidth(buf) + 2
+	}
+
+	// Right-align help label
+	if align := ex - (w + uniseg.StringWidth(helpLabel) + len(padding)); align > 1 {
+		t.WriteString(strings.Repeat(" ", align) + helpStyle(helpLabel))
 	}
 
 	return t.String()
@@ -639,6 +665,8 @@ func Screen() string {
 		if firstLine >= len(cache[firstPara].text) {
 			firstPara++
 			firstLine = 0
+			t = slices.Delete(t, 0, 1)
+			t = append(t, screenLine(&pn, &ln))
 		}
 
 		t = append(t, screenLine(&pn, &ln))
@@ -647,6 +675,13 @@ func Screen() string {
 	for len(t) < ey {
 		t = append(t, "")
 	}
+
+	if ShowHelp {
+		window := helpWindow()
+		t = slices.Delete(t, 0, len(window))
+		t = slices.Insert(t, 0, window...)
+	}
+
 	switch {
 	case len(Message) == 0:
 		t = append(t, statusLine())

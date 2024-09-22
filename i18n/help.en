@@ -1,0 +1,15 @@
+The cursor shows the current scope for editing and navigation as follows:
+"_" characters, "#" words, "$" sentences or "¶" paragraphs.
+
+"|" indicates up to four edit marks defining primary and secondary selections.
+If there is only one edit mark the cursor acts as a second edit mark.
+While text is selected "Space" will exchange the selections,
+"Enter"/"Ctrl-M" and "Delete"/"Ctrl-X" will all cut the selections.
+
+The following keys perform special actions:
+"↑" increase scope, "↓" decrease scope, "←" move left, "→" move right,
+"Backspace"/"Ctrl-H" erase preceding text, "Enter"/"Ctrl-M" new paragraph,
+"Insert"/"Ctrl-V" insert cut text, "Delete"/"Ctrl-X" delete text as cut,
+"Home"/"Ctrl-U" move to beginning, "End"/"Ctrl-D" move to end,
+"Tab"/"Ctrl-I" set mark, "Shift-Tab" clear all marks, "Ctrl-C" copy text,
+"Ctrl-Q"/"Ctrl-W" quit, "Ctrl-E" export, "Ctrl-Z" undo, "Ctrl-Y" redo

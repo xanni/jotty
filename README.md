@@ -261,12 +261,13 @@ when already at the oldest entry deselect the cut buffer.  `Escape` and "undo"
 also deselect the cut buffer.
 
 `Escape` when the cut buffer is not selected brings up a menu, if implemented,
-or a quit confirmation.  `^Q` and `^W` also bring up a quit confirmation.
+or the help screen.
 
-In the quit confirmation, `Space`, `Enter`, `^Q` and `^W` confirm the quit while
-undo and `Escape` cancel it.  Note that no progress will be lost due to a quit.
-A quit confirmation may not be required when Jotty is being used as a library as
-that may be implemented by the calling application.
+`^Q` and `^W` bring up a quit confirmation.  In the quit confirmation, `Space`,
+`Enter`, `^Q` and `^W` confirm the quit while `Escape` cancels it.  Note that no
+progress will be lost due to a quit. A quit confirmation may not be required
+when Jotty is being used as a library as that may be implemented by the calling
+application.
 
 `^E` or an `Export` menu item allow exporting the primary selection or if there
 are no edit marks, the entire document.  A file name will be required and the
@@ -296,9 +297,9 @@ a `Replace` menu item specifies replacement text that will be substituted for
 the search string within the current scope unit or the entire document if in
 character scope (the default).
 
-The `F1` key (and also `^?` and `Shift-F1`) or a `Help` menu item displays a
-"cheat sheet" showing the scope units and corresponding cursor glyphs, the key
-bindings and a description of the use of edit marks.
+The `Help` menu item displays a "cheat sheet" showing the scope units and
+corresponding cursor glyphs, the key bindings and a description of the use of
+edit marks.
 
 A minimal implementation need not have either a menu or a "cut buffer" and the
 corresponding actions.  When the cut buffer is implemented, it can optionally be
@@ -395,10 +396,11 @@ show the following information:  The name and version of the program, the
 current and total number of paragraphs, the current and total number of
 sentences, the current and total number of words and the current and total
 number of characters.  The current scope unit will be highlighted.  The right
-side of the status line can optionally display a message like "F1=Help".  If the
-status area is not long enough to display all the information, the help message
-can be omitted, then the program name and version, and finally if necessary only
-the current scope unit information can be displayed.
+side of the status line can optionally display a message like "ESC=Help" or
+"ESC=Menu".  If the status area is not long enough to display all the
+information, the help message can be omitted, then the program name and version,
+and finally if necessary only the current scope unit information can be
+displayed.
 
 `Jotty v0  ¶0/0 $0/0 #0/0 @0/0`
 
