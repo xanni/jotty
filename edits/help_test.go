@@ -3,6 +3,7 @@ package edits
 import (
 	"testing"
 
+	"git.sericyb.com.au/jotty/i18n"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,13 +22,13 @@ func TestHelpWindow(t *testing.T) {
 	assert := assert.New(t)
 	ResizeScreen(6, 8)
 
-	HelpText = []byte("")
+	i18n.HelpText, i18n.HelpWidth = []string{}, 0
 	assert.Equal([]string{"——————"}, helpWindow())
 
-	HelpText = []byte("One\n\nTwo")
+	i18n.HelpText, i18n.HelpWidth = []string{"One", "", "Two"}, 3
 	assert.Equal([]string{" One", "", " Two", "——————"}, helpWindow())
 
-	HelpText = []byte("Testing\n\nMore\n\nText")
+	i18n.HelpText, i18n.HelpWidth = []string{"Testing", "", "More", "", "Text"}, 7
 	assert.Equal([]string{"Testi-", "ng", "", "More", "", "Text", "——————"}, helpWindow())
 
 	ResizeScreen(6, 5)

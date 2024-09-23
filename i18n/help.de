@@ -1,0 +1,15 @@
+Der Cursor zeigt den aktuellen Bearbeitungs- und Navigationsbereich wie folgt an:
+"_"-Zeichen, "#"-Wörter, "$"-Sätze oder "¶"-Absätze.
+
+"|" zeigt bis zu vier Bearbeitungsmarkierungen an, die primäre und sekundäre Auswahlen definieren.
+Wenn nur eine Bearbeitungsmarkierung vorhanden ist, fungiert der Cursor als zweite Bearbeitungsmarkierung.
+Bei ausgewähltem Text tauscht die Leertaste die Auswahlen aus,
+"Eingabetaste"/"Strg-M" und "Entf"/"Strg-X" schneiden die primäre Auswahl aus.
+
+Mit den folgenden Tasten lassen sich spezielle Aktionen ausführen:
+"↑" Bereich vergrößern, "↓" Bereich verkleinern, "←" nach links bewegen, "→" nach rechts bewegen,
+"Rücktaste"/"Strg-H" vorhergehenden Text löschen, "Eingabetaste"/"Strg-M" neuer Absatz,
+"Einfügen"/"Strg-V" ausgeschnittenen Text einfügen, "Entf"/"Strg-X" Text beim Ausschneiden löschen,
+"Pos1"/"Strg-U" zum Anfang bewegen, "Ende"/"Strg-D" zum Ende bewegen,
+"Tab"/"Strg-I" Markierung setzen, "Umschalt-Tab" alle Markierungen abbrechen, "Strg-C" Text kopieren,
+"Strg-Q"/"Strg-W" beenden, "Strg-E" exportieren, "Strg-Z" rückgängig machen, "Strg-Y" wiederherstellen

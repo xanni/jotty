@@ -8,6 +8,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"git.sericyb.com.au/jotty/i18n"
 	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/muesli/termenv"
 	"github.com/rivo/uniseg"
@@ -46,8 +47,7 @@ var (
 )
 
 const (
-	cursorCharCap  = '↑' // Capitalisation indicator character
-	errorLabel     = "Error: "
+	cursorCharCap  = '↑'       // Capitalisation indicator character
 	margin         = 6         // Up to 4 edit marks, cursor and wrap indicator
 	markChar       = '|'       // Visual representation of an edit mark
 	moreChar       = '…'       // Continuation indicator character
@@ -166,7 +166,7 @@ func cursorString() string {
 }
 
 func errorString() string {
-	return output.String(string(errorLabel)).Blink().Foreground(output.Color(errorColor)).String()
+	return output.String(i18n.Text["error"]).Blink().Foreground(output.Color(errorColor)).String()
 }
 
 func markString() string {
@@ -216,8 +216,6 @@ func cutBuffer(cutMax int) (buf string) {
 
 // Draw the status bar that appears on the last line of the screen.
 func statusLine() string {
-	const cutLabel = "cut:"
-	const helpLabel = "ESC=Help"
 	const padding = "  "   // Spaces between items
 	const separators = 4   // One space after each scope
 	var c [MaxScope]string // Counters for each scope
@@ -250,14 +248,14 @@ func statusLine() string {
 		}
 	}
 
-	if buf := cutBuffer(ex - (w + len(padding) + uniseg.StringWidth(cutLabel) + 4)); buf != "" {
-		t.WriteString(padding + " " + cutLabel + " " + cutStyle(buf))
-		w += len(padding) + uniseg.StringWidth(cutLabel) + uniseg.StringWidth(buf) + 2
+	if buf := cutBuffer(ex - (w + len(padding) + i18n.TextWidth["cut"] + 4)); buf != "" {
+		t.WriteString(padding + " " + i18n.Text["cut"] + " " + cutStyle(buf))
+		w += len(padding) + i18n.TextWidth["cut"] + uniseg.StringWidth(buf) + 2
 	}
 
 	// Right-align help label
-	if align := ex - (w + uniseg.StringWidth(helpLabel) + len(padding)); align > 1 {
-		t.WriteString(strings.Repeat(" ", align) + helpStyle(helpLabel))
+	if align := ex - (w + i18n.TextWidth["help"] + len(padding)); align > 1 {
+		t.WriteString(strings.Repeat(" ", align) + helpStyle(i18n.Text["help"]))
 	}
 
 	return t.String()
@@ -687,17 +685,16 @@ func Screen() string {
 		t = append(t, "")
 	}
 
-	if Mode == Help {
-		window := helpWindow()
-		t = slices.Delete(t, 0, len(window))
-		t = slices.Insert(t, 0, window...)
-	}
-
 	switch Mode {
 	case Quit:
 		t = append(t, confirmStyle(message))
-	case Error: // Go error messages always start with a lowercase letter
-		t = append(t, errorString()+errorStyle(truncate(ex-(uniseg.StringWidth(errorLabel)+1), message)))
+	case Error:
+		t = append(t, errorString()+" "+errorStyle(truncate(ex-(i18n.TextWidth["error"]+1), message)))
+	case Help:
+		window := helpWindow()
+		t = slices.Delete(t, 0, len(window))
+		t = slices.Insert(t, 0, window...)
+		t = append(t, statusLine())
 	default:
 		t = append(t, statusLine())
 	}

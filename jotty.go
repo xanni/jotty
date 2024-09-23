@@ -1,7 +1,7 @@
 package main
 
 import (
-	"embed"
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
@@ -11,12 +11,10 @@ import (
 	"time"
 
 	"git.sericyb.com.au/jotty/edits"
+	"git.sericyb.com.au/jotty/i18n"
 	ps "git.sericyb.com.au/jotty/permascroll"
 	tea "github.com/charmbracelet/bubbletea"
 )
-
-//go:embed i18n
-var i18n embed.FS
 
 //go:generate sh -c "printf %s $(git describe --always --tags) > version.txt"
 //go:embed version.txt
@@ -47,12 +45,11 @@ var dispatch = map[tea.KeyType]func(){
 var (
 	exportPath = "jotty.txt"
 	sx, sy     int // screen dimensions
-	vFlag      = flag.Bool("version", false, "print program version and exit")
 )
 
 type model struct{ timer *time.Timer }
 
-func confirmExit() { edits.SetMode(edits.Quit, "Confirm exit?") }
+func confirmExit() { edits.SetMode(edits.Quit, i18n.Text["confirm"]) }
 func export()      { edits.Export(exportPath) }
 func help()        { edits.SetMode(edits.Help, "") }
 
@@ -125,13 +122,13 @@ func cleanup() {
 
 func usage() {
 	fmt.Println("https://github.com/xanni/jotty  ⓒ 2024 Andrew Pam <xanni@xanadu.net>")
-	fmt.Printf("\nUsage:\n  %s [filename]\n\nIf filename is not provided, defaults to '%s'\n\nOptions:\n",
-		filepath.Base(os.Args[0]), defaultName)
+	fmt.Printf("\n"+i18n.Text["usage"]+"\n", filepath.Base(os.Args[0]), defaultName)
 	flag.PrintDefaults()
 }
 
 func main() {
 	flag.Usage = usage
+	vFlag := flag.Bool("version", false, i18n.Text["version"])
 	flag.Parse()
 	if *vFlag {
 		println(filepath.Base(os.Args[0]) + " " + version)
@@ -152,7 +149,6 @@ func main() {
 	}
 
 	defer cleanup()
-	edits.HelpText, _ = i18n.ReadFile("i18n/help.en")
 
 	var m model
 	m.timer = time.AfterFunc(syncDelay, func() {

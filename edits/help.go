@@ -1,13 +1,11 @@
 package edits
 
 import (
-	"slices"
 	"strings"
 
+	"git.sericyb.com.au/jotty/i18n"
 	"github.com/rivo/uniseg"
 )
-
-var HelpText []byte
 
 func dropParagraphs(w []string) []string {
 	i := len(w) - ey
@@ -24,20 +22,13 @@ func dropParagraphs(w []string) []string {
 
 // The help window.
 func helpWindow() (w []string) {
-	w = strings.Split(string(HelpText), "\n")
-	if len(w[len(w)-1]) == 0 { // Trim final blank line
-		w = slices.Delete(w, len(w)-1, len(w))
-	}
+	w = make([]string, len(i18n.HelpText))
+	copy(w, i18n.HelpText)
 
-	var longest int
-	for _, l := range w {
-		longest = max(longest, uniseg.StringWidth(l))
-	}
-
-	if longest > ex {
+	if i18n.HelpWidth > ex {
 		w = rewrap(w)
 	} else {
-		padding := strings.Repeat(" ", (ex-longest)/2)
+		padding := strings.Repeat(" ", (ex-i18n.HelpWidth)/2)
 		for i, l := range w {
 			if len(l) > 0 {
 				w[i] = padding + l

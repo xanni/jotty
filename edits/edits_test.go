@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"git.sericyb.com.au/jotty/i18n"
 	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
@@ -470,7 +471,7 @@ func TestScreen(t *testing.T) {
 	cursor[Para] = 3
 	assert.Equal("1 2 \n3 4\n\n_\n@14/14", Screen())
 
-	HelpText = []byte("Test")
+	i18n.HelpText, i18n.HelpWidth = []string{"Test"}, 4
 	Mode = Help
 	assert.Equal("   Test\n——————————\n\n_\n@14/14", Screen())
 
