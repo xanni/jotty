@@ -339,7 +339,7 @@ func scopeSpan() (int, int) {
 }
 
 func Copy() {
-	if len(mark) > 0 {
+	if len(mark) > 0 && primary.oend > primary.obegin {
 		ps.CopyText(markPara, primary.obegin, primary.oend)
 
 		return
@@ -347,7 +347,9 @@ func Copy() {
 
 	updateSelections()
 	pos, end := scopeSpan()
-	ps.CopyText(cursor[Para], pos, end)
+	if end > pos {
+		ps.CopyText(cursor[Para], pos, end)
+	}
 }
 
 func cutPrimary() {

@@ -398,6 +398,11 @@ func TestCopy(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
 	ResizeScreen(margin+4, 3)
+	drawWindow()
+
+	Copy()
+	assert.Equal("", ps.GetCut())
+
 	ps.AppendText(1, "Test")
 	drawWindow()
 
