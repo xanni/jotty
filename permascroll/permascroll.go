@@ -39,7 +39,8 @@ var (
 	ccRx = regexp.MustCompile(`(\d+),(\d+)([+:])(.+)\n`)                // Copy and Cut arguments
 	diRx = regexp.MustCompile(`(\d+),(\d+):(.+)\n`)                     // Delete and Insert arguments
 	msRx = regexp.MustCompile(`(\d+),(\d+)\n`)                          // Merge and Split arguments
-	opRx = regexp.MustCompile(`(\d*)([CDIMSX])`)                        // Operation prefix
+	opRx = regexp.MustCompile(`(\d*)([CDIMRSX])`)                       // Operation prefix
+	reRx = regexp.MustCompile(`(\d+),(\d+):(.+)\t(.+)\n`)               // Replace arguments
 	exRx = regexp.MustCompile(`(\d+)(?:,(\d+)\+(\d+)/(\d+)\+(\d+))?\n`) // Exchange arguments
 )
 
@@ -178,6 +179,13 @@ func docInsert(text string) {
 	offset += len(text)
 }
 
+func docReplace(size int, text string) {
+	p := document[paragraph-1]
+	document[paragraph-1] = p[:offset] + text + p[offset+size:]
+	updateHash(paragraph)
+	offset += len(text)
+}
+
 func docMerge() {
 	offset = len(document[paragraph-1])
 	document[paragraph-1] += document[paragraph]
@@ -204,15 +212,17 @@ func docRedo(op operation) {
 		if op.size1 > 0 {
 			cut = document[paragraph-1][offset : offset+op.size1]
 		} else {
-			cut = document[paragraph-1][offset : offset+len(op.text)]
-			docDelete(len(op.text))
+			cut = document[paragraph-1][offset : offset+len(op.text1)]
+			docDelete(len(op.text1))
 		}
 	case 'D':
-		docDelete(len(op.text))
+		docDelete(len(op.text1))
 	case 'I':
-		docInsert(op.text)
+		docInsert(op.text1)
 	case 'M':
 		docMerge()
+	case 'R':
+		docReplace(len(op.text1), op.text2)
 	case 'S':
 		docSplit()
 	default: // 'X'
@@ -227,16 +237,19 @@ func docUndo() byte {
 	paragraph, offset = op.pn, op.offset1
 	switch op.code {
 	case 'C':
-		if len(op.text) > 0 {
-			docInsert(op.text)
+		if len(op.text1) > 0 {
+			docInsert(op.text1)
 		}
 		cut = ""
 	case 'D':
-		docInsert(op.text)
+		docInsert(op.text1)
 	case 'I':
-		docDelete(len(op.text))
+		docDelete(len(op.text1))
 	case 'M':
 		docSplit()
+	case 'R':
+		docReplace(len(op.text2), op.text1)
+		offset = op.offset1
 	case 'S':
 		docMerge()
 	default: // 'X'
@@ -394,7 +407,7 @@ func parseCopyCut(source *int) (op operation, match [][]byte) {
 	}
 
 	if match[3][0] == ':' {
-		op.text = string(match[4])
+		op.text1 = string(match[4])
 	} else {
 		var err error
 		if op.size1, err = strconv.Atoi(string(match[4])); err != nil {
@@ -426,7 +439,7 @@ func parseExchange(source *int) (op operation, match [][]byte) {
 type operation struct {
 	code                               byte
 	pn, offset1, size1, offset2, size2 int
-	text                               string
+	text1, text2                       string
 }
 
 // Parse an operation from the permascroll.
@@ -447,7 +460,12 @@ func parseOperation(source *int) (delta int, op operation) {
 		op, match = parseCopyCut(source)
 	case 'D', 'I':
 		if match = diRx.FindSubmatch(permascroll[*source:]); match != nil {
-			op.text = string(match[3])
+			op.text1 = string(match[3])
+		}
+	case 'R':
+		if match = reRx.FindSubmatch(permascroll[*source:]); match != nil {
+			op.text1 = string(match[3])
+			op.text2 = string(match[4])
 		}
 	case 'M', 'S':
 		match = msRx.FindSubmatch(permascroll[*source:])
@@ -485,6 +503,16 @@ func parsePermascroll() {
 		docRedo(op)
 		newVersion(opSource)
 	}
+}
+
+func ReplaceText(pn, pos, end int, text string) {
+	validateSpan(pn, pos, end)
+
+	Flush()
+	paragraph, offset = pn, pos
+	d := document[paragraph-1][offset:end]
+	docReplace(end-offset, text)
+	persist(fmt.Sprintf("R%d,%d:%s\t%s", paragraph, pos, d, text))
 }
 
 // Redo the last undone operation, if any.

@@ -113,6 +113,16 @@ func TestDocExchange(t *testing.T) {
 	}
 }
 
+func TestDocReplace(t *testing.T) {
+	assert := assert.New(t)
+	document = []string{"Test"}
+	docHash = []uint64{0}
+	paragraph, offset = 1, 1
+	docReplace(1, "12")
+	assert.Equal([]string{"T12st"}, document)
+	assert.Equal(3, offset)
+}
+
 func TestExchangeParagraphs(t *testing.T) {
 	assert := assert.New(t)
 	assert.PanicsWithError("paragraph '1' out of range", func() { ExchangeParagraphs(1) })
@@ -273,6 +283,15 @@ func TestInsertText(t *testing.T) {
 	assert.Equal("ThreeNineSixOneTwoTen", GetText(1))
 }
 
+func TestReplaceText(t *testing.T) {
+	assert := assert.New(t)
+	Init()
+	InsertText(1, 0, "Test")
+	ReplaceText(1, 2, 3, "12")
+	assert.Equal([]string{"Te12t"}, document)
+	assert.Equal(magic+"I1,0:Test\nR1,2:s\t12\n", string(permascroll))
+}
+
 func TestMergeParagraph(t *testing.T) {
 	assert := assert.New(t)
 
@@ -322,8 +341,8 @@ func TestParseCopyCut(t *testing.T) {
 		op        operation
 		pn        string
 	}{
-		"Copy": {"1,2+3", operation{'C', 0, 0, 3, 0, 0, ""}, "1"},
-		"Cut":  {"4,5:Test", operation{'C', 0, 0, 0, 0, 0, "Test"}, "4"},
+		"Copy": {"1,2+3", operation{'C', 0, 0, 3, 0, 0, "", ""}, "1"},
+		"Cut":  {"4,5:Test", operation{'C', 0, 0, 0, 0, 0, "Test", ""}, "4"},
 	}
 
 	for name, test := range tests {
@@ -352,7 +371,7 @@ func TestParseExchange(t *testing.T) {
 		pn        string
 	}{
 		"Paragraph": {"2", operation{code: 'X'}, "2"},
-		"Text":      {"1,0+1/2+3", operation{'X', 0, 0, 1, 2, 3, ""}, "1"},
+		"Text":      {"1,0+1/2+3", operation{'X', 0, 0, 1, 2, 3, "", ""}, "1"},
 	}
 
 	for name, test := range tests {
@@ -370,16 +389,17 @@ func TestParseOperation(t *testing.T) {
 	assert := assert.New(t)
 
 	tests := map[string]struct {
-		i    int
-		code byte
-		text string
+		i            int
+		code         byte
+		text1, text2 string
 	}{
-		"Insert":   {1, 'I', "Test"},
-		"Split":    {2, 'S', ""},
-		"Exchange": {3, 'X', ""},
-		"Copy":     {4, 'C', ""},
-		"Delete":   {5, 'D', "e"},
-		"Merge":    {6, 'M', ""},
+		"Insert":   {1, 'I', "Test", ""},
+		"Split":    {2, 'S', "", ""},
+		"Exchange": {3, 'X', "", ""},
+		"Copy":     {4, 'C', "", ""},
+		"Delete":   {5, 'D', "e", ""},
+		"Merge":    {6, 'M', "", ""},
+		"Replace":  {7, 'R', "t", "en"},
 	}
 
 	Init()
@@ -389,6 +409,7 @@ func TestParseOperation(t *testing.T) {
 	CopyText(2, 1, 2)
 	DeleteText(2, 1, 2)
 	MergeParagraph(1)
+	ReplaceText(1, 1, 2, "en")
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
@@ -396,7 +417,8 @@ func TestParseOperation(t *testing.T) {
 			delta, op := parseOperation(&source)
 			assert.Equal(0, delta)
 			assert.Equal(test.code, op.code)
-			assert.Equal(test.text, op.text)
+			assert.Equal(test.text1, op.text1)
+			assert.Equal(test.text2, op.text2)
 		})
 	}
 }
@@ -415,6 +437,9 @@ func TestParsePermascroll(t *testing.T) {
 
 	permascroll = []byte(magic + "I:bad\n")
 	assert.PanicsWithError(`invalid arguments for 'I', parse failed`, func() { parsePermascroll() })
+
+	permascroll = []byte(magic + "R1,0:bad\n")
+	assert.PanicsWithError(`invalid arguments for 'R', parse failed`, func() { parsePermascroll() })
 
 	Init()
 	parsePermascroll()
@@ -483,7 +508,8 @@ func TestRedo(t *testing.T) {
 	SplitParagraph(1, 2)
 	CutText(1, 1, 2)
 	ExchangeParagraphs(2)
-	for range 6 {
+	ReplaceText(2, 0, 1, "nd")
+	for range 7 {
 		Undo()
 	}
 	Redo()
@@ -509,6 +535,10 @@ func TestRedo(t *testing.T) {
 	Redo()
 	assert.Equal(9, current)
 	assert.Equal([]string{"e", "m"}, document)
+
+	Redo()
+	assert.Equal(10, current)
+	assert.Equal([]string{"e", "nd"}, document)
 }
 
 func TestUndo(t *testing.T) {
