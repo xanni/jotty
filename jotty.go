@@ -34,6 +34,7 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyCtrlE:     export,
 	tea.KeyBackspace: edits.Backspace, tea.KeyCtrlH: edits.Backspace,
 	tea.KeyTab: edits.Mark, tea.KeyShiftTab: edits.ClearMarks,
+	tea.KeyCtrlJ: edits.Join,
 	tea.KeyEnter: edits.Enter, tea.KeySpace: edits.Space,
 	tea.KeyCtrlQ: confirmExit, tea.KeyCtrlW: confirmExit,
 	tea.KeyHome: edits.Home, tea.KeyCtrlU: edits.Home,

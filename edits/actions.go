@@ -404,6 +404,61 @@ func Export(path string) {
 	}
 }
 
+func Join() {
+	csent := cache[cursor[Para]-1].csent
+	s := cursor[Sent]
+	if s == 0 {
+		s++
+	}
+
+	if len(csent) < 2 || s == len(csent) {
+		mergeNextPara()
+
+		return
+	}
+
+	var g string          // Grapheme cluster
+	var sentence []string // Current sentence as grapheme clusters
+	source := after.String()
+	state := -1
+	for c := cursor[Char]; c < csent[s]; c++ {
+		g, source, _, state = uniseg.StepString(source, state)
+		sentence = append(sentence, g)
+	}
+
+	// Index backwards over punctuation at the end of the current sentence
+	i := len(sentence) - 1
+	for i >= 0 {
+		g := sentence[i]
+		r, _ := utf8.DecodeRuneInString(g)
+		if !(unicode.In(r, unicode.P, unicode.Z)) {
+			break
+		}
+		i--
+	}
+
+	// If every character from the cursor onwards is punctuation, keep going backwards
+	if i < 0 {
+		b := uniseg.ReverseString(before.String())
+		for _, r := range b {
+			if !unicode.IsPunct(r) {
+				break
+			}
+			i--
+		}
+	}
+
+	cursor[Char] += i + 1 // Move to the first punctuation character
+	r, _ := utf8.DecodeRuneInString(source)
+	if unicode.IsUpper(r) {
+		ps.ReplaceText(cursor[Para], cursor[Char], csent[s]+1, " "+string(unicode.ToLower(r)))
+	} else { // Keep existing space
+		ps.DeleteText(cursor[Para], cursor[Char], csent[s]-1)
+	}
+
+	ClearMarks()
+}
+
 func refresh() {
 	cache = nil
 	total = counts{0, 0, 0, 1}

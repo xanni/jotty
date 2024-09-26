@@ -403,6 +403,11 @@ func TestCopy(t *testing.T) {
 	Copy()
 	assert.Equal("", ps.GetCut())
 
+	Mark()
+	drawWindow()
+	Copy()
+	assert.Equal("", ps.GetCut())
+
 	ps.AppendText(1, "Test")
 	drawWindow()
 
@@ -475,8 +480,7 @@ func TestDeleteMerge(t *testing.T) {
 			ps.SplitParagraph(1, 0)
 			ps.AppendText(1, test.p1)
 			ps.AppendText(2, test.p2)
-			cursor = counts{0, 0, 0, 2}
-			drawWindow()
+			drawPara(2)
 			cursor = counts{len(test.p1), 0, 0, 1}
 
 			drawWindow()
@@ -562,6 +566,42 @@ func TestExport(t *testing.T) {
 	}
 	Export(name)
 	assert.Contains(message, "failed export: ")
+}
+
+func TestJoin(t *testing.T) {
+	assert := assert.New(t)
+	setupTest()
+	ResizeScreen(margin+4, 3)
+	drawWindow()
+
+	tests := map[string]struct {
+		text   string
+		cursor int
+		expect string
+	}{
+		"Empty":              {"", 0, "Three"},
+		"First sentence":     {"One. Two.", 0, "One two."},
+		"Before punctuation": {"One. Two.", 3, "One two."},
+		"Mid punctuation":    {"One... Two.", 5, "One two."},
+		"Second sentence":    {"One. Two.", 7, "One. Two. Three"},
+		"Already lowercase":  {"One! two.", 0, "One two."},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(_ *testing.T) {
+			ps.Init()
+			ps.SplitParagraph(1, 0)
+			ps.AppendText(2, "Three")
+			drawPara(2)
+			ps.AppendText(1, test.text)
+			cursor[Char] = test.cursor
+
+			drawWindow()
+			Join()
+
+			assert.Equal(test.expect, ps.GetText(1))
+		})
+	}
 }
 
 func TestUndoRedo(t *testing.T) {

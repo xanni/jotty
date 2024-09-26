@@ -9,7 +9,8 @@ Bei ausgewähltem Text tauscht die Leertaste die Auswahlen aus,
 Mit den folgenden Tasten lassen sich spezielle Aktionen ausführen:
 "↑" Bereich vergrößern, "↓" Bereich verkleinern, "←" nach links bewegen, "→" nach rechts bewegen,
 "Rücktaste"/"Strg-H" vorhergehenden Text löschen, "Eingabetaste"/"Strg-M" neuer Absatz,
-"Einfügen"/"Strg-V" ausgeschnittenen Text einfügen, "Entf"/"Strg-X" Text beim Ausschneiden löschen,
+"Strg-C" Text kopieren, "Strg-J" benachbarte Sätze oder Absätze verbinden,
+"Einfügen"/"Strg-V" ausgeschnittenen oder kopierten Text einfügen, "Entf"/"Strg-X" Text ausschneiden,
 "Pos1"/"Strg-U" zum Anfang bewegen, "Ende"/"Strg-D" zum Ende bewegen,
-"Tab"/"Strg-I" Markierung setzen, "Umschalt-Tab" alle Markierungen abbrechen, "Strg-C" Text kopieren,
+"Tab"/"Strg-I" Markierung setzen, "Umschalt-Tab" alle Markierungen abbrechen,
 "Strg-Q"/"Strg-W" beenden, "Strg-E" exportieren, "Strg-Z" rückgängig machen, "Strg-Y" wiederherstellen

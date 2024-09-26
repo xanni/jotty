@@ -9,7 +9,9 @@
 以下のキーは特別なアクションを実行します:
 「↑」 範囲を拡大、「↓」 範囲を縮小、「←」 左に移動、「→」 右に移動、
 「Backspace」/「Ctrl-H」 前のテキストを消去、「Enter」/「Ctrl-M」 新しい段落、
-「Insert」/「Ctrl-V」 切り取ったテキストを挿入、「Delete」/「Ctrl-X」 切り取ったテキストの削除、
+「Ctrl-C」 テキストをコピー、「Ctrl-J」 隣接する文または段落を結合、
+「Insert」/「Ctrl-V」 切り取ったテキストまたはコピーしたテキストを挿入、
+「Delete」/「Ctrl-X」 テキストを切り取り、「Ctrl-E」 エクスポート、
 「Home」/「Ctrl-U」 先頭に移動、「End」/「Ctrl-D」 末尾に移動、
-「Tab」/「Ctrl-I」 マークを設定、「Shift-Tab」 すべてのマークをクリア、「Ctrl-C」 テキストをコピー、
-「Ctrl-Q」/「Ctrl-W」 終了、「Ctrl-E」 エクスポート、「Ctrl-Z」 元に戻す、「Ctrl-Y」 やり直し
+「Tab」/「Ctrl-I」 マークを設定、「Shift-Tab」 すべてのマークをクリア、
+「Ctrl-Q」/「Ctrl-W」 終了、「Ctrl-Z」 元に戻す、「Ctrl-Y」 やり直し

@@ -9,7 +9,8 @@ While text is selected "Space" will exchange the selections,
 The following keys perform special actions:
 "↑" increase scope, "↓" decrease scope, "←" move left, "→" move right,
 "Backspace"/"Ctrl-H" erase preceding text, "Enter"/"Ctrl-M" new paragraph,
-"Insert"/"Ctrl-V" insert cut text, "Delete"/"Ctrl-X" delete text as cut,
+"Ctrl-C" copy text, "Ctrl-J" join adjacent sentences or paragraphs,
+"Insert"/"Ctrl-V" insert cut or copied text, "Delete"/"Ctrl-X" cut text,
 "Home"/"Ctrl-U" move to beginning, "End"/"Ctrl-D" move to end,
-"Tab"/"Ctrl-I" set mark, "Shift-Tab" clear all marks, "Ctrl-C" copy text,
+"Tab"/"Ctrl-I" set mark, "Shift-Tab" clear all marks,
 "Ctrl-Q"/"Ctrl-W" quit, "Ctrl-E" export, "Ctrl-Z" undo, "Ctrl-Y" redo
