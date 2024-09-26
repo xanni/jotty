@@ -12,6 +12,18 @@ or creating new work prior to later export for formatting and dissemination, or
 it might be embedded within another system for structural organisation and
 presentation such as Ted Nelson's Zigzag.
 
+## How to download and use
+
+Jotty is available for Linux, MacOS and Windows at:
+<https://github.com/xanni/jotty/releases>
+
+It must be run inside a terminal window.  Extract the program from the archive,
+open a terminal window (for example *Terminal Emulator* or *Windows Terminal*),
+change to the directory containing the executable and type the name of the
+program.  You can optionally provide a filename for the permascroll which will
+default to `jotty.jot` if not provided, or you can use the options `-help` or
+`-version` to print out the command line help and program version respectively.
+
 ## Design goals
 
 1. Ensure that work is never lost by
@@ -535,6 +547,12 @@ version and cut windows.
 * Implement multi-user editing.  This is inherently based on multiversion
   concurrency control (MVCC).  Every user is creating their own versions,
   but the user interface can show and permit transcluding from remote versions.
+
+## Acknowledgements
+
+Thanks to Dr. Katherine Phelps for her support and encouragement, Dr. Ted Nelson
+for the inspiration and friendship, and Christoph Schwentker, Yoshida Yukihiko
+and Kenichi Unnai for reviewing the translations.
 
 ## Copyright notice and license
 
