@@ -1,7 +1,6 @@
 package edits
 
 import (
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -10,7 +9,6 @@ import (
 
 	"git.sericyb.com.au/jotty/i18n"
 	ps "git.sericyb.com.au/jotty/permascroll"
-	"github.com/muesli/termenv"
 	"github.com/rivo/uniseg"
 )
 
@@ -47,17 +45,10 @@ var (
 )
 
 const (
-	cursorCharCap  = '↑'       // Capitalisation indicator character
-	margin         = 6         // Up to 4 edit marks, cursor and wrap indicator
-	markChar       = '|'       // Visual representation of an edit mark
-	moreChar       = '…'       // Continuation indicator character
-	confirmColor   = "#ffff00" // Confirmation message: ANSIBrightYellow
-	cutColor       = "#808080" // Cut text: ANSIBrightBlack
-	errorColor     = "#ff0000" // Error message: ANSIBrightRed
-	helpColor      = "#00ffff" // Help text: ANSIBrightCyan
-	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
-	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
-	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
+	cursorCharCap = '↑' // Capitalisation indicator character
+	margin        = 6   // Up to 4 edit marks, cursor and wrap indicator
+	markChar      = '|' // Visual representation of an edit mark
+	moreChar      = '…' // Continuation indicator character
 )
 
 type ModeType int
@@ -118,7 +109,6 @@ var (
 	markPara             int               // Paragraph containing the mark(s), if any
 	mark                 []int             // Character positions of the marks
 	message              string            // Modal confirmation or error message
-	output               = termenv.NewOutput(os.Stdout)
 	primary, secondary   selection
 	prevSelected         bool // Previous paragraph is currently selected
 	scope                Scope
@@ -157,44 +147,11 @@ func cursorPos() (c counts) {
 
 // The current cursor character and terminal attributes.
 func cursorString() string {
-	cc := cursorCharCap
-	if !initialCap {
-		cc = cursorChar[scope]
+	if initialCap {
+		return cursorStyle(string(cursorCharCap))
 	}
 
-	return output.String(string(cc)).Reverse().Blink().String()
-}
-
-func errorString() string {
-	return output.String(i18n.Text["error"]).Blink().Foreground(output.Color(errorColor)).String()
-}
-
-func markString() string {
-	return output.String(string(markChar)).Blink().Foreground(output.Color(markColor)).String()
-}
-
-func confirmStyle(s string) string {
-	return output.String(s).Blink().Foreground(output.Color(confirmColor)).String()
-}
-
-func cutStyle(s string) string {
-	return output.String(s).CrossOut().Foreground(output.Color(cutColor)).String()
-}
-
-func errorStyle(s string) string {
-	return output.String(s).Foreground(output.Color(errorColor)).String()
-}
-
-func helpStyle(s string) string {
-	return output.String(s).Foreground(output.Color(helpColor)).String()
-}
-
-func primaryStyle(s string) string {
-	return output.String(s).Reverse().Foreground(output.Color(primaryColor)).String()
-}
-
-func secondaryStyle(s string) string {
-	return output.String(s).Underline().Foreground(output.Color(secondaryColor)).String()
+	return cursorStyle(string(cursorChar[scope]))
 }
 
 // Draw the cut buffer if there is room on the status line.
