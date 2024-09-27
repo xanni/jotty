@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"git.sericyb.com.au/jotty/edits"
-	"git.sericyb.com.au/jotty/i18n"
-	ps "git.sericyb.com.au/jotty/permascroll"
+	"github.com/xanni/jotty/edits"
+	"github.com/xanni/jotty/i18n"
+	ps "github.com/xanni/jotty/permascroll"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

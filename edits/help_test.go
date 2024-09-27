@@ -3,8 +3,8 @@ package edits
 import (
 	"testing"
 
-	"git.sericyb.com.au/jotty/i18n"
 	"github.com/stretchr/testify/assert"
+	"github.com/xanni/jotty/i18n"
 )
 
 func TestDropParagraphs(t *testing.T) {

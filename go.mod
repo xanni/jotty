@@ -1,4 +1,4 @@
-module git.sericyb.com.au/jotty
+module github.com/xanni/jotty
 
 go 1.22.0
 

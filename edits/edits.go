@@ -7,9 +7,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"git.sericyb.com.au/jotty/i18n"
-	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/rivo/uniseg"
+	"github.com/xanni/jotty/i18n"
+	ps "github.com/xanni/jotty/permascroll"
 )
 
 /*

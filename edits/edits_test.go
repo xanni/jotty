@@ -5,10 +5,10 @@ import (
 	"slices"
 	"testing"
 
-	"git.sericyb.com.au/jotty/i18n"
-	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
+	"github.com/xanni/jotty/i18n"
+	ps "github.com/xanni/jotty/permascroll"
 )
 
 func init() {

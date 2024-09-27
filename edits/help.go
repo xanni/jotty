@@ -3,8 +3,8 @@ package edits
 import (
 	"strings"
 
-	"git.sericyb.com.au/jotty/i18n"
 	"github.com/rivo/uniseg"
+	"github.com/xanni/jotty/i18n"
 )
 
 func dropParagraphs(w []string) []string {

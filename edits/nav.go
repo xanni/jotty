@@ -3,7 +3,7 @@ package edits
 import (
 	"slices"
 
-	ps "git.sericyb.com.au/jotty/permascroll"
+	ps "github.com/xanni/jotty/permascroll"
 )
 
 /*

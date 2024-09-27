@@ -6,8 +6,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/rivo/uniseg"
+	ps "github.com/xanni/jotty/permascroll"
 )
 
 // Implements miscellaneous actions

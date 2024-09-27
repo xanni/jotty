@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	ps "git.sericyb.com.au/jotty/permascroll"
 	"github.com/stretchr/testify/assert"
+	ps "github.com/xanni/jotty/permascroll"
 )
 
 func init() {

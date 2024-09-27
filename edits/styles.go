@@ -3,8 +3,8 @@ package edits
 import (
 	"os"
 
-	"git.sericyb.com.au/jotty/i18n"
 	"github.com/muesli/termenv"
+	"github.com/xanni/jotty/i18n"
 )
 
 const (
