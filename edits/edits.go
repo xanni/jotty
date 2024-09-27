@@ -145,15 +145,6 @@ func cursorPos() (c counts) {
 	return c
 }
 
-// The current cursor character and terminal attributes.
-func cursorString() string {
-	if initialCap {
-		return cursorStyle(string(cursorCharCap))
-	}
-
-	return cursorStyle(string(cursorChar[scope]))
-}
-
 // Draw the cut buffer if there is room on the status line.
 func cutBuffer(cutMax int) (buf string) {
 	const minCut = 4 // Minimum amount of cut buffer to display
@@ -401,19 +392,25 @@ func (l *line) drawMarker(s string) {
 
 // Draw the cursor and any edit mark if at the current position.
 func (l *line) drawAllMarkers() {
-	if l.x == 0 || l.w > 0 {
-		if l.pn == markPara {
-			for _, mc := range mark {
-				if l.c == mc {
-					l.drawMarker(markString())
-				}
+	if l.w == 0 && l.x > 0 {
+		return
+	}
+
+	if l.pn == markPara {
+		for _, mc := range mark {
+			if l.c == mc {
+				l.drawMarker(markString())
 			}
 		}
+	}
 
-		if l.pn == cursor[Para] && l.c == cursor[Char] {
-			l.drawMarker(cursorString())
-			updateCursorPos()
+	if l.pn == cursor[Para] && l.c == cursor[Char] {
+		if initialCap {
+			l.drawMarker(cursorCapString)
+		} else {
+			l.drawMarker(cursorString[scope])
 		}
+		updateCursorPos()
 	}
 }
 

@@ -17,7 +17,18 @@ const (
 	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
 )
 
-var output = termenv.NewOutput(os.Stdout)
+var (
+	cursorCapString string           // Cursor indicating initial capital letter
+	cursorString    [MaxScope]string // Cursor string for each scope
+	output          = termenv.NewOutput(os.Stdout)
+)
+
+func init() {
+	cursorCapString = cursorStyle(string(cursorCharCap))
+	for i := range MaxScope {
+		cursorString[i] = cursorStyle(string(cursorChar[i]))
+	}
+}
 
 func errorString() string {
 	return output.String(i18n.Text["error"]).Blink().Foreground(output.Color(errorColor)).String()

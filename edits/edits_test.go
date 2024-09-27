@@ -70,16 +70,6 @@ func TestCursorPos(t *testing.T) {
 	assert.Equal(counts{0, 1, 1, 2}, cursorPos())
 }
 
-func TestCursorString(t *testing.T) {
-	assert := assert.New(t)
-	initialCap = false
-	scope = Char
-	assert.Equal(string(cursorChar[Char]), cursorString())
-
-	initialCap = true
-	assert.Equal(string(cursorCharCap), cursorString())
-}
-
 func TestStatusLine(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
