@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	confirmColor   = "#ffff00" // Confirmation message: ANSIBrightYellow
-	cutColor       = "#808080" // Cut text: ANSIBrightBlack
-	errorColor     = "#ff0000" // Error message: ANSIBrightRed
-	helpColor      = "#00ffff" // Help text: ANSIBrightCyan
-	markColor      = "#ffff00" // Edit mark: ANSIBrightYellow
-	primaryColor   = "#ff0000" // Primary selection: ANSIBrightRed
-	secondaryColor = "#ff00ff" // Secondary selection: ANSIBrightMagenta
+	confirmColor   = "11" // Confirmation message: ANSIBrightYellow
+	cutColor       = "8"  // Cut text: ANSIBrightBlack
+	errorColor     = "9"  // Error message: ANSIBrightRed
+	helpColor      = "14" // Help text: ANSIBrightCyan
+	markColor      = "11" // Edit mark: ANSIBrightYellow
+	primaryColor   = "9"  // Primary selection: ANSIBrightRed
+	secondaryColor = "13" // Secondary selection: ANSIBrightMagenta
 )
 
 var (
