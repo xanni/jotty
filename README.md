@@ -12,6 +12,20 @@ or creating new work prior to later export for formatting and dissemination, or
 it might be embedded within another system for structural organisation and
 presentation such as Ted Nelson's Zigzag.
 
+## Table of Contents
+
+1. [How to download and use](#how-to-download-and-use)
+2. [Design goals](#design-goals)
+3. [Basic principles](#basic-principles)
+4. [Design notes](#design-notes)
+5. [User experience design](#user-experience-design)
+6. [Internal data representation](#internal-data-representation)
+7. [Permascroll format](#permascroll-format)
+8. [Feature sets](#feature-sets)
+9. [Advanced features](#advanced-features)
+10. [Acknowledgements](#acknowledgements)
+11. [Copyright notice and license](#copyright-notice-and-license)
+
 ## How to download and use
 
 Jotty is available for Linux, MacOS and Windows at:
