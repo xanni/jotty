@@ -67,7 +67,7 @@ func TestInsertCut(t *testing.T) {
 	InsertCut()
 	assert.Equal("Test", ps.GetText(1))
 
-	ps.CopyText(1, 1, 2)
+	currentCut = ps.CopyText(1, 1, 2)
 	InsertCut()
 	assert.Equal("eTest", ps.GetText(1))
 }
@@ -401,22 +401,24 @@ func TestCopy(t *testing.T) {
 	drawWindow()
 
 	Copy()
-	assert.Equal("", ps.GetCut())
+	assert.Equal(0, currentCut)
 
 	Mark()
 	drawWindow()
 	Copy()
-	assert.Equal("", ps.GetCut())
+	assert.Equal(0, currentCut)
 
 	ps.AppendText(1, "Test")
 	drawWindow()
 
 	Copy()
-	assert.Equal("T", ps.GetCut())
+	text, _ := ps.GetCut(currentCut)
+	assert.Equal("T", text)
 
 	markPara, mark, primary = 1, []int{1}, selection{1, 2, 1, 2}
 	Copy()
-	assert.Equal("e", ps.GetCut())
+	text, _ = ps.GetCut(currentCut)
+	assert.Equal("e", text)
 }
 
 func TestCut(t *testing.T) {

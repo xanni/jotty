@@ -101,6 +101,7 @@ func SetMode(mode ModeType, msg string) { Mode, message = mode, msg }
 var (
 	after, before        strings.Builder // Text of the current paragraph after and before the cursor position
 	cache                []para
+	currentCut           int               // The current cut number, if any
 	cursor               = counts{Para: 1} // Current cursor position
 	cursPara, cursLine   int               // Paragraph and line containing the cursor
 	ex, ey               int               // Edit window dimensions
@@ -149,14 +150,15 @@ func cursorPos() (c counts) {
 func cutBuffer(cutMax int) (buf string) {
 	const minCut = 4 // Minimum amount of cut buffer to display
 
-	text := ps.GetCut()
-	cutLen := uniseg.StringWidth(text)
-	if cutLen > 0 && cutMax >= minCut {
-		cutLen = min(cutLen, cutMax)
-		buf = text[:cutLen]
-		if len(text) > cutMax {
-			buf += string(moreChar)
-		}
+	if currentCut == 0 || cutMax < minCut {
+		return buf
+	}
+
+	text, _ := ps.GetCut(currentCut)
+	cutLen := min(uniseg.StringWidth(text), cutMax)
+	buf = text[:cutLen]
+	if len(text) > cutMax {
+		buf += string(moreChar)
 	}
 
 	return buf

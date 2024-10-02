@@ -53,9 +53,9 @@ func insert(t string) {
 
 // Insert contents of cut buffer into the document.
 func InsertCut() {
-	cutBuffer := ps.GetCut()
-	if len(cutBuffer) > 0 {
-		insert(cutBuffer)
+	if n := currentCut; n > 0 {
+		text, _ := ps.GetCut(n)
+		insert(text)
 	}
 }
 
@@ -340,7 +340,7 @@ func scopeSpan() (int, int) {
 
 func Copy() {
 	if len(mark) > 0 && primary.oend > primary.obegin {
-		ps.CopyText(markPara, primary.obegin, primary.oend)
+		currentCut = ps.CopyText(markPara, primary.obegin, primary.oend)
 
 		return
 	}
@@ -348,12 +348,12 @@ func Copy() {
 	updateSelections()
 	pos, end := scopeSpan()
 	if end > pos {
-		ps.CopyText(cursor[Para], pos, end)
+		currentCut = ps.CopyText(cursor[Para], pos, end)
 	}
 }
 
 func cutPrimary() {
-	ps.CutText(markPara, primary.obegin, primary.oend)
+	currentCut = ps.CutText(markPara, primary.obegin, primary.oend)
 	cursor = counts{Char: primary.cbegin, Para: markPara}
 
 	if cursPara != markPara {

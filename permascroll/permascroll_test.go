@@ -3,6 +3,7 @@ package permascroll
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -25,6 +26,38 @@ func TestAppendText(t *testing.T) {
 	Init()
 	AppendText(1, "Test")
 	assert.Equal("Test", pending)
+}
+
+func TestCopyText(t *testing.T) {
+	assert := assert.New(t)
+	Init()
+
+	AppendText(1, "Test")
+	assert.Equal(1, CopyText(1, 0, 4))
+	assert.Equal(1, CopyText(1, 0, 4)) // Copy repeated
+}
+
+func TestCutText(t *testing.T) {
+	assert := assert.New(t)
+	Init()
+
+	AppendText(1, "Tested")
+	assert.Equal(1, CutText(1, 4, 5)) // Cut 'e'
+	assert.Equal(1, CutText(1, 1, 2)) // Cut 'e' repeated
+}
+
+func TestCutTime(t *testing.T) {
+	assert := assert.New(t)
+	Init()
+
+	docCopy("1", epoch.Add(3*time.Millisecond))
+	assert.Equal("+3", cutTime())
+
+	docCopy("2", epoch.Add(2*time.Minute+time.Second))
+	assert.Equal("@2", cutTime())
+
+	cut[0].ts = time.Time{}
+	assert.Equal("@2", cutTime())
 }
 
 func TestDeleteText(t *testing.T) {
@@ -71,6 +104,15 @@ func TestDeleteText(t *testing.T) {
 	DeleteText(1, 1, 2)
 	assert.Equal(1, offset)
 	assert.Equal(2, deleting)
+}
+
+func TestDocCopy(t *testing.T) {
+	assert := assert.New(t)
+	Init()
+
+	assert.Equal(0, docCopy("1", time.Time{}))
+	assert.Equal(0, docCopy("2", time.Time{}))
+	assert.Equal(1, docCopy("1", time.Time{}))
 }
 
 func TestDocDelete(t *testing.T) {
@@ -341,8 +383,8 @@ func TestParseCopyCut(t *testing.T) {
 		op        operation
 		pn        string
 	}{
-		"Copy": {"1,2+3", operation{'C', 0, 0, 3, 0, 0, "", ""}, "1"},
-		"Cut":  {"4,5:Test", operation{'C', 0, 0, 0, 0, 0, "Test", ""}, "4"},
+		"Copy": {"1,2+3", operation{'C', 0, 0, 3, 0, 0, "", "", time.Time{}}, "1"},
+		"Cut":  {"4,5:Test", operation{'C', 0, 0, 0, 0, 0, "Test", "", time.Time{}}, "4"},
 	}
 
 	for name, test := range tests {
@@ -371,7 +413,7 @@ func TestParseExchange(t *testing.T) {
 		pn        string
 	}{
 		"Paragraph": {"2", operation{code: 'X'}, "2"},
-		"Text":      {"1,0+1/2+3", operation{'X', 0, 0, 1, 2, 3, "", ""}, "1"},
+		"Text":      {"1,0+1/2+3", operation{'X', 0, 0, 1, 2, 3, "", "", time.Time{}}, "1"},
 	}
 
 	for name, test := range tests {
@@ -452,6 +494,17 @@ func TestParsePermascroll(t *testing.T) {
 	assert.Equal([]version{{0, 0, 3}, {8, 0, 2}, {13, 1, 0}, {23, 0, 0}}, history)
 }
 
+func TestParseTime(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.Equal(time.Time{}, parseTime(""))
+	assert.Equal(epoch.Add(time.Millisecond), parseTime("+1"))
+	assert.Equal(epoch.Add(time.Minute), parseTime("@1"))
+
+	docCopy("Test", epoch.Add(time.Millisecond))
+	assert.Equal(epoch.Add(3*time.Millisecond), parseTime("+2"))
+}
+
 func TestSplitParagraph(t *testing.T) {
 	assert := assert.New(t)
 
@@ -518,7 +571,7 @@ func TestRedo(t *testing.T) {
 
 	Redo()
 	assert.Equal(5, current)
-	assert.Equal("r", cut)
+	assert.Equal("r", cut[0].text)
 
 	Redo()
 	assert.Equal(6, current)
@@ -530,7 +583,7 @@ func TestRedo(t *testing.T) {
 
 	Redo()
 	assert.Equal(8, current)
-	assert.Equal("o", cut)
+	assert.Equal("o", cut[1].text)
 
 	Redo()
 	assert.Equal(9, current)
@@ -555,18 +608,18 @@ func TestUndo(t *testing.T) {
 	assert.Equal(2, current)
 	assert.Equal([]string{"Test", ""}, document)
 
+	docCopy("x", time.Now().Add(-3*time.Millisecond))
 	CopyText(1, 1, 2)
 	Undo()
 	assert.Equal(2, current)
-	assert.Empty(cut)
 
 	DeleteText(1, 1, 2)
 	Undo()
 	assert.Equal(2, current)
 	assert.Equal([]string{"Test", ""}, document)
-	expectHist := []version{{0, 0, 1}, {8, 0, 2}, {13, 1, 5}, {23, 2, 0}, {28, 2, 0}, {36, 2, 0}}
+	expectHist := []version{{0, 0, 1}, {8, 0, 2}, {13, 1, 5}, {23, 2, 0}, {28, 2, 0}, {38, 2, 0}}
 	assert.Equal(expectHist, history)
-	expect := magic + "S1,0\nI1,0:Test\nM1,4\n1C1,1+1\n2D1,1:e\n"
+	expect := magic + "S1,0\nI1,0:Test\nM1,4\n1+3C1,1+1\n2D1,1:e\n"
 	assert.Equal(expect, string(permascroll))
 
 	Undo()
@@ -576,7 +629,7 @@ func TestUndo(t *testing.T) {
 	Undo()
 	assert.Equal(1, current)
 	assert.Equal([]string{"", ""}, document)
-	expectHist = append(expectHist, version{44, 1, 0})
+	expectHist = append(expectHist, version{46, 1, 0})
 	expectHist[1].lastChild = 6
 	assert.Equal(expectHist, history)
 	expect += "4S1,0\n"

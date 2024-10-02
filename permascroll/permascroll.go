@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/cespare/xxhash/v2"
@@ -34,24 +35,31 @@ state to the permascroll again and instead updating the version history.
 
 const magic = "JottyV0\n"
 
+var epoch = time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC)
+
 // Regular expressions for parsing permascroll entries.
 var (
 	ccRx = regexp.MustCompile(`(\d+),(\d+)([+:])(.+)\n`)                // Copy and Cut arguments
 	diRx = regexp.MustCompile(`(\d+),(\d+):(.+)\n`)                     // Delete and Insert arguments
-	msRx = regexp.MustCompile(`(\d+),(\d+)\n`)                          // Merge and Split arguments
-	opRx = regexp.MustCompile(`(\d*)([CDIMRSX])`)                       // Operation prefix
-	reRx = regexp.MustCompile(`(\d+),(\d+):(.+)\t(.+)\n`)               // Replace arguments
 	exRx = regexp.MustCompile(`(\d+)(?:,(\d+)\+(\d+)/(\d+)\+(\d+))?\n`) // Exchange arguments
+	msRx = regexp.MustCompile(`(\d+),(\d+)\n`)                          // Merge and Split arguments
+	opRx = regexp.MustCompile(`(\d*)([@+]\d+)?([CDIMRSX])`)             // Operation prefix
+	reRx = regexp.MustCompile(`(\d+),(\d+):(.+)\t(.+)\n`)               // Replace arguments
 )
 
 type (
+	cutType struct {
+		text string
+		ts   time.Time
+	}
 	span    struct{ begin, end int }
 	version struct{ source, parent, lastChild int }
 )
 
 var (
 	current     int            // Current version in the history
-	cut         string         // Text cut from the document
+	cut         []cutType      // Text cut from the document
+	cutHash     map[uint64]int // Map of hashes to cut numbers
 	deleting    int            // Number of bytes to delete starting from offset
 	docHash     []uint64       // Hash of each paragraph
 	document    []string       // Text of each paragraph
@@ -71,14 +79,31 @@ var (
 
 func init() { Init() }
 
-// Compute the hash of the current version of the document.
+func cutTime() string {
+	var elapsed time.Duration
+	n := len(cut) - 1
+	now := cut[n].ts
+
+	if n == 0 || cut[n-1].ts.IsZero() {
+		elapsed = now.Sub(epoch)
+	} else {
+		elapsed = now.Sub(cut[n-1].ts)
+	}
+
+	if elapsed >= 60*time.Second {
+		return "@" + strconv.Itoa(int(elapsed.Minutes()))
+	}
+
+	return "+" + strconv.Itoa(int(elapsed.Milliseconds()))
+}
+
+// Compute the hash of the current version of the document and number of cuts.
 func hashDocument() uint64 {
 	size := len(docHash) * 8                                          // Each uint64 is 8 bytes
 	buf := (*[1 << 32]byte)(unsafe.Pointer(&docHash[0]))[0:size:size] // Get the underlying docHash array
-
 	hash := xxhash.New()
 	_, _ = hash.Write(buf)
-	_, _ = hash.WriteString(cut)
+	_, _ = hash.WriteString(strconv.Itoa(len(cut)))
 
 	return hash.Sum64()
 }
@@ -89,7 +114,9 @@ func updateHash(pn int) {
 
 // Initialise permascroll.
 func Init() {
-	current, cut, deleting, pending, paragraph, offset = 0, "", 0, "", 1, 0
+	current, deleting, pending, paragraph, offset = 0, 0, "", 1, 0
+	cut = []cutType{}
+	cutHash = map[uint64]int{}
 	document = []string{""} // Start with a single empty paragraph
 	docHash = []uint64{xxhash.Sum64String("")}
 	history = []version{{}} // Start with a single empty version
@@ -100,24 +127,38 @@ func Init() {
 // Append text to a paragraph.
 func AppendText(pn int, text string) { InsertText(pn, GetSize(pn), text) }
 
-// Copy text from a paragraph between pos and end.
-func CopyText(pn, pos, end int) {
+// Copy text from a paragraph between pos and end.  Returns cut number.
+func CopyText(pn, pos, end int) (n int) {
 	validateSpan(pn, pos, end)
 
 	Flush()
-	cut = document[pn-1][pos:end]
-	persist(fmt.Sprintf("C%d,%d+%d", pn, pos, end-pos))
+	n = docCopy(document[pn-1][pos:end], time.Now())
+	if n == 0 {
+		persist(fmt.Sprintf("%sC%d,%d+%d", cutTime(), pn, pos, end-pos))
+		n = len(cut)
+	}
+
+	return n
 }
 
-// Cut text from a paragraph between pos and end.
-func CutText(pn, pos, end int) {
+// Number of cuts in the document.
+func Cuts() int { return len(cut) }
+
+// Cut text from a paragraph between pos and end.  Returns cut number.
+func CutText(pn, pos, end int) (n int) {
 	validateSpan(pn, pos, end)
 
 	Flush()
-	cut = document[pn-1][pos:end]
-	paragraph, offset = pn, pos
-	docDelete(end - pos)
-	persist(fmt.Sprintf("C%d,%d:%s", pn, pos, cut))
+	text := document[pn-1][pos:end]
+	n = docCopy(document[pn-1][pos:end], time.Now())
+	if n == 0 {
+		paragraph, offset = pn, pos
+		docDelete(end - pos)
+		persist(fmt.Sprintf("%sC%d,%d:%s", cutTime(), pn, pos, text))
+		n = len(cut)
+	}
+
+	return n
 }
 
 // Delete text from a paragraph between pos and end.
@@ -146,6 +187,18 @@ func DeleteText(pn, pos, end int) {
 			offset, deleting = pos, end-pEnd
 		}
 	}
+}
+
+func docCopy(text string, ts time.Time) int {
+	h := xxhash.Sum64String(text)
+	if v, found := cutHash[h]; found {
+		return v + 1
+	}
+
+	cut = append(cut, cutType{text, ts})
+	cutHash[h] = len(cut) - 1
+
+	return 0
 }
 
 func docDelete(size int) {
@@ -210,9 +263,9 @@ func docRedo(op operation) {
 	switch op.code {
 	case 'C':
 		if op.size1 > 0 {
-			cut = document[paragraph-1][offset : offset+op.size1]
+			docCopy(document[paragraph-1][offset:offset+op.size1], op.ts)
 		} else {
-			cut = document[paragraph-1][offset : offset+len(op.text1)]
+			docCopy(document[paragraph-1][offset:offset+len(op.text1)], op.ts)
 			docDelete(len(op.text1))
 		}
 	case 'D':
@@ -240,7 +293,6 @@ func docUndo() byte {
 		if len(op.text1) > 0 {
 			docInsert(op.text1)
 		}
-		cut = ""
 	case 'D':
 		docInsert(op.text1)
 	case 'I':
@@ -310,8 +362,8 @@ func Flush() {
 	}
 }
 
-// Get the text cut from the document.
-func GetCut() string { return cut }
+// Get a cut from the document.
+func GetCut(n int) (string, time.Time) { return cut[n-1].text, cut[n-1].ts }
 
 // Get the current position in the document.
 func GetPos() (int, int) { return paragraph, offset }
@@ -440,6 +492,7 @@ type operation struct {
 	code                               byte
 	pn, offset1, size1, offset2, size2 int
 	text1, text2                       string
+	ts                                 time.Time
 }
 
 // Parse an operation from the permascroll.
@@ -454,10 +507,12 @@ func parseOperation(source *int) (delta int, op operation) {
 		delta, _ = strconv.Atoi(string(match[1]))
 	}
 
-	op.code = match[2][0]
+	ts := string(match[2])
+	op.code = match[3][0]
 	switch op.code {
 	case 'C':
 		op, match = parseCopyCut(source)
+		op.ts = parseTime(ts)
 	case 'D', 'I':
 		if match = diRx.FindSubmatch(permascroll[*source:]); match != nil {
 			op.text1 = string(match[3])
@@ -503,6 +558,29 @@ func parsePermascroll() {
 		docRedo(op)
 		newVersion(opSource)
 	}
+}
+
+func parseTime(s string) (ts time.Time) {
+	if len(s) == 0 {
+		return ts
+	}
+
+	if len(cut) > 0 {
+		ts = cut[len(cut)-1].ts
+	}
+
+	if ts.IsZero() {
+		ts = epoch
+	}
+
+	m, _ := strconv.Atoi(s[1:])
+	if s[0] == '@' {
+		ts = ts.Add(time.Minute * time.Duration(m))
+	} else {
+		ts = ts.Add(time.Millisecond * time.Duration(m))
+	}
+
+	return ts
 }
 
 func ReplaceText(pn, pos, end int, text string) {

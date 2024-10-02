@@ -43,11 +43,11 @@ default to `jotty.jot` if not provided, or you can use the options `-help` or
 1. Ensure that work is never lost by
     * retaining all versions and
     * continuously persisting all changes
-1. Support rapid and seamless workflow by
+2. Support rapid and seamless workflow by
     * ensuring all operations can be performed with the keyboard,
     * performing common operations on convenient units of text, and
     * minimising the use of modifier keys
-1. Demonstrate concepts from Ted Nelson's designs
+3. Demonstrate concepts from Ted Nelson's designs
 
 ## Basic principles
 
@@ -60,18 +60,23 @@ replacement) this is triggered by a request to read the current state of the
 edit buffer.
 
 All input can be performed entirely with a keyboard.  No pointing device is
-assumed or required.  This should make it straightforward to create an audio
-user interface for blind users.
+assumed or required.  This should make it easier to create an audio user
+interface for blind users.
 
 Printable character keys (alphanumeric and symbols) always represent themselves
 and are not used for editing.  Typing printable characters will always commence
 text entry and append to the permascroll.  All editing functions are performed
-with the editing keys and/or control characters.
+entirely with the editing keys and/or control characters.
 
 The permascroll is append-only.  Earlier data is never deleted or rewritten.
 Undo and redo are not only "unlimited" all the way to the oldest and newest
 changes, but inherently create a branching version tree when new changes are
-made starting from a previous state.
+made starting from a previous state.  All cut text is preserved and can always
+be reinserted anywhere as often as desired.
+
+Writing is at least as much, if not more, about rearranging text than about
+entering it; therefore multiple operations for rapidly and conveniently
+rearranging text should be provided.
 
 There is no support for formatting other than optionally markdown-style bold
 and italic attributes.  Formatting for print or screen display is a task for
@@ -82,7 +87,7 @@ User interface design principles include:
 
 1. Reversibility and repeatability
 
-    All operations should be quickly and easily reversible and repeatable, so
+    All operations should be quickly and easily reversible and repeatable so
     that the user can quickly undo mistakes including mistaken undo operations,
     and can easily test the results of performing or not performing the
     operation.
@@ -492,6 +497,12 @@ This implementation differs from the earlier Xanadu designs in the following way
    the document.  This is normally omitted in the common case that the parent is
    the immediately preceding operation and the delta is therefore zero.
 
+5. If timestamps of operations are recorded, in order to save space the format
+   used is the number of minutes or if less than one minute the number of
+   milliseconds since the previous timestamp. The first timestamp in the
+   permascroll is the time since the epoch, which is midnight on 2020-01-01.
+   Timestamps are purely for display purposes and are therefore optional.
+
 Operations are recorded in the permascroll as follows:
 
 ```plantuml
@@ -509,6 +520,9 @@ address = integer, ',', integer ;
 
 (* Byte offset and size of selection *)
 span = integer, '+', integer- ;
+
+(* Time difference in minutes or milliseconds *)
+time = ( '@' | '+' ), {digit}- ;
 
 (* Copy or cut text *)
 copy = 'C', address,
@@ -529,11 +543,26 @@ exchange = 'X', integer, [ ',', span, '/', span ], newline ;
 (* Permascroll format descriptor *)
 magic = 'JottyV0', newline ;
 
-operation = [ integer ], ( copy | insert_delete | replace | split_merge | exchange ) ;
+operation = [ integer ], [ time ],
+  ( copy | insert_delete | replace | split_merge | exchange ) ;
 
 permascroll = magic, { operation } ;
 @endebnf
 ```
+
+### Permascroll format design considerations
+
+* The operations must all be reversible to support undo.  This is why deletions
+  and replacements record the text that has been deleted or replaced.
+
+* The records should be human readable to assist debugging and aid understanding
+  of the format and the concepts represented by the design.  This is why no
+  control characters are used other than tab and newline, and numeric values are
+  recorded as decimal strings.
+
+* The records should be compact where possible to save space.  This is why
+  operation codes are a single character and parents and timestamps are recorded
+  as differences.
 
 ## Feature sets
 
