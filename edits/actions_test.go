@@ -29,8 +29,7 @@ func TestInsertParaBreak(t *testing.T) {
 	assert.Equal(2, ps.Paragraphs())
 	assert.Equal("Test", ps.GetText(1))
 
-	ps.Init()
-	ps.AppendText(1, "Test ")
+	ps.Init("I1,0:Test \n")
 	cache = nil
 	cursPara = 1
 	cursor = counts{5, 0, 0, 1}
@@ -233,7 +232,7 @@ func TestSpace(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			ps.Init()
+			ps.Init("")
 			ps.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			initialCap = false
@@ -248,8 +247,7 @@ func TestSpace(t *testing.T) {
 		})
 	}
 
-	ps.Init()
-	ps.AppendText(1, "Test")
+	ps.Init("I1,0:Test\n")
 	cursor[Char] = 4
 	scope = Sent
 	ResizeScreen(margin+4, 3)
@@ -326,8 +324,7 @@ func TestBackspaceMerge(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			ps.Init()
-			ps.SplitParagraph(1, 0)
+			ps.Init("S1,0\n")
 			ps.AppendText(1, test.p1)
 			ps.AppendText(2, test.p2)
 			cursor = counts{0, 0, 0, 2}
@@ -379,7 +376,7 @@ func TestBackspace(t *testing.T) {
 	cursor[Para] = 1
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			ps.Init()
+			ps.Init("")
 			ps.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
@@ -478,8 +475,7 @@ func TestDeleteMerge(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			ps.Init()
-			ps.SplitParagraph(1, 0)
+			ps.Init("S1,0\n")
 			ps.AppendText(1, test.p1)
 			ps.AppendText(2, test.p2)
 			drawPara(2)
@@ -522,7 +518,7 @@ func TestDelete(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			ps.Init()
+			ps.Init("")
 			ps.AppendText(1, test.text)
 			cursor[Char] = test.cursor
 			scope = test.scope
@@ -591,9 +587,7 @@ func TestJoin(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			ps.Init()
-			ps.SplitParagraph(1, 0)
-			ps.AppendText(2, "Three")
+			ps.Init("I1,0:Three\nS1,0\n")
 			drawPara(2)
 			ps.AppendText(1, test.text)
 			cursor[Char] = test.cursor

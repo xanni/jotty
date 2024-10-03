@@ -31,7 +31,7 @@ func setupTest() {
 	mark, markPara = nil, 0
 	primary, secondary = selection{}, selection{}
 	scope = Char
-	ps.Init()
+	ps.Init("")
 	resetCache()
 }
 
@@ -336,8 +336,7 @@ func TestDrawPara(t *testing.T) {
 	assert.Equal(0, cursLine)
 	assert.Equal(counts{4, 1, 1, 1}, total)
 
-	ps.Init()
-	ps.AppendText(1, "One two")
+	ps.Init("I1,0:One two\n")
 	drawPara(1)
 	assert.Equal(para{7, []int{0, 4}, []int{0}, []string{"One ", "_two"}}, cache[0])
 	assert.Equal(1, cursLine)

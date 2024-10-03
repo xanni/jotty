@@ -16,10 +16,7 @@ func init() {
 
 func TestLeftChar(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "One")
-	ps.AppendText(2, "Two")
+	ps.Init("I1,0:OneTwo\nS1,3\n")
 	cache = []para{{chars: 3}, {chars: 3}}
 	cursor = counts{1, 0, 0, 2}
 
@@ -36,10 +33,7 @@ func TestLeftChar(t *testing.T) {
 
 func TestRightChar(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "One")
-	ps.AppendText(2, "Two")
+	ps.Init("I1,0:OneTwo\nS1,3\n")
 	cache = []para{{chars: 3}, {chars: 3}}
 	cursor = counts{2, 0, 0, 1}
 
@@ -56,11 +50,7 @@ func TestRightChar(t *testing.T) {
 
 func TestLeftWord(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.SplitParagraph(2, 0)
-	ps.AppendText(1, "1 23")
-	ps.AppendText(3, "4")
+	ps.Init("I1,0:1 234\nS1,4\nS2,0\n")
 	cache = []para{{chars: 4, cword: []int{0, 2}}, {}, {chars: 1, cword: []int{0}}}
 	cursor = counts{1, 1, 1, 3}
 
@@ -99,10 +89,7 @@ func TestLeftWord(t *testing.T) {
 
 func TestRightWord(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "1")
-	ps.AppendText(2, "23 4")
+	ps.Init("I1,0:123 4\nS1,1\n")
 	cache = []para{{chars: 1, cword: []int{0}}, {chars: 4, cword: []int{0, 3}}}
 	cursor = counts{0, 0, 0, 1}
 
@@ -140,11 +127,7 @@ func TestRightWord(t *testing.T) {
 
 func TestLeftSent(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.SplitParagraph(2, 0)
-	ps.AppendText(1, "1. 23")
-	ps.AppendText(3, "4")
+	ps.Init("I1,0:1. 234\nS1,5\nS2,0\n")
 	cache = []para{{chars: 5, csent: []int{0, 3}}, {}, {chars: 1, csent: []int{0}}}
 	cursor = counts{1, 1, 1, 3}
 
@@ -178,10 +161,7 @@ func TestLeftSent(t *testing.T) {
 
 func TestRightSent(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "1")
-	ps.AppendText(2, "23. 4")
+	ps.Init("I1,0:123. 4\nS1,1\n")
 	cache = []para{{chars: 1, csent: []int{0}}, {chars: 5, csent: []int{0, 4}}}
 	cursor = counts{0, 0, 0, 1}
 
@@ -219,10 +199,7 @@ func TestRightSent(t *testing.T) {
 
 func TestLeftPara(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "1")
-	ps.AppendText(2, "23")
+	ps.Init("I1,0:123\nS1,1\n")
 	cache = []para{{chars: 1}, {chars: 2}}
 	cursor = counts{1, 0, 0, 2}
 
@@ -242,10 +219,7 @@ func TestLeftPara(t *testing.T) {
 
 func TestRightPara(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "1")
-	ps.AppendText(2, "23")
+	ps.Init("I1,0:123\nS1,1\n")
 	cache = []para{{chars: 1}, {chars: 2}}
 	cursor = counts{0, 0, 0, 1}
 
@@ -266,10 +240,7 @@ func TestRightPara(t *testing.T) {
 func TestLeft(t *testing.T) {
 	assert := assert.New(t)
 	ResizeScreen(margin+7, 4)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "1")
-	ps.AppendText(2, "2. 3 45")
+	ps.Init("I1,0:12. 3 45\nS1,1\n")
 	cache = []para{{1, []int{0}, []int{0}, nil}, {1, []int{0, 3, 5}, []int{0, 3}, nil}}
 	cursor = counts{7, 3, 2, 2}
 
@@ -301,10 +272,7 @@ func TestLeft(t *testing.T) {
 func TestRight(t *testing.T) {
 	assert := assert.New(t)
 	ResizeScreen(margin+9, 5)
-	ps.Init()
-	ps.SplitParagraph(1, 0)
-	ps.AppendText(1, "12 3. 4")
-	ps.AppendText(2, "5")
+	ps.Init("I1,0:12 3. 45\nS1,7\n")
 	cache = []para{{7, []int{0, 3, 6}, []int{0, 6}, nil}, {1, []int{0}, []int{0}, nil}}
 	cursor = counts{0, 0, 0, 1}
 
@@ -331,9 +299,7 @@ func TestRight(t *testing.T) {
 
 func TestHome(t *testing.T) {
 	assert := assert.New(t)
-	ps.Init()
-	ps.AppendText(1, "12")
-	ps.SplitParagraph(1, 1)
+	ps.Init("I1,0:12\nS1,1\n")
 
 	ocursor = counts{}
 	cursor = counts{1, 0, 0, 2}
@@ -370,9 +336,7 @@ func TestHome(t *testing.T) {
 func TestEnd(t *testing.T) {
 	assert := assert.New(t)
 	ResizeScreen(margin+3, 4)
-	ps.Init()
-	ps.AppendText(1, "123")
-	ps.SplitParagraph(1, 2)
+	ps.Init("I1,0:123\nS1,2\n")
 	cache = []para{{chars: 2}, {chars: 1}}
 
 	ocursor = counts{}

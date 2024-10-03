@@ -16,39 +16,37 @@ func init() {
 
 func TestInit(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 	assert.Equal([]string{""}, document)
 	assert.Equal(magic, string(permascroll))
 }
 
 func TestAppendText(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 	AppendText(1, "Test")
 	assert.Equal("Test", pending)
 }
 
 func TestCopyText(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("I1,0:Test\n")
 
-	AppendText(1, "Test")
 	assert.Equal(1, CopyText(1, 0, 4))
 	assert.Equal(1, CopyText(1, 0, 4)) // Copy repeated
 }
 
 func TestCutText(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("I1,0:Tested\n")
 
-	AppendText(1, "Tested")
 	assert.Equal(1, CutText(1, 4, 5)) // Cut 'e'
 	assert.Equal(1, CutText(1, 1, 2)) // Cut 'e' repeated
 }
 
 func TestCutTime(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 
 	docCopy("1", epoch.Add(3*time.Millisecond))
 	assert.Equal("+3", cutTime())
@@ -76,10 +74,7 @@ func TestDeleteText(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			Init()
-			InsertText(1, 0, "Sample ")
-			SplitParagraph(1, 7)
-			InsertText(2, 0, "2")
+			Init("I1,0:Sample 2\nS1,7\n")
 			InsertText(1, 7, "data")
 			Flush()
 			if test.isPending {
@@ -92,7 +87,7 @@ func TestDeleteText(t *testing.T) {
 		})
 	}
 
-	Init()
+	Init("")
 	InsertText(1, 0, "Test")
 	DeleteText(1, 1, 2)
 	assert.Equal("Tst", pending)
@@ -108,7 +103,7 @@ func TestDeleteText(t *testing.T) {
 
 func TestDocCopy(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 
 	assert.Equal(0, docCopy("1", time.Time{}))
 	assert.Equal(0, docCopy("2", time.Time{}))
@@ -169,31 +164,28 @@ func TestExchangeParagraphs(t *testing.T) {
 	assert := assert.New(t)
 	assert.PanicsWithError("paragraph '1' out of range", func() { ExchangeParagraphs(1) })
 
-	Init()
-	SplitParagraph(1, 0)
-	AppendText(1, "One")
-	AppendText(2, "Two")
-
-	ExchangeParagraphs(2)
-	assert.Equal(4, current)
-	assert.Equal([]string{"Two", "One"}, document)
-	expect := magic + "S1,0\nI1,0:One\nI2,0:Two\nX2\n"
-	assert.Equal(expect, string(permascroll))
+	Init("I1,0:OneTwo\nS1,3\n")
 
 	ExchangeParagraphs(2)
 	assert.Equal(3, current)
+	assert.Equal([]string{"Two", "One"}, document)
+	expect := magic + "I1,0:OneTwo\nS1,3\nX2\n"
+	assert.Equal(expect, string(permascroll))
+
+	ExchangeParagraphs(2)
+	assert.Equal(2, current)
 	assert.Equal([]string{"One", "Two"}, document)
 	assert.Equal(expect, string(permascroll))
 
 	ExchangeParagraphs(2)
-	assert.Equal(4, current)
+	assert.Equal(3, current)
 	assert.Equal([]string{"Two", "One"}, document)
 	assert.Equal(expect, string(permascroll))
 }
 
 func TestExchangeText(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 
 	docInsert("Test")
 	assert.PanicsWithError("overlap '1-3/2-4' out of range", func() { ExchangeText(1, 1, 3, 2, 4) })
@@ -231,7 +223,7 @@ func TestFlushDeleting(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			Init()
+			Init("")
 			docInsert("Test")
 			offset, deleting = test.offset, test.deleting
 			Flush()
@@ -243,7 +235,7 @@ func TestFlushDeleting(t *testing.T) {
 
 func TestFlushInserting(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 
 	Flush()
 	assert.Equal([]string{""}, document)
@@ -264,7 +256,7 @@ func TestFlushInserting(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			Init()
+			Init("")
 			docInsert("Test")
 			offset, pending = test.offset, "New"
 			Flush()
@@ -276,17 +268,14 @@ func TestFlushInserting(t *testing.T) {
 
 func TestGetSize(t *testing.T) {
 	assert := assert.New(t)
-	Init()
-	AppendText(1, "Test")
-	SplitParagraph(1, 4)
-	AppendText(2, "Two")
+	Init("I1,0:TestTwo\nS1,4\n")
 	assert.Equal(4, GetSize(1))
 	assert.Equal(3, GetSize(2))
 }
 
 func TestGetText(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 	pending = "Two "
 	Flush()
 	pending, offset = "words", 4
@@ -301,7 +290,7 @@ func TestGetText(t *testing.T) {
 
 func TestInsertText(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 	InsertText(1, 0, "One")
 	InsertText(1, 3, "Two")
 	InsertText(1, 0, "Three")
@@ -327,8 +316,7 @@ func TestInsertText(t *testing.T) {
 
 func TestReplaceText(t *testing.T) {
 	assert := assert.New(t)
-	Init()
-	InsertText(1, 0, "Test")
+	Init("I1,0:Test\n")
 	ReplaceText(1, 2, 3, "12")
 	assert.Equal([]string{"Te12t"}, document)
 	assert.Equal(magic+"I1,0:Test\nR1,2:s\t12\n", string(permascroll))
@@ -337,7 +325,7 @@ func TestReplaceText(t *testing.T) {
 func TestMergeParagraph(t *testing.T) {
 	assert := assert.New(t)
 
-	Init()
+	Init("")
 	MergeParagraph(1)
 	assert.Equal([]string{""}, document)
 
@@ -354,7 +342,7 @@ func TestMergeParagraph(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			Init()
+			Init("")
 			document = test.document
 			docHash = []uint64{0, 0}
 			MergeParagraph(1)
@@ -444,14 +432,7 @@ func TestParseOperation(t *testing.T) {
 		"Replace":  {7, 'R', "t", "en"},
 	}
 
-	Init()
-	InsertText(1, 0, "Test")
-	SplitParagraph(1, 2)
-	ExchangeParagraphs(2)
-	CopyText(2, 1, 2)
-	DeleteText(2, 1, 2)
-	MergeParagraph(1)
-	ReplaceText(1, 1, 2, "en")
+	Init("I1,0:Test\nS1,2\nX2\nC2,1+1\nD2,1:e\nM1,0\nR1,1:t\ten\n")
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
@@ -483,19 +464,20 @@ func TestParsePermascroll(t *testing.T) {
 	permascroll = []byte(magic + "R1,0:bad\n")
 	assert.PanicsWithError(`invalid arguments for 'R', parse failed`, func() { parsePermascroll() })
 
-	Init()
-	parsePermascroll()
+	Init("")
 	assert.Equal([]version{{}}, history)
 
-	permascroll = []byte(magic + "S1,0\nI1,0:Test\n2I1,0:Two\n")
+	permascroll = []byte(magic + "S1,0\nI1,0:Test\n2I1,0:Two\n@3C1,0+3\n")
 	parsePermascroll()
-	assert.Equal(3, current)
+	assert.Equal(4, current)
+	assert.Equal([]cutType{{"Two", epoch.Add(3 * time.Minute)}}, cut)
 	assert.Equal([]string{"Two"}, document)
-	assert.Equal([]version{{0, 0, 3}, {8, 0, 2}, {13, 1, 0}, {23, 0, 0}}, history)
+	assert.Equal([]version{{0, 0, 3}, {8, 0, 2}, {13, 1, 0}, {23, 0, 4}, {33, 3, 0}}, history)
 }
 
 func TestParseTime(t *testing.T) {
 	assert := assert.New(t)
+	Init("")
 
 	assert.Equal(time.Time{}, parseTime(""))
 	assert.Equal(epoch.Add(time.Millisecond), parseTime("+1"))
@@ -521,7 +503,7 @@ func TestSplitParagraph(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(_ *testing.T) {
-			Init()
+			Init("")
 			document[0] = test.para
 			SplitParagraph(1, test.pos)
 			assert.Equal(test.document, document)
@@ -532,7 +514,7 @@ func TestSplitParagraph(t *testing.T) {
 func TestRedo(t *testing.T) {
 	assert := assert.New(t)
 
-	Init()
+	Init("")
 	Redo()
 	assert.Equal(0, current)
 
@@ -597,7 +579,7 @@ func TestRedo(t *testing.T) {
 func TestUndo(t *testing.T) {
 	assert := assert.New(t)
 
-	Init()
+	Init("")
 	Undo()
 	assert.Equal(0, current)
 
@@ -638,7 +620,7 @@ func TestUndo(t *testing.T) {
 
 func TestValidatePn(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 	assert.PanicsWithError("paragraph '0' out of range", func() { validatePn(0) })
 	assert.NotPanics(func() { validatePn(1) })
 	assert.PanicsWithError("paragraph '2' out of range", func() { validatePn(2) })
@@ -646,7 +628,7 @@ func TestValidatePn(t *testing.T) {
 
 func TestValidatePos(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 	assert.PanicsWithError("pos '1,-1' out of range", func() { validatePos(1, -1) })
 	assert.NotPanics(func() { validatePos(1, 0) })
 	assert.PanicsWithError("pos '1,1' out of range", func() { validatePos(1, 1) })
@@ -658,7 +640,7 @@ func TestValidatePos(t *testing.T) {
 
 func TestValidateSpan(t *testing.T) {
 	assert := assert.New(t)
-	Init()
+	Init("")
 	assert.PanicsWithError("end '1,0-0' out of range", func() { validateSpan(1, 0, 0) })
 	assert.NotPanics(func() { validateSpan(1, 0, 1) })
 

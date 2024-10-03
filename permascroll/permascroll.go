@@ -77,7 +77,7 @@ var (
 	errRange = errors.New("out of range")
 )
 
-func init() { Init() }
+func init() { Init("") }
 
 func cutTime() string {
 	var elapsed time.Duration
@@ -113,7 +113,7 @@ func updateHash(pn int) {
 }
 
 // Initialise permascroll.
-func Init() {
+func Init(p string) {
 	current, deleting, pending, paragraph, offset = 0, 0, "", 1, 0
 	cut = []cutType{}
 	cutHash = map[uint64]int{}
@@ -122,6 +122,11 @@ func Init() {
 	history = []version{{}} // Start with a single empty version
 	histHash = map[uint64]int{hashDocument(): 0}
 	permascroll = []byte(magic)
+
+	if len(p) > 0 {
+		permascroll = append(permascroll, []byte(p)...)
+		parsePermascroll()
+	}
 }
 
 // Append text to a paragraph.
