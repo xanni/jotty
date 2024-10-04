@@ -47,7 +47,7 @@ func init() {
 	s := strings.Split(string(b), "\n")
 	for _, t := range s {
 		k, v, _ := strings.Cut(t, "|")
-		v = strings.Replace(v, `\n`, "\n", -1)
+		v = strings.ReplaceAll(v, `\n`, "\n")
 		Text[k] = v
 		TextWidth[k] = uniseg.StringWidth(v)
 	}

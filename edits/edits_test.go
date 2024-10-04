@@ -460,6 +460,10 @@ func TestScreen(t *testing.T) {
 	cursor[Para] = 3
 	assert.Equal("1 2 \n3 4\n\n_\n@14/14", Screen())
 
+	currentCut = ps.CopyText(1, 2, 7)
+	Mode = Cuts
+	assert.Equal("1 2 \n3 4\n\n——————————\nB C D", Screen())
+
 	i18n.HelpText, i18n.HelpWidth = []string{"Test"}, 4
 	Mode = Help
 	assert.Equal("   Test\n——————————\n\n_\n@14/14", Screen())

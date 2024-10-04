@@ -50,6 +50,21 @@ func cutStyle(s string) string {
 	return output.String(s).CrossOut().Foreground(output.Color(cutColor)).String()
 }
 
+// Currently selected cut.
+func cutCurStyle(s string) string {
+	return output.String(s).Reverse().String()
+}
+
+// Timestamp of unselected cut.
+func cutTimeStyle(s string) string {
+	return output.String(s).Reverse().Foreground(output.Color(cutColor)).String()
+}
+
+// Cut window.
+func cutWinStyle(s string) string {
+	return output.String(s).Foreground(output.Color(cutColor)).String()
+}
+
 func errorStyle(s string) string {
 	return output.String(s).Foreground(output.Color(errorColor)).String()
 }

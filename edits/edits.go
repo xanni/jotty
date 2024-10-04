@@ -55,6 +55,7 @@ type ModeType int
 
 const (
 	None ModeType = iota
+	Cuts
 	Error
 	Help
 	Quit
@@ -603,7 +604,7 @@ func truncate(maxLen int, s string) string {
 		return s
 	}
 
-	half := maxLen / 2
+	half := (maxLen - 1) / 2
 
 	return s[:half] + string(moreChar) + s[len(s)-half:]
 }
@@ -642,8 +643,9 @@ func Screen() string {
 	}
 
 	switch Mode {
-	case Quit:
-		t = append(t, confirmStyle(message))
+	case Cuts:
+		window := cutsWindow()
+		t = append(t[:len(t)-len(window)+1], window...)
 	case Error:
 		t = append(t, errorString()+" "+errorStyle(truncate(ex-(i18n.TextWidth["error"]+1), message)))
 	case Help:
@@ -651,6 +653,8 @@ func Screen() string {
 		t = slices.Delete(t, 0, len(window))
 		t = slices.Insert(t, 0, window...)
 		t = append(t, statusLine())
+	case Quit:
+		t = append(t, confirmStyle(message))
 	default:
 		t = append(t, statusLine())
 	}

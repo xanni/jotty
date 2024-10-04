@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xanni/jotty/edits"
 	"github.com/xanni/jotty/i18n"
 	ps "github.com/xanni/jotty/permascroll"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 //go:generate sh -c "printf %s $(git describe --always --tags) > version.txt"
@@ -36,6 +36,8 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyTab: edits.Mark, tea.KeyShiftTab: edits.ClearMarks,
 	tea.KeyCtrlJ: edits.Join,
 	tea.KeyEnter: edits.Enter, tea.KeySpace: edits.Space,
+	tea.KeyPgDown: edits.NextCut, tea.KeyCtrlN: edits.NextCut,
+	tea.KeyPgUp: edits.PrevCut, tea.KeyCtrlP: edits.PrevCut,
 	tea.KeyCtrlQ: confirmExit, tea.KeyCtrlW: confirmExit,
 	tea.KeyHome: edits.Home, tea.KeyCtrlU: edits.Home,
 	tea.KeyInsert: edits.InsertCut, tea.KeyCtrlV: edits.InsertCut,
@@ -55,9 +57,7 @@ func export()      { edits.Export(exportPath) }
 func help()        { edits.SetMode(edits.Help, "") }
 
 // True if the window is sufficiently large.
-func isSizeOK() bool {
-	return sx > 5 && sy > 2
-}
+func isSizeOK() bool { return sx > 5 && sy > 2 }
 
 func (m model) Init() tea.Cmd {
 	edits.ID = "Jotty " + version
@@ -65,13 +65,31 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
-func acceptKey(m *model, msg tea.KeyMsg) {
-	if isSizeOK() {
-		m.timer.Reset(syncDelay)
-		if f, ok := dispatch[msg.Type]; ok {
-			f()
-		} else if msg.Type == tea.KeyRunes && !msg.Alt {
-			edits.InsertRunes(msg.Runes)
+func (m model) acceptKey(msg tea.KeyMsg) {
+	m.timer.Reset(syncDelay)
+	if f, ok := dispatch[msg.Type]; ok {
+		f()
+	} else if msg.Type == tea.KeyRunes && !msg.Alt {
+		edits.InsertRunes(msg.Runes)
+	}
+}
+
+func (m model) cutsKey(key tea.KeyMsg) {
+	switch key.Type {
+	case tea.KeyEsc:
+		edits.ClearMode()
+	case tea.KeyPgDown, tea.KeyCtrlN:
+		edits.NextCut()
+	case tea.KeyPgUp, tea.KeyCtrlP:
+		edits.PrevCut()
+	case tea.KeySpace, tea.KeyEnter, tea.KeyInsert, tea.KeyCtrlV:
+		edits.ClearMode()
+		edits.InsertCut()
+	case tea.KeyRunes:
+		if !key.Alt {
+			m.timer.Reset(syncDelay)
+			edits.ClearMode()
+			edits.InsertRunes(key.Runes)
 		}
 	}
 }
@@ -82,7 +100,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sx, sy = msg.Width, msg.Height
 		edits.ResizeScreen(msg.Width, msg.Height)
 	case tea.KeyMsg:
+		if !isSizeOK() {
+			break
+		}
+
 		switch edits.Mode {
+		case edits.Cuts:
+			m.cutsKey(msg)
 		case edits.Error:
 			if msg.Type == tea.KeySpace || msg.Type == tea.KeyEnter || msg.Type == tea.KeyEsc {
 				edits.ClearMode()
@@ -99,7 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		default:
-			acceptKey(&m, msg)
+			m.acceptKey(msg)
 		}
 	}
 

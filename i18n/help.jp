@@ -9,9 +9,10 @@
 以下のキーは特別な操作を実行します：
 "↑" 範囲を広げる、"↓" 範囲を狭める、"←" 左に移動、"→" 右に移動、
 "Backspace"/"Ctrl-H" で前のテキストを消去、"Enter"/"Ctrl-M" 新しい段落、
+"Tab"/"Ctrl-I" でマークを設定、"Shift-Tab" で全てのマークをクリア、
 "Ctrl-C" テキストをコピー、"Ctrl-J" 隣接する文や段落を結合、
 "Insert"/"Ctrl-V" で切り取ったまたはコピーしたテキストを挿入、
 "Delete"/"Ctrl-X" でテキストを切り取り、"Ctrl-E" でエクスポート、
 "Home"/"Ctrl-U" で先頭に移動、"End"/"Ctrl-D" で末尾に移動、
-"Tab"/"Ctrl-I" でマークを設定、"Shift-Tab" で全てのマークをクリア、
-"Ctrl-Q"/"Ctrl-W" で終了、"Ctrl-Z" で元に戻す、"Ctrl-Y" でやり直し
+"PageUp"/"Ctrl-P" は前の切り取りを選択し、"PageDown"/"Ctrl-N" は次の切り取りを選択し、
+"Ctrl-Q"/"Ctrl-W" で終了、"Ctrl-Z" で元に戻す、"Ctrl-Y" でやり直し。
