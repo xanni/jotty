@@ -339,6 +339,10 @@ func scopeSpan() (int, int) {
 }
 
 func Copy() {
+	if len(mark) > 2 && secondary.oend > secondary.obegin {
+		ps.CopyText(markPara, secondary.obegin, secondary.oend)
+	}
+
 	if len(mark) > 0 && primary.oend > primary.obegin {
 		currentCut = ps.CopyText(markPara, primary.obegin, primary.oend)
 
@@ -353,6 +357,10 @@ func Copy() {
 }
 
 func cutPrimary() {
+	if primary.oend <= primary.obegin {
+		return
+	}
+
 	currentCut = ps.CutText(markPara, primary.obegin, primary.oend)
 	cursor = counts{Char: primary.cbegin, Para: markPara}
 
@@ -365,8 +373,8 @@ func cutPrimary() {
 }
 
 func cut() {
-	if len(mark) > 2 {
-		ps.DeleteText(markPara, secondary.obegin, secondary.oend)
+	if len(mark) > 2 && secondary.oend > secondary.obegin {
+		ps.CutText(markPara, secondary.obegin, secondary.oend)
 	}
 
 	cutPrimary()

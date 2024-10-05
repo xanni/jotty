@@ -416,6 +416,20 @@ func TestCopy(t *testing.T) {
 	Copy()
 	text, _ = ps.GetCut(currentCut)
 	assert.Equal("e", text)
+
+	ps.AppendText(1, " more")
+	markPara, mark, primary, secondary = 1, []int{0, 4, 9}, selection{0, 4, 0, 4}, selection{9, 9, 9, 9}
+	Copy()
+	assert.Equal(3, ps.Cuts())
+	text, _ = ps.GetCut(currentCut)
+	assert.Equal("Test", text)
+
+	markPara, mark, primary, secondary = 1, []int{1, 3, 7, 8}, selection{1, 3, 1, 3}, selection{7, 8, 7, 8}
+	Copy()
+	text, _ = ps.GetCut(currentCut)
+	assert.Equal("es", text, "primary cut")
+	text, _ = ps.GetCut(currentCut - 1)
+	assert.Equal("r", text, "secondary cut")
 }
 
 func TestCut(t *testing.T) {
@@ -426,12 +440,22 @@ func TestCut(t *testing.T) {
 	ps.AppendText(1, "Test")
 	markPara, mark, primary = 1, []int{1, 2}, selection{1, 2, 1, 2}
 	cut()
+	text, _ := ps.GetCut(currentCut)
+	assert.Equal("e", text)
 	assert.Equal("Tst", ps.GetText(1))
 
 	ps.AppendText(1, " more")
-	markPara, mark, primary, secondary = 1, []int{1, 3, 6, 7}, selection{1, 3, 1, 3}, selection{6, 7, 6, 7}
+	markPara, mark, primary, secondary = 1, []int{5, 6, 9}, selection{5, 6, 5, 6}, selection{9, 9, 9, 9}
 	cut()
-	assert.Equal("T moe", ps.GetText(1))
+	assert.Equal(2, ps.Cuts())
+
+	markPara, mark, primary, secondary = 1, []int{1, 3, 5, 6}, selection{1, 3, 1, 3}, selection{5, 6, 5, 6}
+	cut()
+	text, _ = ps.GetCut(currentCut)
+	assert.Equal("st", text, "primary cut")
+	text, _ = ps.GetCut(currentCut - 1)
+	assert.Equal("r", text, "secondary cut")
+	assert.Equal("T me", ps.GetText(1))
 }
 
 func TestCutPrimary(t *testing.T) {
@@ -440,7 +464,11 @@ func TestCutPrimary(t *testing.T) {
 	ResizeScreen(margin+4, 3)
 
 	ps.AppendText(1, "Test")
-	markPara, primary = 1, selection{1, 2, 1, 2}
+	markPara = 1
+	cutPrimary()
+	assert.Zero(currentCut)
+
+	primary = selection{1, 2, 1, 2}
 	cutPrimary()
 	assert.Equal(para{3, []int{0}, []int{0}, []string{"T_st"}}, cache[0])
 	assert.Nil(mark)
