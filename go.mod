@@ -8,7 +8,7 @@ require (
 	github.com/jeandeaual/go-locale v0.0.0-20240223122105-ce5225dcaa49
 	github.com/muesli/termenv v0.15.2
 	github.com/rivo/uniseg v0.4.7
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 )
 
 require (
