@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/charmbracelet/bubbletea v1.2.2
+	github.com/charmbracelet/bubbletea v1.2.4
 	github.com/jeandeaual/go-locale v0.0.0-20240223122105-ce5225dcaa49
 	github.com/muesli/termenv v0.15.2
 	github.com/rivo/uniseg v0.4.7
