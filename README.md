@@ -560,7 +560,7 @@ and Kenichi Unnai for reviewing the translations.
 
 ## Copyright notice and license
 
-Copyright © 2024 Andrew Pam <mailto:andrew@sericyb.com.au>
+Copyright © 2024–2025 Andrew Pam <mailto:andrew@sericyb.com.au>
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

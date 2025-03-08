@@ -161,7 +161,7 @@ func cleanup() {
 }
 
 func usage() {
-	fmt.Println("https://github.com/xanni/jotty  ⓒ 2024 Andrew Pam <xanni@xanadu.net>")
+	fmt.Println("https://github.com/xanni/jotty  ⓒ 2024–2025 Andrew Pam <xanni@xanadu.net>")
 	fmt.Printf("\n"+i18n.Text["usage"]+"\n", filepath.Base(os.Args[0]), defaultName)
 	flag.PrintDefaults()
 }
