@@ -27,7 +27,7 @@ func insertParaBreak() {
 
 	pn++
 	cursor = counts{0, 0, 0, pn}
-	cache = slices.Insert[[]para](cache, pn-1, para{})
+	cache = slices.Insert(cache, pn-1, para{})
 	initialCap = true
 	ocursor = counts{}
 	scope = Para

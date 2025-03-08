@@ -248,12 +248,12 @@ func preceding(end int) (begin int) {
 			begin = end - 1
 		}
 	case Word:
-		i, _ := slices.BinarySearch[[]int](p.cword, end)
+		i, _ := slices.BinarySearch(p.cword, end)
 		if i > 0 {
 			begin = p.cword[i-1]
 		}
 	case Sent:
-		i, _ := slices.BinarySearch[[]int](p.csent, end)
+		i, _ := slices.BinarySearch(p.csent, end)
 		if i > 0 {
 			begin = p.csent[i-1]
 		}
@@ -274,7 +274,7 @@ func following(begin int) (end int) {
 			end = begin + 1
 		}
 	case Word:
-		i, found := slices.BinarySearch[[]int](p.cword, begin)
+		i, found := slices.BinarySearch(p.cword, begin)
 		if found {
 			i++
 		}
@@ -282,7 +282,7 @@ func following(begin int) (end int) {
 			end = p.cword[i]
 		}
 	case Sent:
-		i, found := slices.BinarySearch[[]int](p.csent, begin)
+		i, found := slices.BinarySearch(p.csent, begin)
 		if found {
 			i++
 		}

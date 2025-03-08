@@ -52,8 +52,8 @@ func paragraphChars(pn int) int { return cache[pn-1].chars }
 // Find the current word and sentence in the index.
 func updateCursorPos() {
 	p := cache[cursor[Para]-1]
-	cursor[Word], _ = slices.BinarySearch[[]int](p.cword, cursor[Char])
-	cursor[Sent], _ = slices.BinarySearch[[]int](p.csent, cursor[Char])
+	cursor[Word], _ = slices.BinarySearch(p.cword, cursor[Char])
+	cursor[Sent], _ = slices.BinarySearch(p.csent, cursor[Char])
 }
 
 func leftChar() {
