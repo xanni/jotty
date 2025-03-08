@@ -509,50 +509,7 @@ This implementation differs from the earlier Xanadu designs in the following way
 
 Operations are recorded in the permascroll as follows:
 
-```plantuml
-@startebnf
-tab       = ? 0x09 ? ;
-newline   = ? 0x0a ? ;
-character = ? 0x20 - 0x7e ? ;
-digit     = ? 0x30 - 0x39 ? ;
-
-integer = {digit}- ;
-text    = {character}- ;
-
-(* Paragraph number and byte offset *)
-address = integer, ',', integer ;
-
-(* Byte offset and size of selection *)
-span = integer, '+', integer- ;
-
-(* Time difference in minutes or milliseconds *)
-time = ( '@' | '+' ), {digit}- ;
-
-(* Copy or cut text *)
-copy = 'C', address,
-  ( '+', integer | ':', text ), newline ;
-
-(* Insert or delete text *)
-insert_delete = ( 'I' | 'D' ), address, ':', text, newline ;
-
-(* Replace text *)
-replace = 'R', address, ':', text, tab, text, newline ;
-
-(* Split or merge paragraphs *)
-split_merge = ( 'S' | 'M' ), address, newline;
-
-(* Exchange paragraphs or spans *)
-exchange = 'X', integer, [ ',', span, '/', span ], newline ;
-
-(* Permascroll format descriptor *)
-magic = 'JottyV0', newline ;
-
-operation = [ integer ], [ time ],
-  ( copy | insert_delete | replace | split_merge | exchange ) ;
-
-permascroll = magic, { operation } ;
-@endebnf
-```
+![Permascroll EBNF](permascroll.png)
 
 ### Permascroll format design considerations
 
