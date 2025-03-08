@@ -3,6 +3,9 @@
 A text editor inspired by Ted Nelson's Jot:
 <https://xanadu.com/jotinstructions.txt>
 
+The primary goal is to demonstrate a keyboard-only user interface that makes
+revising and rearranging text fast and convenient.
+
 This user interface is explicitly not designed for editing highly structured
 documents such as computer code.  It is intended specifically for entering and
 editing natural language text.  Other editors with different user interfaces
@@ -43,7 +46,7 @@ default to `jotty.jot` if not provided, or you can use the options `-help` or
 1. Ensure that work is never lost by
     * retaining all versions and
     * continuously persisting all changes
-2. Support rapid and seamless workflow by
+2. Support a rapid and seamless workflow by
     * ensuring all operations can be performed with the keyboard,
     * performing common operations on convenient units of text, and
     * minimising the use of modifier keys
@@ -209,11 +212,12 @@ conventional in other editors.
   paragraph.
 
 Whenever spaces or `Enter` have been input the cursor will change to indicate
-the current scope and if the scope is now sentence or greater, the next
-alphabetical character (ignoring punctuation) will be capitalised.  The cursor
-will change to an upward arrow "↑".  Cursor movement or characters that are
-neither alphabetical nor punctuation will end the special capitalisation
-behaviour.
+the current scope.  If the scope is now sentence or greater, the next
+alphabetical character (ignoring punctuation) will be capitalised and the
+cursor will instead change to an upward arrow "↑".  Cursor movement, entering a
+capitalised alphabetical character or any characters that are neither
+alphabetical nor punctuation will end the special capitalisation behaviour and
+the cursor will revert to the scope indicator.
 
 `Left` moves the cursor one scope unit to the left.
 
