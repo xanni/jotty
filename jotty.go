@@ -53,8 +53,15 @@ var (
 type model struct{ timer *time.Timer }
 
 func confirmExit() { edits.SetMode(edits.Quit, i18n.Text["confirm"]) }
-func export()      { edits.Export(exportPath) }
 func help()        { edits.SetMode(edits.Help, "") }
+
+func export() {
+	if f, err := os.Stat(exportPath); err == nil && f.Size() > 0 {
+		edits.SetMode(edits.Overwrite, i18n.Text["overwrite"])
+	} else {
+		edits.Export(exportPath)
+	}
+}
 
 // True if the window is sufficiently large.
 func isSizeOK() bool { return sx > 5 && sy > 2 }
@@ -115,11 +122,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Type == tea.KeyEsc {
 				edits.ClearMode()
 			}
+		case edits.Overwrite:
+			switch msg.Type {
+			case tea.KeyEsc:
+				edits.ClearMode()
+			case tea.KeyEnter, tea.KeyCtrlE:
+				edits.ClearMode()
+				edits.Export(exportPath)
+			}
 		case edits.Quit:
 			switch msg.Type {
 			case tea.KeyEsc:
 				edits.ClearMode()
-			case tea.KeySpace, tea.KeyEnter, tea.KeyCtrlQ, tea.KeyCtrlW:
+			case tea.KeyEnter, tea.KeyCtrlQ, tea.KeyCtrlW:
 				return m, tea.Quit
 			}
 		default:

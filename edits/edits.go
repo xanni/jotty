@@ -58,6 +58,7 @@ const (
 	Cuts
 	Error
 	Help
+	Overwrite
 	Quit
 )
 
@@ -653,7 +654,7 @@ func Screen() string {
 		t = slices.Delete(t, 0, len(window))
 		t = slices.Insert(t, 0, window...)
 		t = append(t, statusLine())
-	case Quit:
+	case Overwrite, Quit:
 		t = append(t, confirmStyle(message))
 	default:
 		t = append(t, statusLine())

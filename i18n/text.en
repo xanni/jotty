@@ -2,5 +2,6 @@ confirm|Confirm exit?
 cut|cut:
 error|Error:
 help|ESC=Help
+overwrite|Confirm overwrite of existing file?
 usage|Usage:\n  %s [filename]\n\nIf filename is not provided, defaults to '%s'\n\nOptions:
 version|print program version and exit

@@ -2,5 +2,6 @@ confirm|Beenden bestätigen?
 cut|Ausschneiden:
 error|Fehler:
 help|ESC=Hilfe
+overwrite|Überschreiben vorhandener Datei bestätigen?
 usage|Verwendung:\n  %s [Dateiname]\n\nWenn kein Dateiname angegeben ist, wird standardmäßig „%s“ verwendet\n\nOptionen:
 version|Programmversion drucken und beenden

@@ -298,9 +298,9 @@ also deselect the cut buffer.
 `Escape` when the cut buffer is not selected brings up a menu, if implemented,
 or the help screen.
 
-`^Q` and `^W` bring up a quit confirmation.  In the quit confirmation, `Space`,
-`Enter`, `^Q` and `^W` confirm the quit while `Escape` cancels it.  Note that no
-progress will be lost due to a quit. A quit confirmation may not be required
+`^Q` and `^W` bring up a quit confirmation.  In the quit confirmation, `Enter`
+or another `^Q` or `^W` confirms the quit while `Escape` cancels it.  Note that
+no progress will be lost due to a quit. A quit confirmation may not be required
 when Jotty is being used as a library as that may be implemented by the calling
 application.
 
