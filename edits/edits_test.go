@@ -24,7 +24,7 @@ func resetCache() {
 }
 
 func setupTest() {
-	ID = "J"
+	name = "J"
 	cursor = counts{Para: 1}
 	currentCut, firstPara, firstLine = 0, 0, 0
 	initialCap, prevSelected, Mode = false, false, None
@@ -74,7 +74,7 @@ func TestStatusLine(t *testing.T) {
 	assert := assert.New(t)
 	setupTest()
 
-	ID = "Jotty v0"
+	name = "Jotty v0"
 	initialCap = false
 	ps.AppendText(1, "Testing")
 	currentCut = ps.CopyText(1, 0, 7)
@@ -87,7 +87,7 @@ func TestStatusLine(t *testing.T) {
 	assert.Equal(expect, statusLine())
 
 	ResizeScreen(31, 3)
-	expect = ID + "  " + expect
+	expect = name + "  " + expect
 	assert.Equal(expect, statusLine())
 
 	ResizeScreen(46, 3)

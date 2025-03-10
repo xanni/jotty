@@ -39,9 +39,9 @@ implemented in the "uniseg" module.
 */
 
 var (
-	ID          string // The program name and version
 	counterChar = [...]rune{'@', '#', '$', '¶'}
 	cursorChar  = [...]rune{'_', '#', '$', '¶'}
+	name        string // The program name and version
 )
 
 const (
@@ -182,10 +182,10 @@ func statusLine() string {
 	}
 
 	var t strings.Builder
-	if len(ID)+len(padding)+w < ex {
-		t.WriteString(ID)
+	if len(name)+len(padding)+w < ex {
+		t.WriteString(name)
 		t.WriteString(padding)
-		w += len(ID) + len(padding)
+		w += len(name) + len(padding)
 	}
 
 	if w >= ex {
