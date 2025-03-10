@@ -429,7 +429,7 @@ func TestScreen(t *testing.T) {
 	setupTest()
 	ResizeScreen(margin+4, 5)
 
-	SetMode(Quit, "Confirm")
+	SetMode(ConfirmQuit, "Confirm")
 	assert.Equal("_\n\n\n\nConfirm", Screen())
 
 	SetMode(Error, "test")

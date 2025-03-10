@@ -409,6 +409,8 @@ func Export(path string) {
 
 	if err != nil {
 		SetMode(Error, err.Error())
+	} else {
+		ClearMode()
 	}
 }
 

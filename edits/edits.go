@@ -55,11 +55,12 @@ type ModeType int
 
 const (
 	None ModeType = iota
+	ConfirmOverwrite
+	ConfirmQuit
 	Cuts
 	Error
 	Help
-	Overwrite
-	Quit
+	PromptExport
 )
 
 type Scope int
@@ -644,6 +645,8 @@ func Screen() string {
 	}
 
 	switch Mode {
+	case ConfirmOverwrite, ConfirmQuit:
+		t = append(t, confirmStyle(message))
 	case Cuts:
 		window := cutsWindow()
 		t = append(t[:len(t)-len(window)+1], window...)
@@ -654,8 +657,8 @@ func Screen() string {
 		t = slices.Delete(t, 0, len(window))
 		t = slices.Insert(t, 0, window...)
 		t = append(t, statusLine())
-	case Overwrite, Quit:
-		t = append(t, confirmStyle(message))
+	case PromptExport:
+		t = append(t, promptLine())
 	default:
 		t = append(t, statusLine())
 	}

@@ -38,7 +38,7 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyEnter: edits.Enter, tea.KeySpace: edits.Space,
 	tea.KeyPgDown: edits.NextCut, tea.KeyCtrlN: edits.NextCut,
 	tea.KeyPgUp: edits.PrevCut, tea.KeyCtrlP: edits.PrevCut,
-	tea.KeyCtrlQ: confirmExit, tea.KeyCtrlW: confirmExit,
+	tea.KeyCtrlQ: quit, tea.KeyCtrlW: quit,
 	tea.KeyHome: edits.Home, tea.KeyCtrlU: edits.Home,
 	tea.KeyInsert: edits.InsertCut, tea.KeyCtrlV: edits.InsertCut,
 	tea.KeyDelete: edits.Delete, tea.KeyCtrlX: edits.Delete,
@@ -46,22 +46,15 @@ var dispatch = map[tea.KeyType]func(){
 }
 
 var (
-	exportPath = "jotty.txt"
-	sx, sy     int // screen dimensions
+	exportPath = "jotty.txt" // TODO Add separate exportMarkedPath
+	sx, sy     int           // screen dimensions
 )
 
 type model struct{ timer *time.Timer }
 
-func confirmExit() { edits.SetMode(edits.Quit, i18n.Text["confirm"]) }
-func help()        { edits.SetMode(edits.Help, "") }
-
-func export() {
-	if f, err := os.Stat(exportPath); err == nil && f.Size() > 0 {
-		edits.SetMode(edits.Overwrite, i18n.Text["overwrite"])
-	} else {
-		edits.Export(exportPath)
-	}
-}
+func export() { edits.PromptDefault(exportPath); edits.SetMode(edits.PromptExport, edits.IconExport) }
+func help()   { edits.SetMode(edits.Help, "") }
+func quit()   { edits.SetMode(edits.ConfirmQuit, i18n.Text["confirm"]) }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool { return sx > 5 && sy > 2 }
@@ -101,6 +94,26 @@ func (m model) cutsKey(key tea.KeyMsg) {
 	}
 }
 
+func (m model) exportKey(key tea.KeyMsg) {
+	switch key.Type {
+	case tea.KeyBackspace, tea.KeyCtrlH:
+		edits.PromptBackspace()
+	case tea.KeyEsc:
+		edits.ClearMode()
+	case tea.KeyEnter:
+		exportPath = edits.PromptResponse()
+		if f, err := os.Stat(exportPath); err == nil && f.Size() > 0 {
+			edits.SetMode(edits.ConfirmOverwrite, i18n.Text["overwrite"])
+		} else {
+			edits.Export(exportPath)
+		}
+	case tea.KeyRunes, tea.KeySpace:
+		if !key.Alt {
+			edits.PromptAppend(key.Runes)
+		}
+	}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -114,6 +127,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch edits.Mode {
 		case edits.Cuts:
 			m.cutsKey(msg)
+		case edits.ConfirmOverwrite:
+			switch msg.Type {
+			case tea.KeyEsc:
+				export()
+			case tea.KeyEnter, tea.KeyCtrlE:
+				edits.Export(exportPath)
+			}
+		case edits.ConfirmQuit:
+			switch msg.Type {
+			case tea.KeyEsc:
+				edits.ClearMode()
+			case tea.KeyEnter, tea.KeyCtrlQ, tea.KeyCtrlW:
+				return m, tea.Quit
+			}
 		case edits.Error:
 			if msg.Type == tea.KeySpace || msg.Type == tea.KeyEnter || msg.Type == tea.KeyEsc {
 				edits.ClearMode()
@@ -122,21 +149,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Type == tea.KeyEsc {
 				edits.ClearMode()
 			}
-		case edits.Overwrite:
-			switch msg.Type {
-			case tea.KeyEsc:
-				edits.ClearMode()
-			case tea.KeyEnter, tea.KeyCtrlE:
-				edits.ClearMode()
-				edits.Export(exportPath)
-			}
-		case edits.Quit:
-			switch msg.Type {
-			case tea.KeyEsc:
-				edits.ClearMode()
-			case tea.KeyEnter, tea.KeyCtrlQ, tea.KeyCtrlW:
-				return m, tea.Quit
-			}
+		case edits.PromptExport:
+			m.exportKey(msg)
 		default:
 			m.acceptKey(msg)
 		}

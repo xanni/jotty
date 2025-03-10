@@ -14,6 +14,8 @@ const (
 	helpColor      = "14" // Help text: ANSIBrightCyan
 	markColor      = "11" // Edit mark: ANSIBrightYellow
 	primaryColor   = "9"  // Primary selection: ANSIBrightRed
+	promptColor    = "11" // Input prompt: ANSIBrightYellow
+	responseColor  = "10" // Input response: ANSIBrightGreen
 	secondaryColor = "13" // Secondary selection: ANSIBrightMagenta
 )
 
@@ -75,6 +77,14 @@ func helpStyle(s string) string {
 
 func primaryStyle(s string) string {
 	return output.String(s).Reverse().Foreground(output.Color(primaryColor)).String()
+}
+
+func promptStyle(s string) string {
+	return output.String(s).Reverse().Foreground(output.Color(promptColor)).String()
+}
+
+func responseStyle(s string) string {
+	return output.String(s).Foreground(output.Color(responseColor)).String()
 }
 
 func secondaryStyle(s string) string {
