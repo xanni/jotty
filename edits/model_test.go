@@ -2,6 +2,7 @@ package edits
 
 import (
 	"bytes"
+	"os"
 	"testing"
 	"time"
 
@@ -13,10 +14,9 @@ import (
 
 func setupModel(t *testing.T) *tt.TestModel {
 	setupTest()
-	sx, sy = 15, 3
-	ResizeScreen(sx, sy)
+	sx = 0
 	m.timer = time.NewTimer(time.Minute)
-	tm := tt.NewTestModel(t, m, tt.WithInitialTermSize(sx, sy))
+	tm := tt.NewTestModel(t, m, tt.WithInitialTermSize(15, 3))
 	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("@0/0")) })
 
 	return tm
@@ -64,6 +64,61 @@ func TestCuts(t *testing.T) {
 
 	tm.Type(".")
 	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("@5/5")) })
+}
+
+func TestExportModel(t *testing.T) {
+	tm := setupModel(t)
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlE})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte(IconExport)) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("@0/0")) })
+
+	exportPath = ""
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlE})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte(IconExport)) })
+	tm.Type("..")
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("..")) })
+	tm.Send(tea.KeyMsg{Type: tea.KeyBackspace})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte(".")) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("Confirm")) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte(IconExport)) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("Confirm")) })
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlE})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("Error")) })
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("@0/0")) })
+}
+
+func TestExportText(t *testing.T) {
+	assert := assert.New(t)
+	tm := setupModel(t)
+	tm.Type("Test")
+
+	testFile, err := os.CreateTemp("", "jotty")
+	if err != nil {
+		panic(err)
+	}
+	exportPath = testFile.Name()
+	defer os.Remove(exportPath)
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlE})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte(IconExport)) })
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("@4/4")) })
+
+	var text []byte
+	if text, err = os.ReadFile(exportPath); err != nil {
+		panic(err)
+	}
+	assert.Equal("Test\n", string(text))
 }
 
 func TestHelp(t *testing.T) {
