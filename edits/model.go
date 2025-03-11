@@ -13,19 +13,19 @@ import (
 const syncDelay = 10 * time.Second
 
 var dispatch = map[tea.KeyType]func(){
-	tea.KeyEsc: help,
+	tea.KeyEsc: _help,
 	tea.KeyUp:  IncScope, tea.KeyDown: DecScope,
 	tea.KeyLeft: Left, tea.KeyRight: Right,
 	tea.KeyCtrlC: Copy,
 	tea.KeyEnd:   End, tea.KeyCtrlD: End,
-	tea.KeyCtrlE:     export,
+	tea.KeyCtrlE:     _export,
 	tea.KeyBackspace: Backspace, tea.KeyCtrlH: Backspace,
 	tea.KeyTab: Mark, tea.KeyShiftTab: ClearMarks,
 	tea.KeyCtrlJ: Join,
 	tea.KeyEnter: Enter, tea.KeySpace: Space,
 	tea.KeyPgDown: NextCut, tea.KeyCtrlN: NextCut,
 	tea.KeyPgUp: PrevCut, tea.KeyCtrlP: PrevCut,
-	tea.KeyCtrlQ: quit, tea.KeyCtrlW: quit,
+	tea.KeyCtrlQ: _quit, tea.KeyCtrlW: _quit,
 	tea.KeyHome: Home, tea.KeyCtrlU: Home,
 	tea.KeyInsert: InsertCut, tea.KeyCtrlV: InsertCut,
 	tea.KeyDelete: Delete, tea.KeyCtrlX: Delete,
@@ -41,9 +41,9 @@ type model struct{ timer *time.Timer }
 
 var m model
 
-func export() { PromptDefault(exportPath); SetMode(PromptExport, IconExport) }
-func help()   { SetMode(Help, "") }
-func quit()   { SetMode(ConfirmQuit, i18n.Text["confirm"]) }
+func _export() { PromptDefault(exportPath); SetMode(PromptExport, IconExport) }
+func _help()   { SetMode(Help, "") }
+func _quit()   { SetMode(ConfirmQuit, i18n.Text["confirm"]) }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool { return sx > 5 && sy > 2 }
@@ -134,7 +134,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case ConfirmOverwrite:
 			switch msg.Type {
 			case tea.KeyEsc:
-				export()
+				_export()
 			case tea.KeyEnter, tea.KeyCtrlE:
 				Export(exportPath)
 			}
