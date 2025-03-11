@@ -347,6 +347,15 @@ type line struct {
 
 // Helper function.
 func (l *line) updateBeforeAndAfter(g []byte) {
+	if l.c < cursor[Char] {
+		before.Write(g)
+	} else {
+		after.Write(g)
+	}
+}
+
+// Helper function.
+func (l *line) updateSelectionOffsets() {
 	if l.pn == markPara {
 		offset := before.Len() + after.Len()
 		switch l.c {
@@ -361,12 +370,6 @@ func (l *line) updateBeforeAndAfter(g []byte) {
 		case secondary.cend:
 			secondary.oend = offset
 		}
-	}
-
-	if l.c < cursor[Char] {
-		before.Write(g)
-	} else {
-		after.Write(g)
 	}
 }
 
@@ -449,6 +452,7 @@ func (l *line) drawLine() string {
 		r, _ = utf8.DecodeRune(g)
 
 		if l.pn == cursor[Para] {
+			l.updateSelectionOffsets()
 			l.updateBeforeAndAfter(g)
 		}
 
@@ -517,19 +521,11 @@ func drawPara(pn int) {
 		}
 	}
 
+	l.updateSelectionOffsets()
+
 	// Update character counts
 	p.chars = l.c
 	total[Char] += l.c
-
-	// Update selections
-	if pn == markPara {
-		offset := before.Len() + after.Len()
-		if primary.cend == l.c {
-			primary.oend = offset
-		} else if secondary.cend == l.c {
-			secondary.oend = offset
-		}
-	}
 }
 
 /*

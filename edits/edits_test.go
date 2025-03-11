@@ -355,6 +355,10 @@ func TestDrawPara(t *testing.T) {
 	drawPara(1)
 	assert.Equal(selection{0, 4, 0, 4}, primary)
 	assert.Equal(selection{4, 7, 4, 7}, secondary)
+
+	primary = selection{cbegin: 4, cend: 4}
+	drawPara(1)
+	assert.Equal(4, primary.obegin)
 }
 
 func TestDrawWindow(t *testing.T) {
