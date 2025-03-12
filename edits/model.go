@@ -33,8 +33,8 @@ var dispatch = map[tea.KeyType]func(){
 }
 
 var (
-	exportPath string // TODO Add separate exportMarkedPath
-	sx, sy     int    // screen dimensions
+	exportMarkedPath, exportPath string // Paths for export of marked portations and entire document
+	sx, sy                       int    // screen dimensions
 )
 
 type model struct{ timer *time.Timer }
@@ -42,12 +42,16 @@ type model struct{ timer *time.Timer }
 var m model
 
 func _export() {
-	if len(mark) == 1 && cursor[Char] != mark[0] {
-		updateSelections()
-		drawPara(markPara)
-	}
+	if len(mark) == 0 {
+		PromptDefault(exportPath)
+	} else {
+		if len(mark) == 1 && cursor[Char] != mark[0] {
+			updateSelections()
+			drawPara(markPara)
+		}
 
-	PromptDefault(exportPath)
+		PromptDefault(exportMarkedPath)
+	}
 	SetMode(PromptExport, IconExport)
 }
 
@@ -55,7 +59,7 @@ func _help() { SetMode(Help, "") }
 func _quit() { SetMode(ConfirmQuit, i18n.Text["confirm"]) }
 
 // True if the window is sufficiently large.
-func isSizeOK() bool { return sx > 5 && sy > 2 }
+func isSizeOK() bool { return sx > margin && sy > 2 }
 
 func Run(version, path string) {
 	name, exportPath = "Jotty "+version, path
@@ -114,11 +118,17 @@ func (m model) exportKey(key tea.KeyMsg) {
 	case tea.KeyEsc:
 		ClearMode()
 	case tea.KeyEnter:
-		exportPath = PromptResponse()
-		if f, err := os.Stat(exportPath); err == nil && f.Size() > 0 {
+		path := PromptResponse()
+		if len(mark) > 0 {
+			exportMarkedPath = path
+		} else {
+			exportPath = path
+		}
+
+		if f, err := os.Stat(path); err == nil && f.Size() > 0 {
 			SetMode(ConfirmOverwrite, i18n.Text["overwrite"])
 		} else {
-			Export(exportPath)
+			Export(path)
 		}
 	case tea.KeyRunes, tea.KeySpace:
 		if !key.Alt {

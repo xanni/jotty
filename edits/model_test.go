@@ -24,13 +24,13 @@ func setupModel(t *testing.T) *tt.TestModel {
 
 func TestIsSizeOK(t *testing.T) {
 	assert := assert.New(t)
-	sx, sy = 5, 3
+	sx, sy = margin, 3
 	assert.False(isSizeOK())
 
-	sx, sy = 6, 2
+	sx, sy = margin+1, 2
 	assert.False(isSizeOK())
 
-	sx, sy = 6, 3
+	sx, sy = margin+1, 3
 	assert.True(isSizeOK())
 }
 
@@ -106,7 +106,7 @@ func TestExportText(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	exportPath = testFile.Name()
+	exportMarkedPath, exportPath = "", testFile.Name()
 	defer os.Remove(exportPath)
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlE})
@@ -119,6 +119,22 @@ func TestExportText(t *testing.T) {
 		panic(err)
 	}
 	assert.Equal("Test\n", string(text))
+	assert.Empty(exportMarkedPath)
+
+	os.Remove(exportPath)
+	exportMarkedPath, exportPath = testFile.Name(), ""
+	tm.Send(tea.KeyMsg{Type: tea.KeyTab})
+	tm.Type("more")
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlE})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte(IconExport)) })
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("@8/8")) })
+
+	if text, err = os.ReadFile(exportMarkedPath); err != nil {
+		panic(err)
+	}
+	assert.Equal("more\n", string(text))
+	assert.Empty(exportPath)
 }
 
 func TestHelp(t *testing.T) {
