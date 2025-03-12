@@ -41,9 +41,18 @@ type model struct{ timer *time.Timer }
 
 var m model
 
-func _export() { PromptDefault(exportPath); SetMode(PromptExport, IconExport) }
-func _help()   { SetMode(Help, "") }
-func _quit()   { SetMode(ConfirmQuit, i18n.Text["confirm"]) }
+func _export() {
+	if len(mark) == 1 && cursor[Char] != mark[0] {
+		updateSelections()
+		drawPara(markPara)
+	}
+
+	PromptDefault(exportPath)
+	SetMode(PromptExport, IconExport)
+}
+
+func _help() { SetMode(Help, "") }
+func _quit() { SetMode(ConfirmQuit, i18n.Text["confirm"]) }
 
 // True if the window is sufficiently large.
 func isSizeOK() bool { return sx > 5 && sy > 2 }
