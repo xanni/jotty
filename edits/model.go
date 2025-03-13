@@ -130,9 +130,13 @@ func (m model) exportKey(key tea.KeyMsg) {
 		} else {
 			Export(path)
 		}
+	case tea.KeyLeft:
+		PromptLeft()
+	case tea.KeyRight:
+		PromptRight()
 	case tea.KeyRunes, tea.KeySpace:
 		if !key.Alt {
-			PromptAppend(key.Runes)
+			PromptInsertRunes(key.Runes)
 		}
 	}
 }

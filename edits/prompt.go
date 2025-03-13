@@ -14,40 +14,59 @@ const (
 )
 
 var (
-	response      string // A description of the requested input and the user response
-	responseLen   int    // Number of grapheme clusters in the response string
-	responsePos   int    // Cursor position in the response string
-	responseWidth int    // Display width of the response string
+	responseBefore, responseAfter       string // Portions of the user response before and after the prompt cursor
+	responseBeforeLen, responseAfterLen int    // Number of grapheme clusters before and after the prompt cursor
+	responseWidth                       int    // Display width of the response string
 )
 
-func PromptAppend(runes []rune) {
-	if responseWidth >= ex-promptMargin {
-		return
-	}
-
-	s := string(runes)
-	gc := uniseg.GraphemeClusterCount(s)
-	response += s
-	responseLen += gc
-	responsePos += gc
-	responseWidth += uniseg.StringWidth(s)
-}
-
 func PromptBackspace() {
-	if responseLen > 0 {
-		PromptDefault(getChars(responseLen-1, response))
+	if responseBeforeLen > 0 {
+		s := getChars(responseBeforeLen-1, responseBefore)
+		responseWidth -= uniseg.StringWidth(responseBefore[len(s):])
+		responseBefore = s
+		responseBeforeLen--
 	}
 }
 
 func PromptDefault(s string) {
-	response = s
-	responseLen = uniseg.GraphemeClusterCount(s)
-	responsePos = responseLen
+	responseAfter, responseBefore = "", s
+	responseBeforeLen, responseAfterLen = uniseg.GraphemeClusterCount(s), 0
 	responseWidth = uniseg.StringWidth(s)
 }
 
-func promptLine() string {
-	return promptStyle(message) + " " + responseStyle(response+cursorStyle(responseCursor))
+func PromptInsertRunes(runes []rune) {
+	if responseWidth < ex-promptMargin {
+		s := string(runes)
+		responseBefore += s
+		responseBeforeLen += uniseg.GraphemeClusterCount(s)
+		responseWidth += uniseg.StringWidth(s)
+	}
 }
 
-func PromptResponse() string { return response }
+func PromptLeft() {
+	if responseBeforeLen > 0 {
+		s := getChars(responseBeforeLen-1, responseBefore)
+		responseAfter = responseBefore[len(s):] + responseAfter
+		responseAfterLen++
+		responseBefore = s
+		responseBeforeLen--
+	}
+}
+
+func PromptRight() {
+	if responseAfterLen > 0 {
+
+		var gc string
+		gc, responseAfter, _, _ = uniseg.FirstGraphemeClusterInString(responseAfter, -1)
+		responseAfterLen--
+		responseBefore += gc
+		responseBeforeLen++
+	}
+}
+
+func promptLine() string {
+	return promptStyle(message) + " " + responseStyle(responseBefore) + responseStyle(cursorStyle(responseCursor)) +
+		responseStyle(responseAfter) // BUG when screen is resized smaller
+}
+
+func PromptResponse() string { return responseBefore + responseAfter }

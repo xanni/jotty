@@ -6,42 +6,66 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPromptAppend(t *testing.T) {
-	assert := assert.New(t)
-	PromptDefault("")
-	input := "🇦🇺"
-	PromptAppend([]rune(input))
-	assert.Equal(input, response)
-	assert.Equal(1, responseLen)
-	assert.Equal(1, responsePos)
-	assert.Equal(2, responseWidth)
-}
-
 func TestPromptBackspace(t *testing.T) {
 	assert := assert.New(t)
 	PromptDefault("")
 	PromptBackspace()
-	assert.Equal("", response)
+	assert.Zero(responseBeforeLen)
 
 	PromptDefault("Test🇦🇺")
 	PromptBackspace()
-	assert.Equal("Test", response)
+	assert.Equal("Test", responseBefore)
+	assert.Equal(4, responseWidth)
 }
 
 func TestPromptDefault(t *testing.T) {
 	assert := assert.New(t)
 	PromptDefault("")
-	assert.Empty(response)
-	assert.Zero(responseLen)
-	assert.Zero(responsePos)
+	assert.Empty(responseBefore)
+	assert.Zero(responseBeforeLen)
 	assert.Zero(responseWidth)
 
 	input := "🇦🇺"
 	PromptDefault(input)
-	assert.Equal(input, response)
-	assert.Equal(1, responseLen)
-	assert.Equal(1, responsePos)
+	assert.Equal(input, responseBefore)
+	assert.Equal(1, responseBeforeLen)
 	assert.Equal(2, responseWidth)
+}
+
+func TestPromptInsertRunes(t *testing.T) {
+	assert := assert.New(t)
+	PromptDefault("")
+	ex = promptMargin + 2
+	input := "🇦🇺"
+	PromptInsertRunes([]rune(input))
+	assert.Equal(input, responseBefore)
+	assert.Equal(1, responseBeforeLen)
+	assert.Equal(2, responseWidth)
+}
+
+func TestPromptLeft(t *testing.T) {
+	assert := assert.New(t)
+	PromptDefault("")
+	PromptLeft()
+	assert.Zero(responseBeforeLen)
+
+	PromptDefault("Test🇦🇺")
+	PromptLeft()
+	assert.Equal("Test", responseBefore)
+	assert.Equal("🇦🇺", responseAfter)
+}
+
+func TestPromptRight(t *testing.T) {
+	assert := assert.New(t)
+	PromptDefault("Test")
+	PromptRight()
+	assert.Zero(responseAfterLen)
+
+	responseAfter = "🇦🇺!"
+	responseAfterLen = 2
+	PromptRight()
+	assert.Equal("Test🇦🇺", responseBefore)
+	assert.Equal("!", responseAfter)
 }
 
 func TestPromptLine(t *testing.T) {
@@ -49,10 +73,16 @@ func TestPromptLine(t *testing.T) {
 	PromptDefault("Test")
 	message = "Prompt"
 	assert.Equal("Prompt Test_", promptLine())
+
+	responseAfter = "ed"
+	assert.Equal("Prompt Test_ed", promptLine())
 }
 
 func TestPromptResponse(t *testing.T) {
 	assert := assert.New(t)
 	PromptDefault("Test")
 	assert.Equal("Test", PromptResponse())
+
+	responseAfter = "ed"
+	assert.Equal("Tested", PromptResponse())
 }

@@ -34,6 +34,21 @@ func TestIsSizeOK(t *testing.T) {
 	assert.True(isSizeOK())
 }
 
+func TestCursor(t *testing.T) {
+	tm := setupModel(t)
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlE})
+	tm.Type("test")
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("test_")) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyLeft})
+	tm.Send(tea.KeyMsg{Type: tea.KeyLeft})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("te_st")) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyRight})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("tes_t")) })
+}
+
 func TestCuts(t *testing.T) {
 	tm := setupModel(t)
 
