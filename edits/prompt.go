@@ -64,6 +64,16 @@ func PromptRight() {
 	}
 }
 
+func PromptHome() {
+	responseAfter, responseAfterLen = responseBefore+responseAfter, responseBeforeLen+responseAfterLen
+	responseBefore, responseBeforeLen = "", 0
+}
+
+func PromptEnd() {
+	responseBefore, responseBeforeLen = responseBefore+responseAfter, responseBeforeLen+responseAfterLen
+	responseAfter, responseAfterLen = "", 0
+}
+
 func promptLine() string {
 	return promptStyle(message) + " " + responseStyle(responseBefore) + responseStyle(cursorStyle(responseCursor)) +
 		responseStyle(responseAfter) // BUG when screen is resized smaller

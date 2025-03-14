@@ -47,6 +47,12 @@ func TestCursor(t *testing.T) {
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyRight})
 	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("tes_t")) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyHome})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("_test")) })
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnd})
+	tt.WaitFor(t, tm.Output(), func(bts []byte) bool { return bytes.Contains(bts, []byte("test_")) })
 }
 
 func TestCuts(t *testing.T) {

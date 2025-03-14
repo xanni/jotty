@@ -36,9 +36,8 @@ func TestPromptInsertRunes(t *testing.T) {
 	assert := assert.New(t)
 	PromptDefault("")
 	ex = promptMargin + 2
-	input := "🇦🇺"
-	PromptInsertRunes([]rune(input))
-	assert.Equal(input, responseBefore)
+	PromptInsertRunes([]rune("🇦🇺"))
+	assert.Equal("🇦🇺", responseBefore)
 	assert.Equal(1, responseBeforeLen)
 	assert.Equal(2, responseWidth)
 }
@@ -66,6 +65,22 @@ func TestPromptRight(t *testing.T) {
 	PromptRight()
 	assert.Equal("Test🇦🇺", responseBefore)
 	assert.Equal("!", responseAfter)
+}
+
+func TestPromptHome(t *testing.T) {
+	assert := assert.New(t)
+	responseBefore, responseBeforeLen, responseAfter, responseAfterLen = "Te", 2, "st", 2
+	PromptHome()
+	assert.Zero(responseBeforeLen)
+	assert.Equal("Test", responseAfter)
+}
+
+func TestPromptEnd(t *testing.T) {
+	assert := assert.New(t)
+	responseBefore, responseBeforeLen, responseAfter, responseAfterLen = "Te", 2, "st", 2
+	PromptEnd()
+	assert.Equal("Test", responseBefore)
+	assert.Zero(responseAfterLen)
 }
 
 func TestPromptLine(t *testing.T) {

@@ -32,6 +32,14 @@ var dispatch = map[tea.KeyType]func(){
 	tea.KeyCtrlY: Redo, tea.KeyCtrlZ: Undo,
 }
 
+var exportDispatch = map[tea.KeyType]func(){
+	tea.KeyEsc:  ClearMode,
+	tea.KeyLeft: PromptLeft, tea.KeyRight: PromptRight,
+	tea.KeyEnd: PromptEnd, tea.KeyCtrlD: PromptEnd,
+	tea.KeyBackspace: PromptBackspace, tea.KeyCtrlH: PromptBackspace,
+	tea.KeyHome: PromptHome, tea.KeyCtrlU: PromptHome,
+}
+
 var (
 	exportMarkedPath, exportPath string // Paths for export of marked portations and entire document
 	sx, sy                       int    // screen dimensions
@@ -112,11 +120,12 @@ func (m model) cutsKey(key tea.KeyMsg) {
 }
 
 func (m model) exportKey(key tea.KeyMsg) {
+	if f, ok := exportDispatch[key.Type]; ok {
+		f()
+		return
+	}
+
 	switch key.Type {
-	case tea.KeyBackspace, tea.KeyCtrlH:
-		PromptBackspace()
-	case tea.KeyEsc:
-		ClearMode()
 	case tea.KeyEnter:
 		path := PromptResponse()
 		if len(mark) > 0 {
@@ -130,10 +139,6 @@ func (m model) exportKey(key tea.KeyMsg) {
 		} else {
 			Export(path)
 		}
-	case tea.KeyLeft:
-		PromptLeft()
-	case tea.KeyRight:
-		PromptRight()
 	case tea.KeyRunes, tea.KeySpace:
 		if !key.Alt {
 			PromptInsertRunes(key.Runes)
