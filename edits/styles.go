@@ -17,6 +17,7 @@ const (
 	promptColor    = "11" // Input prompt: ANSIBrightYellow
 	responseColor  = "10" // Input response: ANSIBrightGreen
 	secondaryColor = "13" // Secondary selection: ANSIBrightMagenta
+	truncatedColor = "12" // Truncated response: ANSIBrightBlue
 )
 
 var (
@@ -89,4 +90,8 @@ func responseStyle(s string) string {
 
 func secondaryStyle(s string) string {
 	return output.String(s).Underline().Foreground(output.Color(secondaryColor)).String()
+}
+
+func truncatedStyle(s string) string {
+	return output.String(s).Reverse().Foreground(output.Color(truncatedColor)).String()
 }

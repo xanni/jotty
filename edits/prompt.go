@@ -1,6 +1,10 @@
 package edits
 
-import "github.com/rivo/uniseg"
+import (
+	"strings"
+
+	"github.com/rivo/uniseg"
+)
 
 /*
 Implements a single line of editable text used for prompting the user, for
@@ -13,70 +17,155 @@ const (
 	responseCursor = "_"
 )
 
-var (
-	responseBefore, responseAfter       string // Portions of the user response before and after the prompt cursor
-	responseBeforeLen, responseAfterLen int    // Number of grapheme clusters before and after the prompt cursor
-	responseWidth                       int    // Display width of the response string
+const (
+	segHidden = iota
+	segBefore
+	segAfter
+	segments
 )
 
+type responseSegment struct {
+	length, width int // Number of grapheme clusters and display width
+	text          string
+}
+
+var (
+	promptWidth int                       // Display width of the prompt
+	response    [segments]responseSegment // Segments of the user response offscreen, before and after the prompt cursor
+)
+
+func segConcat(a, b responseSegment) responseSegment {
+	return responseSegment{a.length + b.length, a.width + b.width, a.text + b.text}
+}
+
 func PromptBackspace() {
-	if responseBeforeLen > 0 {
-		s := getChars(responseBeforeLen-1, responseBefore)
-		responseWidth -= uniseg.StringWidth(responseBefore[len(s):])
-		responseBefore = s
-		responseBeforeLen--
+	if response[segBefore].length > 0 {
+		s := getChars(response[segBefore].length-1, response[segBefore].text)
+		response[segBefore].width -= uniseg.StringWidth(response[segBefore].text[len(s):])
+		response[segBefore].text = s
+		response[segBefore].length--
 	}
 }
 
 func PromptDefault(s string) {
-	responseAfter, responseBefore = "", s
-	responseBeforeLen, responseAfterLen = uniseg.GraphemeClusterCount(s), 0
-	responseWidth = uniseg.StringWidth(s)
+	promptWidth = uniseg.StringWidth(message) + 1
+	response = [segments]responseSegment{{}, {uniseg.GraphemeClusterCount(s), uniseg.StringWidth(s), s}, {}}
 }
 
 func PromptInsertRunes(runes []rune) {
-	if responseWidth < ex-promptMargin {
-		s := string(runes)
-		responseBefore += s
-		responseBeforeLen += uniseg.GraphemeClusterCount(s)
-		responseWidth += uniseg.StringWidth(s)
-	}
+	s := string(runes)
+	response[segBefore] = segConcat(response[segBefore],
+		responseSegment{uniseg.GraphemeClusterCount(s), uniseg.StringWidth(s), s})
 }
 
 func PromptLeft() {
-	if responseBeforeLen > 0 {
-		s := getChars(responseBeforeLen-1, responseBefore)
-		responseAfter = responseBefore[len(s):] + responseAfter
-		responseAfterLen++
-		responseBefore = s
-		responseBeforeLen--
+	seg := segHidden // Which segment is not empty
+
+	if response[segBefore].length > 0 {
+		seg = segBefore
+	} else if response[segHidden].length == 0 {
+		return
 	}
+
+	s := getChars(response[seg].length-1, response[seg].text)
+	gc := response[seg].text[len(s):]
+	width := uniseg.StringWidth(gc)
+
+	response[seg].text = s
+	response[seg].length--
+	response[seg].width -= width
+	response[segAfter] = segConcat(responseSegment{1, width, gc}, response[segAfter])
 }
 
 func PromptRight() {
-	if responseAfterLen > 0 {
-
+	if response[segAfter].length > 0 {
 		var gc string
-		gc, responseAfter, _, _ = uniseg.FirstGraphemeClusterInString(responseAfter, -1)
-		responseAfterLen--
-		responseBefore += gc
-		responseBeforeLen++
+		gc, response[segAfter].text, _, _ = uniseg.FirstGraphemeClusterInString(response[segAfter].text, -1)
+		width := uniseg.StringWidth(gc)
+
+		response[segAfter].length--
+		response[segAfter].width -= width
+		response[segBefore] = segConcat(response[segBefore], responseSegment{1, width, gc})
 	}
 }
 
 func PromptHome() {
-	responseAfter, responseAfterLen = responseBefore+responseAfter, responseBeforeLen+responseAfterLen
-	responseBefore, responseBeforeLen = "", 0
+	response[segAfter] = segConcat(segConcat(response[segHidden], response[segBefore]), response[segAfter])
+	response[segHidden] = responseSegment{}
+	response[segBefore] = responseSegment{}
 }
 
 func PromptEnd() {
-	responseBefore, responseBeforeLen = responseBefore+responseAfter, responseBeforeLen+responseAfterLen
-	responseAfter, responseAfterLen = "", 0
+	response[segBefore] = segConcat(response[segBefore], response[segAfter])
+	response[segAfter] = responseSegment{}
+}
+
+// Helper function
+func walkString(s string, w int, callback func(string)) (string, int) {
+	var gc string
+	var total, width int
+
+	for state := -1; w > 0; w -= width {
+		gc, s, width, state = uniseg.FirstGraphemeClusterInString(s, state)
+		callback(gc)
+		total += width
+	}
+
+	return s, total
 }
 
 func promptLine() string {
-	return promptStyle(message) + " " + responseStyle(responseBefore) + responseStyle(cursorStyle(responseCursor)) +
-		responseStyle(responseAfter) // BUG when screen is resized smaller
+	var r strings.Builder
+	r.WriteString(promptStyle(message))
+	r.WriteRune(' ')
+
+	excess := promptWidth + response[segBefore].width + 2 - ex
+	if response[segHidden].length > 0 {
+		excess++
+	}
+	if response[segAfter].length > 0 {
+		excess++
+	}
+
+	if excess > 0 && response[segBefore].length > 0 { // Scroll left
+		if response[segHidden].length == 0 {
+			excess++
+		}
+
+		s, total := walkString(response[segBefore].text, excess, func(gc string) {
+			response[segHidden].text += gc
+			response[segHidden].length += len(gc)
+		})
+
+		response[segHidden].width += total
+		response[segBefore] = responseSegment{len(s), response[segBefore].width - total, s}
+	}
+
+	if response[segHidden].length > 0 {
+		r.WriteString(truncatedStyle("…"))
+	}
+
+	if response[segBefore].length > 0 {
+		r.WriteString(responseStyle(response[segBefore].text))
+	}
+
+	r.WriteString(responseStyle(cursorStyle(responseCursor)))
+
+	if response[segAfter].length > 0 {
+		excess += response[segAfter].width - 1
+
+		if excess < 1 {
+			r.WriteString(responseStyle(response[segAfter].text))
+		} else { // Truncate
+			walkString(response[segAfter].text, response[segAfter].width-excess-1,
+				func(gc string) { r.WriteString(responseStyle(gc)) })
+			r.WriteString(truncatedStyle("…"))
+		}
+	}
+
+	return r.String()
 }
 
-func PromptResponse() string { return responseBefore + responseAfter }
+func PromptResponse() string {
+	return response[segHidden].text + response[segBefore].text + response[segAfter].text
+}

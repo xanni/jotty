@@ -50,6 +50,8 @@ type model struct{ timer *time.Timer }
 var m model
 
 func _export() {
+	SetMode(PromptExport, IconExport)
+
 	if len(mark) == 0 {
 		PromptDefault(exportPath)
 	} else {
@@ -60,7 +62,6 @@ func _export() {
 
 		PromptDefault(exportMarkedPath)
 	}
-	SetMode(PromptExport, IconExport)
 }
 
 func _help() { SetMode(Help, "") }
