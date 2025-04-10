@@ -123,6 +123,7 @@ func (m model) cutsKey(key tea.KeyMsg) {
 func (m model) exportKey(key tea.KeyMsg) {
 	if f, ok := exportDispatch[key.Type]; ok {
 		f()
+
 		return
 	}
 

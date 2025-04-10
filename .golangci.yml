@@ -1,53 +1,64 @@
+version: "2"
 linters:
-  disable-all: false
   enable:
-  - bidichk
-  - copyloopvar
-  - decorder
-  - dogsled
-  - dupl
-  - dupword
-  - errcheck
-  - errname
-  - errorlint
-  - exportloopref
-  - gci
-  - goconst
-  - gocritic
-  - godot
-  - goerr113
-  - gofmt
-  - gofumpt
-  - goimports
-  - gosec
-  - gosimple
-  - gosmopolitan
-  - govet
-  - grouper
-  - importas
-  - ineffassign
-  - intrange
-  - lll
-  - mirror
-  - misspell
-  - nakedret
-  - nestif
-  - nilerr
-  - nilnil
-  - nlreturn
-  - predeclared
-  - reassign
-  - revive
-  - sloglint
-  - staticcheck
-  - tagalign
-  - tagliatelle
-  - testifylint
-  - whitespace
-  - wrapcheck
-  - unconvert
-  - unparam
-  - unused
-  - usestdlibvars
-  - wastedassign
-  - whitespace
+    - bidichk
+    - copyloopvar
+    - decorder
+    - dogsled
+    - dupl
+    - dupword
+    - err113
+    - errname
+    - errorlint
+    - goconst
+    - gocritic
+    - godot
+    - gosec
+    - gosmopolitan
+    - grouper
+    - importas
+    - intrange
+    - lll
+    - mirror
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - nlreturn
+    - predeclared
+    - reassign
+    - revive
+    - sloglint
+    - tagalign
+    - tagliatelle
+    - testifylint
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - wrapcheck
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

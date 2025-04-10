@@ -100,7 +100,7 @@ func PromptEnd() {
 	response[segAfter] = responseSegment{}
 }
 
-// Helper function
+// Helper function.
 func walkString(s string, w int, callback func(string)) (string, int) {
 	var gc string
 	var total, width int

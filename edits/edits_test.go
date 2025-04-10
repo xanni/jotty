@@ -257,7 +257,7 @@ func TestDrawLine(t *testing.T) {
 	l := line{pn: 1, source: &source, state: -1}
 	assert.Equal("_", l.drawLine())
 	l.pn++
-	assert.Equal("", l.drawLine())
+	assert.Empty(l.drawLine())
 
 	source = []byte("1\xff2")
 	l = line{pn: 1, source: &source, state: -1}
