@@ -320,7 +320,7 @@ func Backspace() {
 }
 
 // Get the byte offset and size of the scope unit after the cursor.
-func scopeSpan() (int, int) {
+func scopeSpan() (offset int, size int) {
 	var t string
 
 	switch scope {

@@ -371,7 +371,7 @@ func Flush() {
 func GetCut(n int) (string, time.Time) { return cut[n-1].text, cut[n-1].ts }
 
 // Get the current position in the document.
-func GetPos() (int, int) { return paragraph, offset }
+func GetPos() (p int, o int) { return paragraph, offset }
 
 // Get the size of a paragraph.
 func GetSize(pn int) (size int) {
