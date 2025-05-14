@@ -345,28 +345,7 @@ limited number or duration of entries.
 
 ### Keyboard bindings diagram
 
-```plantuml
-@startditaa < -r
-+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+
-|   Q   |   W   |  E    |   R   |   T   |   Y   |   U   |   I   |   O   |   P   |
-| Quit  | Quit  |Export |Replace|T'clude| Redo  | Home  | Mark  |Import | Prev  |
-+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-    |   A   |   S   |   D   |   F   |   G   |   H   |   J   |   K   |   L   |
-    |Attrib |       | End   | Find  | Again |Bkspace| Join  |Unlink | Link  |
-    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+
-        |   Z   |   X   |   C   |  V    |   B   |   N   |   M   |
-        | Undo  |Del/Cut| Copy  |Insert | Back  | Next  | Enter |
-        +-------+-------+-------+-------+-------+-------+-------+
-
-  +-------+-------+-------+       +----------+    +----------+    +-----------+
-  |  Ins  | Home  | PgUp  |       |   Tab    |    |Backspace |    |   Enter   |
-  |Insert | Home  | Prev  |       |   Mark   |    |Backspace |    | Enter/Cut |
-  +-------+-------+-------+       +----------+    +----------+    +-----------+
-  |  Del  |  End  | PgDn  |
-  |Del/Cut|  End  | Next  |
-  +-------+-------+-------+
-@endditaa
-```
+![Keyboard bindings](keybindings.png)
 
 The `^S` binding is not used both because it can signify XOFF ("stop
 transmission") and also because it conventionally repesents "Save" which is not
