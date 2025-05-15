@@ -11,7 +11,7 @@ test:
 
 .PHONY: all clean test
 
-version.txt:
+version.txt: .git/refs/heads/main
 	go generate ./...
 
 jotty: jotty.go */*.go go.mod version.txt
